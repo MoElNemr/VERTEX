@@ -43,10 +43,27 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
+        // تفعيل اشتراك تجريبي في الباقة الأساسية
+        $defaultPlan = \App\Models\Plan::where('type', 'standard')->first();
+        if ($defaultPlan) {
+            $user->subscriptions()->create([
+                'plan_id' => $defaultPlan->id,
+                'status' => 'trial',
+                'starts_at' => now(),
+                'ends_at' => now()->addDays(14),
+            ]);
+        }
+
+        // إنشاء بيزنس أولي افتراضي باسم المستخدم
+        $business = $user->businesses()->create([
+            'name' => $user->name . ' Store',
+        ]);
+        session(['current_business_id' => $business->id]);
+
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect(route('businesses.index', absolute: false));
     }
 }
