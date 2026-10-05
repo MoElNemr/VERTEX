@@ -40,6 +40,12 @@ const showingNavigationDropdown = ref(false);
                                     الرئيسية
                                 </NavLink>
                                 <NavLink
+                                    :href="route('inbox.index')"
+                                    :active="route().current('inbox.*')"
+                                >
+                                    صندوق الوارد
+                                </NavLink>
+                                <NavLink
                                     v-if="$page.props.auth.is_owner"
                                     :href="route('businesses.index')"
                                     :active="route().current('businesses.*')"
