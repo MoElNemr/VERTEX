@@ -39,10 +39,56 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Dashboard
                                 </NavLink>
+                                <NavLink
+                                    v-if="$page.props.auth.is_owner"
+                                    :href="route('businesses.index')"
+                                    :active="route().current('businesses.*')"
+                                >
+                                    Businesses
+                                </NavLink>
                             </div>
                         </div>
 
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
+                            <!-- Business Switcher Dropdown -->
+                            <div class="relative me-3" v-if="$page.props.businesses && $page.props.businesses.length > 0">
+                                <Dropdown align="right" width="60">
+                                    <template #trigger>
+                                        <button
+                                            type="button"
+                                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                        >
+                                            <span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+                                            <span class="max-w-[140px] truncate">
+                                                {{ $page.props.currentBusiness ? $page.props.currentBusiness.name : 'Select Business' }}
+                                            </span>
+                                            <svg class="h-3.5 w-3.5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </template>
+
+                                    <template #content>
+                                        <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                                            Switch Business
+                                        </div>
+                                        <div class="max-h-56 overflow-y-auto">
+                                            <DropdownLink
+                                                v-for="b in $page.props.businesses"
+                                                :key="b.id"
+                                                :href="route('businesses.switch', b.id)"
+                                                method="post"
+                                                as="button"
+                                                class="flex items-center justify-between w-full text-left"
+                                            >
+                                                <span>{{ b.name }}</span>
+                                                <span v-if="$page.props.currentBusiness && $page.props.currentBusiness.id === b.id" class="text-xs text-emerald-500 font-bold">✓</span>
+                                            </DropdownLink>
+                                        </div>
+                                    </template>
+                                </Dropdown>
+                            </div>
+
                             <!-- Settings Dropdown -->
                             <div class="relative ms-3">
                                 <Dropdown align="right" width="48">
