@@ -27,6 +27,22 @@ Route::middleware('auth')->group(function () {
     Route::get('/businesses', [\App\Http\Controllers\BusinessController::class, 'index'])->name('businesses.index');
     Route::post('/businesses', [\App\Http\Controllers\BusinessController::class, 'store'])->name('businesses.store');
     Route::post('/businesses/{business}/switch', [\App\Http\Controllers\BusinessController::class, 'switch'])->name('businesses.switch');
+
+    // Channels
+    Route::get('/businesses/{business}/channels', [\App\Http\Controllers\ChannelController::class, 'index'])->name('channels.index');
+    Route::post('/businesses/{business}/channels/telegram', [\App\Http\Controllers\ChannelController::class, 'connectTelegram'])->name('channels.telegram.connect');
+    Route::post('/businesses/{business}/channels/facebook', [\App\Http\Controllers\ChannelController::class, 'connectFacebook'])->name('channels.facebook.connect');
+    Route::post('/businesses/{business}/channels/instagram', [\App\Http\Controllers\ChannelController::class, 'connectInstagram'])->name('channels.instagram.connect');
+    Route::delete('/businesses/{business}/channels/{channel}', [\App\Http\Controllers\ChannelController::class, 'disconnect'])->name('channels.disconnect');
 });
+
+// Incoming Public Webhooks (Exempt from CSRF)
+Route::post('/webhooks/telegram/{business}', function ($business) {
+    return response()->json(['status' => 'received']);
+})->name('webhooks.telegram');
+
+Route::match(['get', 'post'], '/webhooks/meta/{business}', function ($business) {
+    return response('ok');
+})->name('webhooks.meta');
 
 require __DIR__.'/auth.php';

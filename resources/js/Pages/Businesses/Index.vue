@@ -4,7 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import {
     Building2,
@@ -304,21 +304,29 @@ const switchBusiness = (id) => {
                     </div>
 
                     <!-- Card Bottom Switcher Bar -->
-                    <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                    <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2.5">
+                        <Link
+                            :href="route('channels.index', b.id)"
+                            class="cursor-pointer py-2.5 px-3 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 transition flex items-center justify-center gap-1.5 shrink-0"
+                            title="إعدادات القنوات"
+                        >
+                            <span>القنوات</span>
+                        </Link>
+
                         <button
                             v-if="$page.props.currentBusiness?.id !== b.id"
                             @click="switchBusiness(b.id)"
-                            class="cursor-pointer w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-700 dark:hover:bg-slate-600 transition flex items-center justify-center gap-1.5"
+                            class="cursor-pointer flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20"
                         >
-                            <span>فتح بيئة العمل</span>
+                            <span>تفعيل المتجر</span>
                             <ArrowUpRight class="w-3.5 h-3.5" />
                         </button>
                         <div
                             v-else
-                            class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center gap-1.5"
+                            class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center gap-1.5"
                         >
                             <CheckCircle2 class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            <span>المتجر النشط حالياً</span>
+                            <span>المتجر النشط</span>
                         </div>
                     </div>
                 </div>
