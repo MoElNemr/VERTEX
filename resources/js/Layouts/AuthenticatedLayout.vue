@@ -68,6 +68,13 @@ const switchBusiness = (id) => {
                             >
                                 المتاجر
                             </NavLink>
+                            <NavLink
+                                v-if="$page.props.auth.can_manage_team"
+                                :href="route('team.index')"
+                                :active="route().current('team.*')"
+                            >
+                                فريق العمل
+                            </NavLink>
                         </div>
                     </div>
 
@@ -119,9 +126,24 @@ const switchBusiness = (id) => {
                                     <span class="inline-flex rounded-md">
                                         <button
                                             type="button"
-                                            class="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition duration-150 ease-in-out hover:bg-slate-800 hover:text-white focus:outline-none cursor-pointer"
+                                            class="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition duration-150 ease-in-out hover:bg-slate-800 hover:text-white focus:outline-none cursor-pointer"
                                         >
                                             <span>{{ $page.props.auth.user.name }}</span>
+                                            <span
+                                                class="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                                                :class="{
+                                                    'bg-blue-900/60 text-blue-300 border border-blue-700/50': $page.props.auth.role === 'owner',
+                                                    'bg-purple-900/60 text-purple-300 border border-purple-700/50': $page.props.auth.role === 'admin',
+                                                    'bg-amber-900/60 text-amber-300 border border-amber-700/50': $page.props.auth.role === 'supervisor',
+                                                    'bg-emerald-900/60 text-emerald-300 border border-emerald-700/50': $page.props.auth.role === 'agent',
+                                                }"
+                                            >
+                                                {{
+                                                    $page.props.auth.role === 'owner' ? 'مالك' :
+                                                    $page.props.auth.role === 'admin' ? 'مسؤول' :
+                                                    $page.props.auth.role === 'supervisor' ? 'مشرف' : 'وكيل'
+                                                }}
+                                            </span>
 
                                             <svg
                                                 class="h-3.5 w-3.5 text-slate-400"
@@ -227,6 +249,13 @@ const switchBusiness = (id) => {
                     >
                         المتاجر
                     </ResponsiveNavLink>
+                    <ResponsiveNavLink
+                        v-if="$page.props.auth.can_manage_team"
+                        :href="route('team.index')"
+                        :active="route().current('team.*')"
+                    >
+                        فريق العمل
+                    </ResponsiveNavLink>
                 </div>
 
                 <!-- Business Switcher for Mobile -->
@@ -288,6 +317,14 @@ const switchBusiness = (id) => {
                 <slot name="header" />
             </div>
         </header>
+
+        <!-- Flash Notifications -->
+        <div v-if="$page.props.flash?.success" class="shrink-0 bg-emerald-600/90 text-white px-4 py-2 text-xs text-center font-bold shadow">
+            {{ $page.props.flash.success }}
+        </div>
+        <div v-if="$page.props.flash?.error" class="shrink-0 bg-rose-600/90 text-white px-4 py-2 text-xs text-center font-bold shadow">
+            {{ $page.props.flash.error }}
+        </div>
 
         <!-- Page Content -->
         <main

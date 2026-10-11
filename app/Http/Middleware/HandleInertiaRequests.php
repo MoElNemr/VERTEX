@@ -46,15 +46,27 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
+        $isOwner = (bool) $request->user('web');
+        $isTeam = (bool) $request->user('team');
+        $role = $isOwner ? 'owner' : ($user?->role ?? 'agent');
+
         return [
             ...parent::share($request),
             'auth' => [
                 'user' => $user,
-                'is_owner' => (bool) $request->user('web'),
-                'is_team' => (bool) $request->user('team'),
+                'is_owner' => $isOwner,
+                'is_team' => $isTeam,
+                'role' => $role,
+                'can_manage_team' => $isOwner || $role === 'admin',
+                'can_manage_channels' => $isOwner || $role === 'admin',
+                'can_manage_businesses' => $isOwner,
             ],
             'currentBusiness' => $currentBusiness,
             'businesses' => $businesses,
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
         ];
     }
 }

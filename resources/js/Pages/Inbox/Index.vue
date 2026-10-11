@@ -33,6 +33,10 @@ const props = defineProps({
     conversations: Array,
     quickReplies: Array,
     activeConversationId: [String, Number],
+    teamMembers: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 // State
@@ -179,6 +183,31 @@ const updateStatus = async (status) => {
         activeConv.value.status = status;
     } catch (e) {
         console.error('Failed to update status', e);
+    }
+};
+
+// Assign conversation to agent
+const isAssigning = ref(false);
+const assignAgent = async (agentId) => {
+    if (!activeConv.value) return;
+    try {
+        isAssigning.value = true;
+        const res = await axios.patch(route('inbox.assign', activeConv.value.id), {
+            assigned_to: agentId ? parseInt(agentId) : null,
+        });
+        if (res.data?.conversation) {
+            activeConv.value.assigned_to = res.data.conversation.assigned_to;
+            activeConv.value.assigned_agent = res.data.conversation.assigned_agent;
+            const idx = conversationsList.value.findIndex(c => c.id === activeConv.value.id);
+            if (idx !== -1) {
+                conversationsList.value[idx].assigned_to = res.data.conversation.assigned_to;
+                conversationsList.value[idx].assigned_agent = res.data.conversation.assigned_agent;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to assign agent', e);
+    } finally {
+        isAssigning.value = false;
     }
 };
 
@@ -480,9 +509,14 @@ onMounted(() => {
                         <div class="flex-1 min-w-0">
                             <!-- Row 1: Name + Time -->
                             <div class="flex items-center justify-between gap-2 mb-1">
-                                <h4 class="text-xs font-bold text-white truncate">
-                                    {{ conv.contact?.name || conv.contact?.phone || 'عميل غير مسجل' }}
-                                </h4>
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <h4 class="text-xs font-bold text-white truncate">
+                                        {{ conv.contact?.name || conv.contact?.phone || 'عميل غير مسجل' }}
+                                    </h4>
+                                    <span v-if="conv.assigned_agent" class="text-[9px] text-purple-300 bg-purple-950/80 border border-purple-800/60 px-1.5 py-0.2 rounded shrink-0">
+                                        {{ conv.assigned_agent.name }}
+                                    </span>
+                                </div>
                                 <span class="text-[10px] text-slate-400 font-mono shrink-0">
                                     {{ formatTime(conv.last_message_at) }}
                                 </span>
@@ -568,8 +602,27 @@ onMounted(() => {
                             </div>
                         </div>
 
-                        <!-- Actions (Status switch) -->
+                        <!-- Actions (Assign Agent + Status switch) -->
                         <div class="flex items-center gap-2 shrink-0">
+                            <!-- Assign Agent Selector -->
+                            <div v-if="$page.props.auth.can_view_all_conversations && teamMembers.length > 0" class="flex items-center gap-1.5">
+                                <span class="hidden lg:inline text-[11px] text-slate-400 font-semibold">إسناد:</span>
+                                <select
+                                    :value="activeConv.assigned_to || ''"
+                                    @change="assignAgent($event.target.value)"
+                                    :disabled="isAssigning"
+                                    class="bg-slate-950/90 border border-slate-750 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:border-blue-500 focus:outline-none cursor-pointer max-w-[130px] truncate"
+                                >
+                                    <option value="">غير مسندة</option>
+                                    <option v-for="tm in teamMembers" :key="tm.id" :value="tm.id">
+                                        {{ tm.name }} ({{ tm.role === 'admin' ? 'مسؤول' : tm.role === 'supervisor' ? 'مشرف' : 'وكيل' }})
+                                    </option>
+                                </select>
+                            </div>
+                            <div v-else-if="activeConv.assigned_agent" class="text-[11px] px-2.5 py-1 rounded-xl bg-purple-950/60 text-purple-300 border border-purple-800/60">
+                                <span>المسند: {{ activeConv.assigned_agent.name }}</span>
+                            </div>
+
                             <button
                                 v-if="activeConv.status === 'open'"
                                 @click="updateStatus('closed')"

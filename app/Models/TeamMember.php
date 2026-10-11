@@ -15,6 +15,8 @@ class TeamMember extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'is_active',
     ];
 
     protected $hidden = [
@@ -26,6 +28,7 @@ class TeamMember extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -36,6 +39,23 @@ class TeamMember extends Authenticatable
 
     public function businesses()
     {
-        return $this->belongsToMany(Business::class, 'business_team_member');
+        return $this->belongsToMany(Business::class, 'business_team_member')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isSupervisor(): bool
+    {
+        return $this->role === 'supervisor';
+    }
+
+    public function isAgent(): bool
+    {
+        return $this->role === 'agent';
     }
 }

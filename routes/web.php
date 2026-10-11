@@ -16,9 +16,9 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth:web,team'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth:web,team')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -40,6 +40,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/inbox/{conversation}/messages', [\App\Http\Controllers\InboxController::class, 'messages'])->name('inbox.messages');
     Route::post('/inbox/{conversation}/messages', [\App\Http\Controllers\InboxController::class, 'sendMessage'])->name('inbox.send');
     Route::patch('/inbox/{conversation}/status', [\App\Http\Controllers\InboxController::class, 'updateStatus'])->name('inbox.status');
+    Route::patch('/inbox/{conversation}/assign', [\App\Http\Controllers\InboxController::class, 'assignAgent'])->name('inbox.assign');
+
+    // Team Management
+    Route::get('/team', [\App\Http\Controllers\TeamMemberController::class, 'index'])->name('team.index');
+    Route::post('/team', [\App\Http\Controllers\TeamMemberController::class, 'store'])->name('team.store');
+    Route::put('/team/{teamMember}', [\App\Http\Controllers\TeamMemberController::class, 'update'])->name('team.update');
+    Route::patch('/team/{teamMember}/toggle-status', [\App\Http\Controllers\TeamMemberController::class, 'toggleStatus'])->name('team.toggle-status');
+    Route::delete('/team/{teamMember}', [\App\Http\Controllers\TeamMemberController::class, 'destroy'])->name('team.destroy');
 });
 
 // Incoming Public Webhooks (Exempt from CSRF)

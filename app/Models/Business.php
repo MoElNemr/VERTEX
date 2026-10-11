@@ -22,7 +22,9 @@ class Business extends Model
 
     public function teamMembers()
     {
-        return $this->belongsToMany(TeamMember::class, 'business_team_member');
+        return $this->belongsToMany(TeamMember::class, 'business_team_member')
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function whatsappAccount()

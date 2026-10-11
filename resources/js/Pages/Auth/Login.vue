@@ -96,5 +96,15 @@ const submit = () => {
                 </PrimaryButton>
             </div>
         </form>
+
+        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 text-center">
+            <Link
+                :href="route('team.login')"
+                class="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+                <span>دخول فريق العمل والوكلاء</span>
+                <span>←</span>
+            </Link>
+        </div>
     </GuestLayout>
 </template>

@@ -73,7 +73,8 @@ class BusinessController extends Controller
                     $q->where('user_id', $user->id);
                 } else {
                     $q->whereHas('teamMembers', function ($tmQ) use ($user) {
-                        $tmQ->where('email', $user->email);
+                        $tmQ->where('team_members.id', $user->id)
+                            ->where('is_active', true);
                     });
                 }
             })->exists();

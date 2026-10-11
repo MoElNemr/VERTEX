@@ -16,7 +16,8 @@ class SetCurrentBusiness
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
+        $user = $request->user('web') ?: $request->user('team');
+        $isOwner = (bool) $request->user('web');
 
         if ($user) {
             $businessId = session('current_business_id');
@@ -29,11 +30,15 @@ class SetCurrentBusiness
             // التحقق من أن البيزنس يملكه المستخدم أو مسموح له كعضو فريق
             if ($businessId) {
                 $hasAccess = Business::where('id', $businessId)
-                    ->where(function ($q) use ($user) {
-                        $q->where('user_id', $user->id)
-                          ->orWhereHas('teamMembers', function ($tmQ) use ($user) {
-                              $tmQ->where('email', $user->email);
-                          });
+                    ->where(function ($q) use ($user, $isOwner) {
+                        if ($isOwner) {
+                            $q->where('user_id', $user->id);
+                        } else {
+                            $q->whereHas('teamMembers', function ($tmQ) use ($user) {
+                                $tmQ->where('team_members.id', $user->id)
+                                    ->where('is_active', true);
+                            });
+                        }
                     })->exists();
 
                 if ($hasAccess) {
@@ -45,10 +50,9 @@ class SetCurrentBusiness
 
             // إذا لا يوجد بيزنس في الجلسة، اختر أول بيزنس متاح تلقائياً
             if (!session('current_business_id')) {
-                $firstBusiness = Business::where('user_id', $user->id)
-                    ->orWhereHas('teamMembers', function ($tmQ) use ($user) {
-                        $tmQ->where('email', $user->email);
-                    })->first();
+                $firstBusiness = $isOwner
+                    ? Business::where('user_id', $user->id)->first()
+                    : $user->businesses()->where('is_active', true)->first();
 
                 if ($firstBusiness) {
                     session(['current_business_id' => $firstBusiness->id]);
