@@ -35,6 +35,7 @@ Route::middleware('auth:web,team')->group(function () {
     Route::post('/businesses/{business}/channels/instagram', [\App\Http\Controllers\ChannelController::class, 'connectInstagram'])->name('channels.instagram.connect');
     Route::post('/businesses/{business}/channels/whatsapp/qr', [\App\Http\Controllers\ChannelController::class, 'generateWhatsAppQr'])->name('channels.whatsapp.qr');
     Route::post('/businesses/{business}/channels/whatsapp/pairing-code', [\App\Http\Controllers\ChannelController::class, 'requestWhatsAppPairingCode'])->name('channels.whatsapp.pairing-code');
+    Route::get('/businesses/{business}/channels/whatsapp/status', [\App\Http\Controllers\ChannelController::class, 'checkWhatsAppStatus'])->name('channels.whatsapp.status');
     Route::delete('/businesses/{business}/channels/{channel}', [\App\Http\Controllers\ChannelController::class, 'disconnect'])->name('channels.disconnect');
 
     // Unified Inbox

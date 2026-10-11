@@ -52,7 +52,7 @@ const connectInstagram = () => {
     instagramForm.post(route('channels.instagram.connect', props.business.id));
 };
 
-const connectMode = ref('qr'); // 'qr' or 'phone'
+const connectMode = ref('phone'); // default to phone pairing code
 const isGeneratingQr = ref(false);
 const qrCodeData = ref(props.whatsapp?.qr_code || null);
 const qrErrorMessage = ref('');
@@ -151,6 +151,7 @@ const requestPairingCode = async () => {
 
         if (response.data?.pairing_code) {
             pairingCode.value = response.data.pairing_code;
+            startStatusPolling();
         } else if (response.data?.message) {
             pairingError.value = response.data.message;
         }
@@ -159,6 +160,21 @@ const requestPairingCode = async () => {
     } finally {
         isRequestingPairingCode.value = false;
     }
+};
+
+let statusPollTimer = null;
+
+const startStatusPolling = () => {
+    if (statusPollTimer) clearInterval(statusPollTimer);
+    statusPollTimer = setInterval(async () => {
+        try {
+            const res = await axios.get(route('channels.whatsapp.status', props.business.id));
+            if (res.data?.connected) {
+                clearInterval(statusPollTimer);
+                window.location.reload();
+            }
+        } catch (e) {}
+    }, 2500);
 };
 
 const copyPairingCode = () => {
@@ -170,6 +186,7 @@ const copyPairingCode = () => {
 
 onUnmounted(() => {
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    if (statusPollTimer) clearInterval(statusPollTimer);
 });
 
 const disconnect = (channel) => {

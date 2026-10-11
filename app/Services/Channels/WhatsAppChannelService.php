@@ -227,12 +227,17 @@ class WhatsAppChannelService implements ChannelServiceInterface
             if ($response->successful()) {
                 $data = $response->json();
                 $qrCode = $data['qr_image'] ?? $data['qr_code'] ?? null;
+                $dbStatus = match ($data['status'] ?? '') {
+                    'connected' => 'connected',
+                    'disconnected' => 'disconnected',
+                    default => 'connecting',
+                };
 
                 $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
                     'business_id' => $business->id,
                 ], [
                     'session_id' => $sessionId,
-                    'status' => $data['status'] ?? 'connecting',
+                    'status' => $dbStatus,
                     'qr_code' => $qrCode,
                 ]);
 

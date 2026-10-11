@@ -217,6 +217,22 @@ class ChannelController extends Controller
     }
 
     /**
+     * Check current WhatsApp connection status.
+     */
+    public function checkWhatsAppStatus(Request $request, Business $business): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeBusiness($request, $business);
+
+        $account = $business->whatsappAccount;
+
+        return response()->json([
+            'status' => $account?->status ?? 'disconnected',
+            'phone_number' => $account?->phone_number,
+            'connected' => ($account?->status === 'connected'),
+        ]);
+    }
+
+    /**
      * Helper to verify user permissions.
      */
     protected function authorizeBusiness(Request $request, Business $business): void
