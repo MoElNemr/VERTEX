@@ -22,12 +22,26 @@ class InboxController extends Controller
     protected function authorizeConversation(Request $request, Conversation $conversation): void
     {
         $currentBusinessId = session('current_business_id');
+        $user = $request->user('web');
+        $teamMember = $request->user('team');
 
-        if ($conversation->business_id !== (int) $currentBusinessId) {
-            abort(403, 'غير مصرح لك بالوصول لمحادثات متجر آخر.');
+        $convBusiness = Business::find($conversation->business_id);
+        if (!$convBusiness) {
+            abort(404, 'المتجر غير موجود.');
         }
 
-        $teamMember = $request->user('team');
+        $isOwner = $user && $convBusiness->user_id === $user->id;
+        $isTeam = $teamMember && $convBusiness->teamMembers()->where('team_members.id', $teamMember->id)->exists();
+
+        if (!$isOwner && !$isTeam) {
+            abort(403, 'غير مصرح لك بالوصول لمحادثات هذا المتجر.');
+        }
+
+        // مزامنة معرف المتجر النشط في الجلسة إذا كان المالك يتنقل بين متاجره
+        if ((int) $currentBusinessId !== $conversation->business_id && $isOwner) {
+            session(['current_business_id' => $conversation->business_id]);
+        }
+
         if ($teamMember && $teamMember->role === 'agent') {
             if ($conversation->assigned_to !== $teamMember->id) {
                 abort(403, 'هذه المحادثة غير مخصصة لك.');
@@ -132,6 +146,7 @@ class InboxController extends Controller
         ]);
 
         $conversation->update([
+            'status' => 'open',
             'last_message_at' => now(),
         ]);
         // إرسال الرسالة إلى المنصة الخارجية المناسبة (تيليجرام، واتساب، فيسبوك، إنستجرام)

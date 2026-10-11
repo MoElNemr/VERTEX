@@ -182,4 +182,43 @@ class WhatsAppMultiStoreSyncTest extends TestCase
         $conversation->refresh();
         $this->assertEquals($this->businessB->id, $conversation->business_id);
     }
+
+    public function test_owner_can_send_message_even_if_session_has_different_business_id(): void
+    {
+        $contact = Contact::create([
+            'business_id' => $this->businessA->id,
+            'name' => 'Customer Multi',
+            'phone' => '201122334466',
+            'platform' => 'whatsapp',
+            'platform_sender_id' => '201122334466',
+        ]);
+
+        $conversation = Conversation::create([
+            'business_id' => $this->businessA->id,
+            'contact_id' => $contact->id,
+            'platform' => 'whatsapp',
+            'status' => 'closed',
+            'unread_count' => 0,
+            'last_message_at' => now(),
+        ]);
+
+        // Acting as owner, but session currently points to Store Beta (businessB)
+        $this->actingAs($this->user);
+        session(['current_business_id' => $this->businessB->id]);
+
+        $response = $this->postJson(route('inbox.send', $conversation->id), [
+            'body' => 'مرحباً، هذه رسالة تجريبية من المتجر الأول',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson(['status' => 'success']);
+
+        $conversation->refresh();
+        $this->assertEquals('open', $conversation->status);
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'body' => 'مرحباً، هذه رسالة تجريبية من المتجر الأول',
+            'sender_type' => 'agent',
+        ]);
+    }
 }
