@@ -103,17 +103,27 @@ class InboxFeatureTest extends TestCase
         ]);
     }
 
-    public function test_owner_can_view_inbox_and_redirects_if_no_business_selected(): void
+    public function test_owner_with_no_businesses_is_redirected_to_businesses_index(): void
     {
-        // Without active business session -> redirects to businesses index
-        $res = $this->actingAs($this->owner)->get(route('inbox.index'));
-        $res->assertRedirect(route('businesses.index'));
+        $userWithoutBusiness = User::factory()->create();
 
-        // With active business session
+        $res = $this->actingAs($userWithoutBusiness)->get(route('inbox.index'));
+        $res->assertRedirect(route('businesses.index'));
+    }
+
+    public function test_owner_with_businesses_auto_selects_first_business_or_uses_session(): void
+    {
+        // When session is empty, SetCurrentBusiness selects first business automatically
+        $res = $this->actingAs($this->owner)->get(route('inbox.index'));
+        $res->assertOk();
+        $this->assertEquals($this->businessA->id, session('current_business_id'));
+
+        // With explicit session for business B
         $res = $this->actingAs($this->owner)
-            ->withSession(['current_business_id' => $this->businessA->id])
+            ->withSession(['current_business_id' => $this->businessB->id])
             ->get(route('inbox.index'));
         $res->assertOk();
+        $this->assertEquals($this->businessB->id, session('current_business_id'));
     }
 
     public function test_agent_only_sees_assigned_conversations(): void
