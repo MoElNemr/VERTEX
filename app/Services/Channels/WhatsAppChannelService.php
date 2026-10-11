@@ -248,4 +248,24 @@ class WhatsAppChannelService implements ChannelServiceInterface
             'simulated' => true,
         ];
     }
+
+    /**
+     * Terminate and remove WhatsApp session from microservice.
+     */
+    public function disconnect(Business $business): bool
+    {
+        $account = $business->whatsappAccount;
+        if ($account) {
+            $sessionId = $account->session_id ?: ('session_' . $business->id);
+            try {
+                Http::timeout(5)->delete("{$this->serviceUrl}/api/sessions/{$sessionId}");
+            } catch (\Throwable $e) {
+                Log::warning("Failed to notify WhatsApp microservice of disconnect: {$e->getMessage()}");
+            }
+            $account->delete();
+            return true;
+        }
+
+        return false;
+    }
 }

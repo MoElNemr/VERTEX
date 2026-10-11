@@ -2,12 +2,16 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import axios from 'axios';
 import {
     CheckCircle2,
     ArrowRight,
     QrCode,
     Send,
     MessageCircle,
+    Loader2,
+    RefreshCw,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -43,6 +47,27 @@ const connectFacebook = () => {
 
 const connectInstagram = () => {
     instagramForm.post(route('channels.instagram.connect', props.business.id));
+};
+
+const isGeneratingQr = ref(false);
+const qrCodeData = ref(props.whatsapp?.qr_code || null);
+const qrErrorMessage = ref('');
+
+const generateWhatsAppQr = async () => {
+    isGeneratingQr.value = true;
+    qrErrorMessage.value = '';
+    try {
+        const response = await axios.post(route('channels.whatsapp.qr', props.business.id));
+        if (response.data?.qr_image) {
+            qrCodeData.value = response.data.qr_image;
+        } else if (response.data?.qr_code) {
+            qrCodeData.value = response.data.qr_code;
+        }
+    } catch (err) {
+        qrErrorMessage.value = err.response?.data?.message || 'تعذر توليد رمز QR، تأكد من تشغيل خادم واتساب.';
+    } finally {
+        isGeneratingQr.value = false;
+    }
 };
 
 const disconnect = (channel) => {
@@ -125,12 +150,33 @@ const disconnect = (channel) => {
                                 <p class="text-xs text-slate-400 font-mono">{{ whatsapp.phone_number || 'الرقم متصل' }}</p>
                             </div>
 
+                            <div v-else-if="qrCodeData" class="space-y-4 py-2">
+                                <div class="bg-white p-3 rounded-2xl inline-block shadow-lg border border-slate-700">
+                                    <img
+                                        v-if="qrCodeData.startsWith('data:image')"
+                                        :src="qrCodeData"
+                                        alt="WhatsApp QR Code"
+                                        class="w-44 h-44 object-contain"
+                                    />
+                                    <div v-else class="w-44 h-44 flex flex-col items-center justify-center text-slate-900 font-mono text-[10px] break-all p-2 bg-slate-100 rounded">
+                                        <QrCode class="w-12 h-12 text-slate-700 mb-2" />
+                                        <span>رمز التحقق متاح</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
+                                    افتح تطبيق واتساب على هاتفك > <strong>الأجهزة المرتبطة</strong> > <strong>ربط جهاز</strong>، ثم وجّه الكاميرا نحو الشاشة.
+                                </p>
+                            </div>
+
                             <div v-else class="space-y-4 py-2">
                                 <div class="inline-flex p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300">
                                     <QrCode class="w-12 h-12 text-slate-300" />
                                 </div>
                                 <p class="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
                                     اضغط لتوليد رمز QR ومسحه من تطبيق واتساب بهاتفك في ثوانٍ دون الحاجة لموافقة ميتا أو رسوم اشتراك.
+                                </p>
+                                <p v-if="qrErrorMessage" class="text-xs text-rose-400 mt-2">
+                                    {{ qrErrorMessage }}
                                 </p>
                             </div>
                         </div>
@@ -139,10 +185,14 @@ const disconnect = (channel) => {
                     <div class="mt-6 pt-5 border-t border-slate-800 flex items-center justify-between">
                         <button
                             v-if="whatsapp?.status !== 'connected'"
-                            class="cursor-pointer w-full py-3 px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white transition flex items-center justify-center gap-2 shadow-sm"
+                            @click="generateWhatsAppQr"
+                            :disabled="isGeneratingQr"
+                            class="cursor-pointer w-full py-3 px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white transition flex items-center justify-center gap-2 shadow-sm"
                         >
-                            <QrCode class="w-4 h-4" />
-                            <span>توليد كود الـ QR للربط</span>
+                            <Loader2 v-if="isGeneratingQr" class="w-4 h-4 animate-spin" />
+                            <RefreshCw v-else-if="qrCodeData" class="w-4 h-4" />
+                            <QrCode v-else class="w-4 h-4" />
+                            <span>{{ isGeneratingQr ? 'جاري الاتصال وتوليد الرمز...' : (qrCodeData ? 'تحديث رمز الـ QR' : 'توليد كود الـ QR للربط') }}</span>
                         </button>
                         <button
                             v-else

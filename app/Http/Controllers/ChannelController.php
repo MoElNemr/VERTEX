@@ -181,7 +181,7 @@ class ChannelController extends Controller
             'telegram' => $business->telegramAccount()?->delete(),
             'facebook' => $business->facebookAccount()?->delete(),
             'instagram' => $business->instagramAccount()?->delete(),
-            'whatsapp' => $business->whatsappAccount()?->delete(),
+            'whatsapp' => app(\App\Services\Channels\WhatsAppChannelService::class)->disconnect($business),
             default => null,
         };
 
