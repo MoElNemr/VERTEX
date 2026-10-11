@@ -100,8 +100,12 @@ class InboxController extends Controller
             'last_message_at' => now(),
         ]);
 
-        // هنا سيتم استدعاء خدمة الإرسال إلى المنصة الحقيقية (WhatsApp, Telegram, etc.)
-        // $this->dispatchToPlatform($conversation, $message);
+        // إرسال الرسالة إلى المنصة الخارجية المناسبة (تيليجرام، واتساب، فيسبوك، إنستجرام)
+        try {
+            app(\App\Services\Channels\ChannelManager::class)->sendMessage($conversation, $message);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Outbound message dispatch error: ' . $e->getMessage());
+        }
 
         return response()->json([
             'status' => 'success',
