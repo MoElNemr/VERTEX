@@ -67,6 +67,10 @@ class BusinessController extends Controller
     {
         $user = $request->user('web') ?: $request->user('team');
 
+        if (!$user) {
+            abort(401);
+        }
+
         $hasAccess = Business::where('id', $business->id)
             ->where(function ($q) use ($user, $request) {
                 if ($request->user('web')) {
@@ -80,10 +84,15 @@ class BusinessController extends Controller
             })->exists();
 
         if (!$hasAccess) {
-            abort(403, 'غير مصرح لك بالوصول لهذا البيزنس.');
+            abort(403, 'غير مصرح لك بالوصول لهذا المتجر.');
         }
 
         session(['current_business_id' => $business->id]);
+
+        $previousUrl = url()->previous();
+        if ($previousUrl && str_contains($previousUrl, '/businesses/') && str_contains($previousUrl, '/channels')) {
+            return redirect()->route('channels.index', $business->id);
+        }
 
         return back();
     }
