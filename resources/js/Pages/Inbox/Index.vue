@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import axios from 'axios';
 import {
     Search,
@@ -45,7 +45,7 @@ const props = defineProps({
 });
 
 // State
-const conversationsList = ref([...props.conversations]);
+const conversationsList = ref([...(props.conversations || [])]);
 const activeConv = ref(null);
 const isTransferModalOpen = ref(false);
 const selectedTargetBusinessId = ref('');
@@ -59,6 +59,42 @@ const isLoadingMessages = ref(false);
 const isSending = ref(false);
 const messagesContainer = ref(null);
 const isFilterDrawerOpen = ref(false);
+
+// Synchronize state when switching active business or when conversations update
+watch(() => props.business?.id, (newBusinessId, oldBusinessId) => {
+    if (newBusinessId !== oldBusinessId) {
+        conversationsList.value = [...(props.conversations || [])];
+        searchQuery.value = '';
+        selectedPlatform.value = 'all';
+        selectedStatus.value = 'all';
+
+        if (window.innerWidth >= 768 && conversationsList.value.length > 0) {
+            selectConversation(conversationsList.value[0]);
+        } else {
+            activeConv.value = null;
+            messages.value = [];
+        }
+    }
+});
+
+watch(() => props.conversations, (newConversations) => {
+    conversationsList.value = [...(newConversations || [])];
+    if (activeConv.value) {
+        const matching = conversationsList.value.find(c => c.id === activeConv.value.id);
+        if (matching) {
+            activeConv.value = matching;
+        } else {
+            if (window.innerWidth >= 768 && conversationsList.value.length > 0) {
+                selectConversation(conversationsList.value[0]);
+            } else {
+                activeConv.value = null;
+                messages.value = [];
+            }
+        }
+    } else if (window.innerWidth >= 768 && conversationsList.value.length > 0) {
+        selectConversation(conversationsList.value[0]);
+    }
+}, { deep: true });
 
 // Platform Configuration
 const platformList = [

@@ -6,6 +6,13 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link, router } from '@inertiajs/vue3';
+import {
+    Store,
+    Check,
+    ChevronDown,
+    ArrowUpRight,
+    Loader2,
+} from 'lucide-vue-next';
 
 const props = defineProps({
     fullHeight: {
@@ -15,10 +22,25 @@ const props = defineProps({
 });
 
 const showingNavigationDropdown = ref(false);
+const isBusinessDropdownOpen = ref(false);
+const switchingBusinessId = ref(null);
+
+const toggleBusinessDropdown = () => {
+    isBusinessDropdownOpen.value = !isBusinessDropdownOpen.value;
+};
 
 const switchBusiness = (id) => {
+    if (switchingBusinessId.value) return;
+    switchingBusinessId.value = id;
+    isBusinessDropdownOpen.value = false;
     showingNavigationDropdown.value = false;
-    router.post(route('businesses.switch', id));
+
+    router.post(route('businesses.switch', id), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            switchingBusinessId.value = null;
+        },
+    });
 };
 </script>
 
@@ -44,10 +66,92 @@ const switchBusiness = (id) => {
                         <!-- Mobile Active Business Pill -->
                         <div
                             v-if="$page.props.currentBusiness"
-                            class="sm:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-850 border border-slate-800 text-[11px] font-semibold text-slate-300 max-w-[130px] truncate"
+                            class="sm:hidden relative"
                         >
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                            <span class="truncate">{{ $page.props.currentBusiness.name }}</span>
+                            <button
+                                type="button"
+                                @click="toggleBusinessDropdown"
+                                class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-850 border border-slate-800 text-[11px] font-semibold text-slate-300 max-w-[140px] truncate hover:border-slate-700 cursor-pointer"
+                                :class="{ 'ring-2 ring-blue-500/40 border-blue-500/80': isBusinessDropdownOpen }"
+                            >
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                <span class="truncate">{{ $page.props.currentBusiness.name }}</span>
+                                <ChevronDown class="w-3 h-3 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-180': isBusinessDropdownOpen }" />
+                            </button>
+
+                            <!-- Mobile Backdrop -->
+                            <div
+                                v-if="isBusinessDropdownOpen"
+                                class="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs"
+                                @click="isBusinessDropdownOpen = false"
+                            ></div>
+
+                            <!-- Mobile Dropdown Menu -->
+                            <Transition
+                                enter-active-class="transition ease-out duration-150"
+                                enter-from-class="opacity-0 scale-95"
+                                enter-to-class="opacity-100 scale-100"
+                                leave-active-class="transition ease-in duration-100"
+                                leave-from-class="opacity-100 scale-100"
+                                leave-to-class="opacity-0 scale-95"
+                            >
+                                <div
+                                    v-if="isBusinessDropdownOpen"
+                                    class="absolute z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900 border border-slate-750 shadow-2xl p-2 start-0 ltr:origin-top-left rtl:origin-top-right overflow-hidden"
+                                >
+                                    <div class="px-2.5 py-1.5 flex items-center justify-between border-b border-slate-800/85">
+                                        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                                            <Store class="w-3.5 h-3.5 text-blue-400" />
+                                            <span>تبديل المتجر</span>
+                                        </div>
+                                        <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700/60">
+                                            {{ $page.props.businesses.length }}
+                                        </span>
+                                    </div>
+
+                                    <div class="max-h-56 overflow-y-auto p-1 space-y-1">
+                                        <button
+                                            v-for="b in $page.props.businesses"
+                                            :key="b.id"
+                                            type="button"
+                                            @click="switchBusiness(b.id)"
+                                            class="w-full flex items-center justify-between p-2 rounded-xl text-xs font-medium transition cursor-pointer text-start"
+                                            :class="[
+                                                $page.props.currentBusiness?.id === b.id
+                                                    ? 'bg-blue-950/40 border border-blue-600/60 text-white shadow-sm'
+                                                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white border border-transparent'
+                                            ]"
+                                        >
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <div
+                                                    class="w-6 h-6 rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0"
+                                                    :class="[
+                                                        $page.props.currentBusiness?.id === b.id
+                                                            ? 'bg-blue-600 text-white'
+                                                            : 'bg-slate-800 text-slate-300'
+                                                    ]"
+                                                >
+                                                    {{ b.name.charAt(0).toUpperCase() }}
+                                                </div>
+                                                <div class="truncate text-start">
+                                                    <div class="font-bold text-xs truncate">{{ b.name }}</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="shrink-0 ps-2">
+                                                <Loader2
+                                                    v-if="switchingBusinessId === b.id"
+                                                    class="w-3.5 h-3.5 text-blue-400 animate-spin"
+                                                />
+                                                <Check
+                                                    v-else-if="$page.props.currentBusiness?.id === b.id"
+                                                    class="w-3.5 h-3.5 text-emerald-400"
+                                                />
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </Transition>
                         </div>
 
                         <!-- Desktop Navigation Links -->
@@ -84,42 +188,125 @@ const switchBusiness = (id) => {
                     <!-- Desktop Actions -->
                     <div class="hidden sm:ms-6 sm:flex sm:items-center">
                         <!-- Business Switcher Dropdown -->
-                        <div class="relative ms-3" v-if="$page.props.businesses && $page.props.businesses.length > 0">
-                            <Dropdown align="left" width="60">
-                                <template #trigger>
-                                    <button
-                                        type="button"
-                                        class="inline-flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/90 px-3.5 py-1.5 text-xs font-semibold text-slate-200 shadow-sm transition hover:bg-slate-750 hover:border-slate-600 focus:outline-none cursor-pointer"
-                                    >
-                                        <span class="inline-block h-2 w-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
-                                        <span class="max-w-[140px] truncate">
-                                            {{ $page.props.currentBusiness ? $page.props.currentBusiness.name : 'اختر المتجر' }}
-                                        </span>
-                                        <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                        </svg>
-                                    </button>
-                                </template>
+                        <div
+                            class="relative ms-3"
+                            v-if="$page.props.businesses && $page.props.businesses.length > 0"
+                        >
+                            <button
+                                type="button"
+                                @click="toggleBusinessDropdown"
+                                class="inline-flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/90 px-3.5 py-1.5 text-xs font-semibold text-slate-200 shadow-sm transition hover:bg-slate-750 hover:border-slate-600 focus:outline-none cursor-pointer"
+                                :class="{ 'ring-2 ring-blue-500/40 border-blue-500/80': isBusinessDropdownOpen }"
+                            >
+                                <span class="relative flex h-2 w-2">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span class="max-w-[150px] truncate font-bold text-slate-100">
+                                    {{ $page.props.currentBusiness ? $page.props.currentBusiness.name : 'اختر المتجر' }}
+                                </span>
+                                <Loader2 v-if="switchingBusinessId" class="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                                <ChevronDown
+                                    v-else
+                                    class="h-3.5 w-3.5 text-slate-400 transition-transform duration-200"
+                                    :class="{ 'rotate-180': isBusinessDropdownOpen }"
+                                />
+                            </button>
 
-                                <template #content>
-                                    <div class="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/80 text-right">
-                                        تبديل المتجر
+                            <!-- Backdrop for Outside Click -->
+                            <div
+                                v-if="isBusinessDropdownOpen"
+                                class="fixed inset-0 z-40"
+                                @click="isBusinessDropdownOpen = false"
+                            ></div>
+
+                            <!-- Dropdown Menu -->
+                            <Transition
+                                enter-active-class="transition ease-out duration-150"
+                                enter-from-class="opacity-0 scale-95"
+                                enter-to-class="opacity-100 scale-100"
+                                leave-active-class="transition ease-in duration-100"
+                                leave-from-class="opacity-100 scale-100"
+                                leave-to-class="opacity-0 scale-95"
+                            >
+                                <div
+                                    v-if="isBusinessDropdownOpen"
+                                    class="absolute z-50 mt-2 w-72 rounded-2xl bg-slate-900 border border-slate-750 shadow-2xl shadow-black/80 p-2 start-0 ltr:origin-top-left rtl:origin-top-right overflow-hidden"
+                                >
+                                    <!-- Header -->
+                                    <div class="px-3 py-2 flex items-center justify-between border-b border-slate-800/85">
+                                        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                                            <Store class="w-4 h-4 text-blue-400" />
+                                            <span>المتاجر وبيئات العمل</span>
+                                        </div>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700/60">
+                                            {{ $page.props.businesses.length }}
+                                        </span>
                                     </div>
-                                    <div class="max-h-56 overflow-y-auto divide-y divide-slate-800/60">
-                                        <DropdownLink
+
+                                    <!-- Stores List -->
+                                    <div class="max-h-64 overflow-y-auto p-1 space-y-1">
+                                        <button
                                             v-for="b in $page.props.businesses"
                                             :key="b.id"
-                                            :href="route('businesses.switch', b.id)"
-                                            method="post"
-                                            as="button"
-                                            class="flex items-center justify-between w-full text-right cursor-pointer text-xs"
+                                            type="button"
+                                            @click="switchBusiness(b.id)"
+                                            class="w-full flex items-center justify-between p-2 rounded-xl text-xs font-medium transition cursor-pointer text-start group"
+                                            :class="[
+                                                $page.props.currentBusiness?.id === b.id
+                                                    ? 'bg-blue-950/40 border border-blue-600/60 text-white shadow-sm'
+                                                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white border border-transparent'
+                                            ]"
                                         >
-                                            <span>{{ b.name }}</span>
-                                            <span v-if="$page.props.currentBusiness && $page.props.currentBusiness.id === b.id" class="text-xs text-blue-400 font-bold">✓</span>
-                                        </DropdownLink>
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <div
+                                                    class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition"
+                                                    :class="[
+                                                        $page.props.currentBusiness?.id === b.id
+                                                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/50'
+                                                            : 'bg-slate-850 text-slate-300 group-hover:bg-slate-750 group-hover:text-white'
+                                                    ]"
+                                                >
+                                                    {{ b.name.charAt(0).toUpperCase() }}
+                                                </div>
+                                                <div class="truncate text-start">
+                                                    <div class="font-bold text-xs truncate">{{ b.name }}</div>
+                                                    <div v-if="$page.props.currentBusiness?.id === b.id" class="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                                        <span>المتجر النشط</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="shrink-0 ps-2">
+                                                <Loader2
+                                                    v-if="switchingBusinessId === b.id"
+                                                    class="w-4 h-4 text-blue-400 animate-spin"
+                                                />
+                                                <Check
+                                                    v-else-if="$page.props.currentBusiness?.id === b.id"
+                                                    class="w-4 h-4 text-emerald-400"
+                                                />
+                                            </div>
+                                        </button>
                                     </div>
-                                </template>
-                            </Dropdown>
+
+                                    <!-- Footer link if owner -->
+                                    <div
+                                        v-if="$page.props.auth.is_owner"
+                                        class="pt-2 mt-1 border-t border-slate-800/80 px-1"
+                                    >
+                                        <Link
+                                            :href="route('businesses.index')"
+                                            @click="isBusinessDropdownOpen = false"
+                                            class="w-full flex items-center justify-between p-2 rounded-xl text-[11px] font-bold text-blue-400 hover:bg-blue-950/30 hover:text-blue-300 transition"
+                                        >
+                                            <span>إدارة كافة المتاجر</span>
+                                            <ArrowUpRight class="w-3.5 h-3.5" />
+                                        </Link>
+                                    </div>
+                                </div>
+                            </Transition>
                         </div>
 
                         <!-- Settings Dropdown -->

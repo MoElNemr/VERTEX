@@ -28,14 +28,19 @@ onUnmounted(() => document.removeEventListener('keydown', closeOnEscape));
 const widthClass = computed(() => {
     return {
         48: 'w-48',
-    }[props.width.toString()];
+        56: 'w-56',
+        60: 'w-60',
+        64: 'w-64',
+        72: 'w-72',
+        80: 'w-80',
+    }[props.width.toString()] || 'w-48';
 });
 
 const alignmentClasses = computed(() => {
     if (props.align === 'left') {
-        return 'ltr:origin-top-left rtl:origin-top-right start-0';
+        return 'origin-top-left left-0';
     } else if (props.align === 'right') {
-        return 'ltr:origin-top-right rtl:origin-top-left end-0';
+        return 'origin-top-right right-0';
     } else {
         return 'origin-top';
     }
@@ -69,7 +74,6 @@ const open = ref(false);
                 v-show="open"
                 class="absolute z-50 mt-2 rounded-md shadow-lg"
                 :class="[widthClass, alignmentClasses]"
-                style="display: none"
                 @click="open = false"
             >
                 <div
