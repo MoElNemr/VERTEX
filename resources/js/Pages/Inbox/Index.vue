@@ -23,7 +23,9 @@ import {
     X,
     Layers,
     MessageSquare,
-    Camera
+    Camera,
+    ChevronRight,
+    SlidersHorizontal
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -44,6 +46,7 @@ const selectedStatus = ref('all'); // all, open, closed
 const isLoadingMessages = ref(false);
 const isSending = ref(false);
 const messagesContainer = ref(null);
+const isFilterDrawerOpen = ref(false);
 
 // Platform Configuration
 const platformList = [
@@ -129,6 +132,11 @@ const selectConversation = async (conv) => {
     }
 };
 
+// Return to conversations list on mobile
+const backToList = () => {
+    activeConv.value = null;
+};
+
 // Send message
 const sendMessage = async () => {
     if (!messageText.value.trim() || !activeConv.value || isSending.value) return;
@@ -186,7 +194,8 @@ onMounted(() => {
     if (props.activeConversationId) {
         const found = conversationsList.value.find(c => c.id == props.activeConversationId);
         if (found) selectConversation(found);
-    } else if (conversationsList.value.length > 0) {
+    } else if (window.innerWidth >= 768 && conversationsList.value.length > 0) {
+        // On desktop/tablet auto-select first conversation, but on mobile stay on list
         selectConversation(conversationsList.value[0]);
     }
 });
@@ -196,11 +205,13 @@ onMounted(() => {
     <Head :title="`صندوق الوارد الموحد - ${business.name}`" />
 
     <AuthenticatedLayout :fullHeight="true">
-        <!-- Main Inbox Wrapper (strictly fills remaining height with no page scrollbar) -->
-        <div class="h-full flex flex-1 overflow-hidden bg-slate-950 text-slate-100">
+        <!-- Main Inbox Container (strictly fills remaining viewport height) -->
+        <div class="h-full flex flex-1 overflow-hidden bg-slate-950 text-slate-100 relative">
 
-            <!-- 1. Right Column (Sidebar in RTL): Platform & Status Filters -->
-            <aside class="w-64 border-l border-slate-800 bg-slate-900/90 flex flex-col justify-between shrink-0 p-4">
+            <!-- ============================================================== -->
+            <!-- 1. DESKTOP SIDEBAR: Platform & Status Filters (Hidden on Mobile/Tablet) -->
+            <!-- ============================================================== -->
+            <aside class="hidden lg:flex w-64 border-l border-slate-800 bg-slate-900/90 flex-col justify-between shrink-0 p-4">
                 <div class="space-y-6">
                     <!-- Business Title Badge -->
                     <div class="pb-3 border-b border-slate-800/80">
@@ -237,7 +248,7 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <!-- Status Filter (Segmented control) -->
+                    <!-- Status Filter -->
                     <div>
                         <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2.5">حالة المحادثة</span>
                         <div class="grid grid-cols-3 gap-1 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
@@ -254,7 +265,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <!-- Channels Setting Link at bottom -->
+                <!-- Channels Setting Link -->
                 <div class="pt-4 border-t border-slate-800">
                     <Link
                         :href="route('channels.index', business.id)"
@@ -266,34 +277,169 @@ onMounted(() => {
                 </div>
             </aside>
 
-            <!-- 2. Middle Column: Conversations List -->
-            <div class="w-80 md:w-96 border-l border-slate-800 bg-slate-900/40 flex flex-col shrink-0">
-                <!-- Search Header -->
-                <div class="p-4 border-b border-slate-800 shrink-0">
-                    <div class="relative">
-                        <input
-                            v-model="searchQuery"
-                            type="text"
-                            placeholder="بحث بالاسم أو نص الرسالة..."
-                            class="w-full pe-4 ps-10 py-2.5 rounded-xl text-xs bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
-                        />
-                        <Search class="w-4 h-4 text-slate-500 absolute start-3 top-3 pointer-events-none" />
-                        <button
-                            v-if="searchQuery"
-                            @click="searchQuery = ''"
-                            class="cursor-pointer absolute end-3 top-2.5 text-slate-500 hover:text-slate-300 p-0.5"
+            <!-- ============================================================== -->
+            <!-- 2. MOBILE / TABLET FILTER SLIDE-OVER DRAWER -->
+            <!-- ============================================================== -->
+            <transition
+                enter-active-class="transition duration-300 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-200 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div
+                    v-if="isFilterDrawerOpen"
+                    @click="isFilterDrawerOpen = false"
+                    class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 lg:hidden"
+                ></div>
+            </transition>
+
+            <transition
+                enter-active-class="transition duration-300 ease-out"
+                enter-from-class="translate-x-full"
+                enter-to-class="translate-x-0"
+                leave-active-class="transition duration-200 ease-in"
+                leave-from-class="translate-x-0"
+                leave-to-class="translate-x-full"
+            >
+                <div
+                    v-if="isFilterDrawerOpen"
+                    class="fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-slate-900 border-l border-slate-800 p-5 z-50 flex flex-col justify-between shadow-2xl lg:hidden"
+                >
+                    <div class="space-y-6">
+                        <!-- Drawer Header -->
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">تصفية صندوق الوارد</span>
+                                <h3 class="text-sm font-bold text-white">{{ business.name }}</h3>
+                            </div>
+                            <button
+                                @click="isFilterDrawerOpen = false"
+                                class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                            >
+                                <X class="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <!-- Platforms -->
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 block mb-2.5">المنصات</span>
+                            <div class="space-y-1.5">
+                                <button
+                                    v-for="p in platformList"
+                                    :key="p.id"
+                                    @click="selectedPlatform = p.id; isFilterDrawerOpen = false"
+                                    class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer"
+                                    :class="selectedPlatform === p.id ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800'"
+                                >
+                                    <div class="flex items-center gap-2.5">
+                                        <component :is="p.icon" class="w-4 h-4" :class="selectedPlatform === p.id ? 'text-white' : p.color" />
+                                        <span>{{ p.name }}</span>
+                                    </div>
+                                    <span
+                                        class="text-[11px] font-mono px-2 py-0.5 rounded-full font-bold"
+                                        :class="selectedPlatform === p.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'"
+                                    >
+                                        {{ getPlatformCount(p.id) }}
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 block mb-2.5">الحالة</span>
+                            <div class="grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                                <button
+                                    v-for="s in statusOptions"
+                                    :key="s.id"
+                                    @click="selectedStatus = s.id; isFilterDrawerOpen = false"
+                                    class="py-2 text-center text-xs font-semibold rounded-lg transition cursor-pointer"
+                                    :class="selectedStatus === s.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'"
+                                >
+                                    {{ s.label }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom channels link -->
+                    <div class="pt-4 border-t border-slate-800">
+                        <Link
+                            :href="route('channels.index', business.id)"
+                            class="w-full flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-bold text-slate-200 transition"
                         >
-                            <X class="w-3.5 h-3.5" />
+                            <Settings class="w-4 h-4 text-slate-400" />
+                            <span>إعدادات القنوات</span>
+                        </Link>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- ============================================================== -->
+            <!-- 3. CONVERSATIONS LIST COLUMN -->
+            <!-- Desktop: w-80/w-96 | Mobile: Full width if no activeConv, hidden if activeConv -->
+            <!-- ============================================================== -->
+            <div
+                class="flex-col border-l border-slate-800 bg-slate-900/40 shrink-0"
+                :class="[
+                    activeConv ? 'hidden md:flex md:w-80 lg:w-88 xl:w-96' : 'flex w-full md:w-80 lg:w-88 xl:w-96'
+                ]"
+            >
+                <!-- Search & Filters Header -->
+                <div class="p-3.5 sm:p-4 border-b border-slate-800 shrink-0 space-y-2.5">
+                    <div class="flex items-center gap-2">
+                        <!-- Search Box -->
+                        <div class="relative flex-1">
+                            <input
+                                v-model="searchQuery"
+                                type="text"
+                                placeholder="بحث بالاسم أو نص الرسالة..."
+                                class="w-full pe-4 ps-9 py-2.5 rounded-xl text-xs bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
+                            />
+                            <Search class="w-4 h-4 text-slate-500 absolute start-3 top-3 pointer-events-none" />
+                            <button
+                                v-if="searchQuery"
+                                @click="searchQuery = ''"
+                                class="cursor-pointer absolute end-3 top-2.5 text-slate-500 hover:text-slate-300 p-0.5"
+                            >
+                                <X class="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+
+                        <!-- Mobile Filter Drawer Toggle Button -->
+                        <button
+                            @click="isFilterDrawerOpen = true"
+                            class="lg:hidden p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition cursor-pointer relative"
+                            title="تصفية المحادثات"
+                        >
+                            <SlidersHorizontal class="w-4 h-4" />
+                            <span
+                                v-if="selectedPlatform !== 'all' || selectedStatus !== 'all'"
+                                class="w-2 h-2 rounded-full bg-blue-500 absolute -top-0.5 -end-0.5 ring-2 ring-slate-900"
+                            ></span>
                         </button>
                     </div>
 
-                    <div class="flex items-center justify-between mt-2.5 text-[11px] text-slate-400 px-1 font-medium">
-                        <span>{{ filteredConversations.length }} محادثة</span>
-                        <span v-if="selectedPlatform !== 'all'">{{ getPlatformName(selectedPlatform) }}</span>
+                    <!-- Quick Horizontal Platform Scroll Pills (Visible on all screens for quick filtering) -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
+                        <button
+                            v-for="p in platformList"
+                            :key="p.id"
+                            @click="selectedPlatform = p.id"
+                            class="cursor-pointer shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition flex items-center gap-1.5 whitespace-nowrap"
+                            :class="selectedPlatform === p.id
+                                ? 'bg-blue-600 text-white font-bold shadow-sm'
+                                : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'"
+                        >
+                            <span>{{ p.name }}</span>
+                            <span class="text-[10px] font-mono opacity-80">({{ getPlatformCount(p.id) }})</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Conversations Scrollable List -->
+                <!-- Scrollable Conversations List -->
                 <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 p-2 space-y-1">
                     <div
                         v-if="filteredConversations.length === 0"
@@ -306,17 +452,17 @@ onMounted(() => {
                         v-for="conv in filteredConversations"
                         :key="conv.id"
                         @click="selectConversation(conv)"
-                        class="p-3.5 rounded-xl transition cursor-pointer flex items-start gap-3 select-none"
+                        class="p-3.5 rounded-xl transition cursor-pointer flex items-start gap-3 select-none active:scale-[0.99]"
                         :class="[
                             activeConv?.id === conv.id
-                                ? 'bg-slate-800/90 border border-blue-500/50 shadow-sm'
+                                ? 'bg-slate-800/95 border border-blue-500/50 shadow-sm'
                                 : 'hover:bg-slate-800/40 border border-transparent'
                         ]"
                     >
                         <!-- Avatar with Platform Badge -->
                         <div class="relative shrink-0">
                             <div
-                                class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
+                                class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm"
                                 :class="activeConv?.id === conv.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40' : 'bg-slate-800 text-slate-300 border border-slate-700'"
                             >
                                 {{ conv.contact?.name ? conv.contact.name.charAt(0).toUpperCase() : 'ع' }}
@@ -330,9 +476,9 @@ onMounted(() => {
                             </div>
                         </div>
 
-                        <!-- Content Layout: 2 distinct rows without text collisions -->
+                        <!-- Content Layout: 2 distinct rows without collisions -->
                         <div class="flex-1 min-w-0">
-                            <!-- Row 1: Name (start) + Time (end) -->
+                            <!-- Row 1: Name + Time -->
                             <div class="flex items-center justify-between gap-2 mb-1">
                                 <h4 class="text-xs font-bold text-white truncate">
                                     {{ conv.contact?.name || conv.contact?.phone || 'عميل غير مسجل' }}
@@ -342,7 +488,7 @@ onMounted(() => {
                                 </span>
                             </div>
 
-                            <!-- Row 2: Message preview (start) + Unread Badge (end) -->
+                            <!-- Row 2: Message preview + Unread Badge -->
                             <div class="flex items-center justify-between gap-2">
                                 <p class="text-xs text-slate-400 truncate flex-1 min-w-0">
                                     {{ conv.latest_message?.body || 'لا توجد رسائل سابقة' }}
@@ -359,155 +505,175 @@ onMounted(() => {
                 </div>
             </div>
 
-            <!-- 3. Left Column (Main Chat in RTL): Chat & Message Flow -->
-            <div class="flex-1 min-w-0 flex flex-col bg-slate-950">
-                <!-- Chat Header -->
-                <div
-                    v-if="activeConv"
-                    class="h-16 px-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/70 backdrop-blur shrink-0"
-                >
-                    <div class="flex items-center gap-3">
-                        <div class="relative">
-                            <div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-200 text-sm">
-                                {{ activeConv.contact?.name ? activeConv.contact.name.charAt(0).toUpperCase() : 'ع' }}
-                            </div>
-                            <div
-                                class="absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold"
-                                :class="getPlatformBadgeColor(activeConv.platform)"
+            <!-- ============================================================== -->
+            <!-- 4. ACTIVE CHAT & MESSAGES COLUMN -->
+            <!-- Desktop: flex-1 | Mobile: Full width if activeConv, hidden if !activeConv -->
+            <!-- ============================================================== -->
+            <div
+                class="flex-col min-w-0 bg-slate-950"
+                :class="[
+                    activeConv ? 'flex flex-1 w-full' : 'hidden md:flex md:flex-1 md:items-center md:justify-center'
+                ]"
+            >
+                <!-- Desktop Empty State when no conversation selected -->
+                <div v-if="!activeConv" class="text-center p-8 text-slate-500 text-xs">
+                    <MessageSquare class="w-12 h-12 mx-auto mb-3 text-slate-700 opacity-60" />
+                    <p class="font-medium text-slate-400 mb-1">لم يتم اختيار محادثة</p>
+                    <p>اختر محادثة من القائمة لعرض الرسائل والتواصل مع العميل</p>
+                </div>
+
+                <!-- Active Chat Flow -->
+                <template v-else>
+                    <!-- Chat Header -->
+                    <div class="h-16 px-4 sm:px-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/80 backdrop-blur shrink-0">
+                        <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                            <!-- Mobile Back Button to return to list -->
+                            <button
+                                @click="backToList"
+                                class="md:hidden p-2 -ms-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+                                title="الرجوع لقائمة المحادثات"
                             >
-                                {{ activeConv.platform.charAt(0).toUpperCase() }}
-                            </div>
-                        </div>
+                                <ChevronRight class="w-5 h-5" />
+                            </button>
 
-                        <div>
-                            <h3 class="text-sm font-bold text-white">
-                                {{ activeConv.contact?.name || activeConv.contact?.phone || 'محادثة نشطة' }}
-                            </h3>
-                            <div class="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                                <span>عبر {{ getPlatformName(activeConv.platform) }}</span>
-                                <span>•</span>
-                                <span class="font-mono text-slate-500">{{ activeConv.contact?.platform_sender_id }}</span>
-                                <span>•</span>
-                                <span
-                                    class="px-1.5 py-0.2 rounded text-[10px] font-semibold"
-                                    :class="activeConv.status === 'open' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80' : 'bg-slate-800 text-slate-400'"
+                            <!-- Avatar -->
+                            <div class="relative shrink-0">
+                                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-200 text-xs sm:text-sm">
+                                    {{ activeConv.contact?.name ? activeConv.contact.name.charAt(0).toUpperCase() : 'ع' }}
+                                </div>
+                                <div
+                                    class="absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold"
+                                    :class="getPlatformBadgeColor(activeConv.platform)"
                                 >
-                                    {{ activeConv.status === 'open' ? 'مفتوحة' : 'مغلقة' }}
-                                </span>
+                                    {{ activeConv.platform.charAt(0).toUpperCase() }}
+                                </div>
+                            </div>
+
+                            <!-- Name & Meta -->
+                            <div class="min-w-0">
+                                <h3 class="text-xs sm:text-sm font-bold text-white truncate">
+                                    {{ activeConv.contact?.name || activeConv.contact?.phone || 'محادثة نشطة' }}
+                                </h3>
+                                <div class="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-400 truncate">
+                                    <span>عبر {{ getPlatformName(activeConv.platform) }}</span>
+                                    <span>•</span>
+                                    <span class="font-mono text-slate-500 truncate max-w-[100px] sm:max-w-none">{{ activeConv.contact?.platform_sender_id }}</span>
+                                    <span
+                                        class="hidden sm:inline-block px-1.5 py-0.2 rounded text-[10px] font-semibold"
+                                        :class="activeConv.status === 'open' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80' : 'bg-slate-800 text-slate-400'"
+                                    >
+                                        {{ activeConv.status === 'open' ? 'مفتوحة' : 'مغلقة' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions (Status switch) -->
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button
+                                v-if="activeConv.status === 'open'"
+                                @click="updateStatus('closed')"
+                                class="cursor-pointer px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition flex items-center gap-1.5"
+                            >
+                                <Check class="w-3.5 h-3.5 text-slate-400" />
+                                <span class="hidden sm:inline">إغلاق المحادثة</span>
+                                <span class="sm:hidden">إغلاق</span>
+                            </button>
+                            <button
+                                v-else
+                                @click="updateStatus('open')"
+                                class="cursor-pointer px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 transition flex items-center gap-1.5"
+                            >
+                                <RotateCcw class="w-3.5 h-3.5" />
+                                <span class="hidden sm:inline">إعادة فتح</span>
+                                <span class="sm:hidden">فتح</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Messages Scrollable Area -->
+                    <div
+                        ref="messagesContainer"
+                        class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4"
+                    >
+                        <div v-if="isLoadingMessages" class="h-full flex items-center justify-center text-slate-500 text-xs">
+                            جاري تحميل الرسائل...
+                        </div>
+
+                        <div v-else-if="messages.length === 0" class="h-full flex items-center justify-center text-slate-500 text-xs">
+                            لا توجد رسائل سابقة. أرسل رسالتك للعميل بالأسفل.
+                        </div>
+
+                        <!-- Message Bubbles -->
+                        <div
+                            v-for="msg in messages"
+                            :key="msg.id"
+                            class="flex flex-col"
+                            :class="msg.sender_type === 'agent' ? 'items-end' : 'items-start'"
+                        >
+                            <span class="text-[10px] text-slate-500 mb-1 px-1">
+                                {{ msg.sender_type === 'agent' ? 'أنت (فريق الدعم)' : (activeConv.contact?.name || 'العميل') }}
+                            </span>
+
+                            <div
+                                class="max-w-[85%] sm:max-w-lg rounded-2xl px-4 py-2.5 sm:py-3 text-xs leading-relaxed shadow-sm"
+                                :class="[
+                                    msg.sender_type === 'agent'
+                                        ? 'bg-blue-600 text-white rounded-tl-sm'
+                                        : 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tr-sm'
+                                ]"
+                            >
+                                <p class="whitespace-pre-wrap">{{ msg.body }}</p>
+                            </div>
+
+                            <div class="flex items-center gap-1 text-[10px] text-slate-500 mt-1 px-1">
+                                <span>{{ formatTime(msg.created_at) }}</span>
+                                <CheckCheck v-if="msg.sender_type === 'agent'" class="w-3 h-3 text-blue-400" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Actions (Status switch) -->
-                    <div class="flex items-center gap-2">
-                        <button
-                            v-if="activeConv.status === 'open'"
-                            @click="updateStatus('closed')"
-                            class="cursor-pointer px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition flex items-center gap-1.5"
-                        >
-                            <Check class="w-3.5 h-3.5 text-slate-400" />
-                            <span>إغلاق المحادثة</span>
-                        </button>
-                        <button
-                            v-else
-                            @click="updateStatus('open')"
-                            class="cursor-pointer px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 transition flex items-center gap-1.5"
-                        >
-                            <RotateCcw class="w-3.5 h-3.5" />
-                            <span>إعادة فتح</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Messages Scrollable Area -->
-                <div
-                    ref="messagesContainer"
-                    class="flex-1 min-h-0 overflow-y-auto p-6 space-y-4"
-                >
-                    <div v-if="!activeConv" class="h-full flex items-center justify-center text-slate-500 text-xs">
-                        اختر محادثة من القائمة لعرض الرسائل والرد على العميل
-                    </div>
-
-                    <div v-else-if="isLoadingMessages" class="h-full flex items-center justify-center text-slate-500 text-xs">
-                        جاري تحميل الرسائل...
-                    </div>
-
-                    <div v-else-if="messages.length === 0" class="h-full flex items-center justify-center text-slate-500 text-xs">
-                        لا توجد رسائل سابقة. أرسل رسالتك للعميل بالأسفل.
-                    </div>
-
-                    <!-- Message Bubbles -->
-                    <div
-                        v-for="msg in messages"
-                        :key="msg.id"
-                        class="flex flex-col"
-                        :class="msg.sender_type === 'agent' ? 'items-end' : 'items-start'"
-                    >
-                        <span class="text-[10px] text-slate-500 mb-1 px-1">
-                            {{ msg.sender_type === 'agent' ? 'أنت (فريق الدعم)' : (activeConv.contact?.name || 'العميل') }}
-                        </span>
-
+                    <!-- Message Composer Area (Anchored to bottom, always visible) -->
+                    <div class="shrink-0 p-3 sm:p-4 border-t border-slate-800 bg-slate-900/95 backdrop-blur space-y-2.5">
+                        <!-- Quick Replies Pill Bar -->
                         <div
-                            class="max-w-lg rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-sm"
-                            :class="[
-                                msg.sender_type === 'agent'
-                                    ? 'bg-blue-600 text-white rounded-tl-sm'
-                                    : 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tr-sm'
-                            ]"
+                            v-if="quickReplies && quickReplies.length > 0"
+                            class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none"
                         >
-                            <p class="whitespace-pre-wrap">{{ msg.body }}</p>
+                            <span class="text-[11px] font-bold text-slate-400 shrink-0 flex items-center gap-1">
+                                <Zap class="w-3 h-3 text-amber-400" />
+                                <span class="hidden sm:inline">ردود سريعة:</span>
+                            </span>
+                            <button
+                                v-for="qr in quickReplies"
+                                :key="qr.id"
+                                @click="insertQuickReply(qr.body)"
+                                class="cursor-pointer text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/80 whitespace-nowrap transition"
+                            >
+                                {{ qr.title }}
+                            </button>
                         </div>
 
-                        <div class="flex items-center gap-1 text-[10px] text-slate-500 mt-1 px-1">
-                            <span>{{ formatTime(msg.created_at) }}</span>
-                            <CheckCheck v-if="msg.sender_type === 'agent'" class="w-3 h-3 text-blue-400" />
-                        </div>
+                        <!-- Textarea & Send Button -->
+                        <form @submit.prevent="sendMessage" class="flex items-end gap-2 sm:gap-3">
+                            <textarea
+                                v-model="messageText"
+                                @keydown.enter.exact.prevent="sendMessage"
+                                rows="2"
+                                placeholder="اكتب ردك هنا... (اضغط Enter للإرسال)"
+                                class="flex-1 rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none transition"
+                            ></textarea>
+                            <button
+                                type="submit"
+                                :disabled="!messageText.trim() || isSending"
+                                class="cursor-pointer h-10 sm:h-12 px-4 sm:px-6 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 sm:gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
+                            >
+                                <span class="hidden sm:inline">إرسال</span>
+                                <Send class="w-3.5 h-3.5" />
+                            </button>
+                        </form>
                     </div>
-                </div>
-
-                <!-- Message Composer Area (Firmly anchored at bottom, always in view) -->
-                <div
-                    v-if="activeConv"
-                    class="shrink-0 p-4 border-t border-slate-800 bg-slate-900/90 backdrop-blur space-y-3"
-                >
-                    <!-- Quick Replies Pill Bar -->
-                    <div
-                        v-if="quickReplies && quickReplies.length > 0"
-                        class="flex items-center gap-2 overflow-x-auto pb-1"
-                    >
-                        <span class="text-[11px] font-bold text-slate-400 shrink-0 flex items-center gap-1">
-                            <Zap class="w-3 h-3 text-amber-400" />
-                            <span>ردود سريعة:</span>
-                        </span>
-                        <button
-                            v-for="qr in quickReplies"
-                            :key="qr.id"
-                            @click="insertQuickReply(qr.body)"
-                            class="cursor-pointer text-xs px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/80 whitespace-nowrap transition"
-                        >
-                            {{ qr.title }}
-                        </button>
-                    </div>
-
-                    <!-- Textarea & Send Button -->
-                    <form @submit.prevent="sendMessage" class="flex items-end gap-3">
-                        <textarea
-                            v-model="messageText"
-                            @keydown.enter.exact.prevent="sendMessage"
-                            rows="2"
-                            placeholder="اكتب ردك هنا... (اضغط Enter للإرسال، Shift+Enter لسطر جديد)"
-                            class="flex-1 rounded-xl bg-slate-950 border border-slate-800 px-4 py-3 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none transition"
-                        ></textarea>
-                        <button
-                            type="submit"
-                            :disabled="!messageText.trim() || isSending"
-                            class="cursor-pointer h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
-                        >
-                            <span>إرسال</span>
-                            <Send class="w-3.5 h-3.5" />
-                        </button>
-                    </form>
-                </div>
+                </template>
             </div>
 
         </div>

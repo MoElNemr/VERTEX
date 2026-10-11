@@ -5,7 +5,7 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 
 const props = defineProps({
     fullHeight: {
@@ -15,6 +15,11 @@ const props = defineProps({
 });
 
 const showingNavigationDropdown = ref(false);
+
+const switchBusiness = (id) => {
+    showingNavigationDropdown.value = false;
+    router.post(route('businesses.switch', id));
+};
 </script>
 
 <template>
@@ -23,7 +28,7 @@ const showingNavigationDropdown = ref(false);
             <!-- Primary Navigation Menu -->
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="flex h-16 justify-between items-center">
-                    <div class="flex items-center">
+                    <div class="flex items-center gap-3">
                         <!-- Logo -->
                         <div class="flex shrink-0 items-center">
                             <Link :href="route('dashboard')">
@@ -33,7 +38,16 @@ const showingNavigationDropdown = ref(false);
                             </Link>
                         </div>
 
-                        <!-- Navigation Links -->
+                        <!-- Mobile Active Business Pill -->
+                        <div
+                            v-if="$page.props.currentBusiness"
+                            class="sm:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-850 border border-slate-800 text-[11px] font-semibold text-slate-300 max-w-[130px] truncate"
+                        >
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                            <span class="truncate">{{ $page.props.currentBusiness.name }}</span>
+                        </div>
+
+                        <!-- Desktop Navigation Links -->
                         <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                             <NavLink
                                 :href="route('dashboard')"
@@ -57,6 +71,7 @@ const showingNavigationDropdown = ref(false);
                         </div>
                     </div>
 
+                    <!-- Desktop Actions -->
                     <div class="hidden sm:ms-6 sm:flex sm:items-center">
                         <!-- Business Switcher Dropdown -->
                         <div class="relative ms-3" v-if="$page.props.businesses && $page.props.businesses.length > 0">
@@ -144,11 +159,12 @@ const showingNavigationDropdown = ref(false);
                         </div>
                     </div>
 
-                    <!-- Hamburger -->
+                    <!-- Mobile Hamburger Button -->
                     <div class="-me-2 flex items-center sm:hidden">
                         <button
                             @click="showingNavigationDropdown = !showingNavigationDropdown"
-                            class="inline-flex items-center justify-center rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200 focus:outline-none"
+                            class="inline-flex items-center justify-center rounded-xl p-2.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200 focus:outline-none"
+                            aria-label="القائمة الرئيسية"
                         >
                             <svg
                                 class="h-6 w-6"
@@ -182,14 +198,15 @@ const showingNavigationDropdown = ref(false);
                 </div>
             </div>
 
-            <!-- Responsive Navigation Menu -->
+            <!-- Responsive Mobile Navigation Menu -->
             <div
                 :class="{
                     block: showingNavigationDropdown,
                     hidden: !showingNavigationDropdown,
                 }"
-                class="sm:hidden border-b border-slate-800 bg-slate-900"
+                class="sm:hidden border-b border-slate-800 bg-slate-900/98 backdrop-blur max-h-[calc(100vh-4rem)] overflow-y-auto"
             >
+                <!-- Navigation Links -->
                 <div class="space-y-1 pb-3 pt-2">
                     <ResponsiveNavLink
                         :href="route('dashboard')"
@@ -212,10 +229,32 @@ const showingNavigationDropdown = ref(false);
                     </ResponsiveNavLink>
                 </div>
 
-                <!-- Responsive Settings Options -->
-                <div class="border-t border-slate-800 pb-1 pt-4">
-                    <div class="px-4">
-                        <div class="text-base font-semibold text-slate-200">
+                <!-- Business Switcher for Mobile -->
+                <div
+                    v-if="$page.props.businesses && $page.props.businesses.length > 0"
+                    class="border-t border-slate-800 px-4 py-3 bg-slate-950/40"
+                >
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                        المتاجر وبيئات العمل
+                    </span>
+                    <div class="space-y-1 max-h-40 overflow-y-auto divide-y divide-slate-800/40">
+                        <button
+                            v-for="b in $page.props.businesses"
+                            :key="b.id"
+                            @click="switchBusiness(b.id)"
+                            class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-right"
+                            :class="$page.props.currentBusiness?.id === b.id ? 'bg-blue-600 text-white font-bold' : 'text-slate-300 hover:bg-slate-800'"
+                        >
+                            <span>{{ b.name }}</span>
+                            <span v-if="$page.props.currentBusiness?.id === b.id" class="text-xs font-bold">✓</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Responsive User Settings Options -->
+                <div class="border-t border-slate-800 pb-3 pt-4 bg-slate-900">
+                    <div class="px-4 mb-2">
+                        <div class="text-sm font-bold text-slate-200">
                             {{ $page.props.auth.user.name }}
                         </div>
                         <div class="text-xs text-slate-400">
@@ -223,7 +262,7 @@ const showingNavigationDropdown = ref(false);
                         </div>
                     </div>
 
-                    <div class="mt-3 space-y-1">
+                    <div class="space-y-1">
                         <ResponsiveNavLink :href="route('profile.edit')">
                             الملف الشخصي
                         </ResponsiveNavLink>
@@ -231,6 +270,7 @@ const showingNavigationDropdown = ref(false);
                             :href="route('logout')"
                             method="post"
                             as="button"
+                            class="text-rose-400 hover:text-rose-300"
                         >
                             تسجيل الخروج
                         </ResponsiveNavLink>
