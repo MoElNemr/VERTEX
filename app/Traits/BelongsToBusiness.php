@@ -28,4 +28,13 @@ trait BelongsToBusiness
     {
         return $this->belongsTo(Business::class);
     }
+
+    /**
+     * Resolve the route binding for the model without tenant global scope
+     * so controller authorization methods can validate and synchronize tenant context properly.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->withoutGlobalScopes()->where($field ?? $this->getRouteKeyName(), $value)->firstOrFail();
+    }
 }
