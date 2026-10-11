@@ -25,11 +25,16 @@ import {
     MessageSquare,
     Camera,
     ChevronRight,
-    SlidersHorizontal
+    SlidersHorizontal,
+    ArrowLeftRight
 } from 'lucide-vue-next';
 
 const props = defineProps({
     business: Object,
+    otherBusinesses: {
+        type: Array,
+        default: () => [],
+    },
     conversations: Array,
     quickReplies: Array,
     activeConversationId: [String, Number],
@@ -42,6 +47,9 @@ const props = defineProps({
 // State
 const conversationsList = ref([...props.conversations]);
 const activeConv = ref(null);
+const isTransferModalOpen = ref(false);
+const selectedTargetBusinessId = ref('');
+const isTransferring = ref(false);
 const messages = ref([]);
 const messageText = ref('');
 const searchQuery = ref('');
@@ -208,6 +216,37 @@ const assignAgent = async (agentId) => {
         console.error('Failed to assign agent', e);
     } finally {
         isAssigning.value = false;
+    }
+};
+
+const openTransferModal = () => {
+    if (props.otherBusinesses && props.otherBusinesses.length > 0) {
+        selectedTargetBusinessId.value = props.otherBusinesses[0].id;
+        isTransferModalOpen.value = true;
+    }
+};
+
+const submitTransfer = async () => {
+    if (!activeConv.value || !selectedTargetBusinessId.value) return;
+
+    isTransferring.value = true;
+    try {
+        const res = await axios.post(route('inbox.transfer', activeConv.value.id), {
+            target_business_id: selectedTargetBusinessId.value,
+        });
+
+        if (res.data?.status === 'success') {
+            const convId = activeConv.value.id;
+            conversationsList.value = conversationsList.value.filter(c => c.id !== convId);
+            activeConv.value = null;
+            messages.value = [];
+            isTransferModalOpen.value = false;
+        }
+    } catch (e) {
+        console.error('Failed to transfer conversation', e);
+        alert(e.response?.data?.message || 'حدث خطأ أثناء تحويل المحادثة.');
+    } finally {
+        isTransferring.value = false;
     }
 };
 
@@ -623,6 +662,17 @@ onMounted(() => {
                                 <span>المسند: {{ activeConv.assigned_agent.name }}</span>
                             </div>
 
+                            <!-- Transfer button -->
+                            <button
+                                v-if="otherBusinesses && otherBusinesses.length > 0"
+                                @click="openTransferModal"
+                                class="cursor-pointer px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 transition flex items-center gap-1.5"
+                                title="تحويل المحادثة لمتجر آخر"
+                            >
+                                <ArrowLeftRight class="w-3.5 h-3.5 text-indigo-400" />
+                                <span class="hidden sm:inline">تحويل المتجر</span>
+                            </button>
+
                             <button
                                 v-if="activeConv.status === 'open'"
                                 @click="updateStatus('closed')"
@@ -728,7 +778,71 @@ onMounted(() => {
                     </div>
                 </template>
             </div>
-
         </div>
+
+        <!-- Transfer Conversation Modal -->
+        <transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div
+                v-if="isTransferModalOpen"
+                class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                @click.self="isTransferModalOpen = false"
+            >
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <ArrowLeftRight class="w-5 h-5 text-indigo-400" />
+                            <h3 class="text-sm font-bold text-white">تحويل المحادثة إلى متجر آخر</h3>
+                        </div>
+                        <button
+                            @click="isTransferModalOpen = false"
+                            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                        >
+                            <X class="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        اختر المتجر الذي ترغب في تحويل هذه المحادثة إليه. ستنتقل المحادثة بجميع رسائلها وسجلاتها إلى المتجر المحدد فوراً:
+                    </p>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold text-slate-300 block">المتجر الوجهة:</label>
+                        <select
+                            v-model="selectedTargetBusinessId"
+                            class="w-full bg-slate-950 border border-slate-750 text-slate-100 text-xs rounded-xl p-3 focus:border-indigo-500 focus:outline-none cursor-pointer"
+                        >
+                            <option v-for="ob in otherBusinesses" :key="ob.id" :value="ob.id">
+                                {{ ob.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+                        <button
+                            type="button"
+                            @click="isTransferModalOpen = false"
+                            class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                        >
+                            إلغاء
+                        </button>
+                        <button
+                            type="button"
+                            @click="submitTransfer"
+                            :disabled="isTransferring"
+                            class="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <span>{{ isTransferring ? 'جاري التحويل...' : 'تأكيد التحويل' }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
     </AuthenticatedLayout>
 </template>

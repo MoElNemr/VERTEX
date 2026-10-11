@@ -44,6 +44,7 @@ Route::middleware('auth:web,team')->group(function () {
     Route::post('/inbox/{conversation}/messages', [\App\Http\Controllers\InboxController::class, 'sendMessage'])->name('inbox.send');
     Route::patch('/inbox/{conversation}/status', [\App\Http\Controllers\InboxController::class, 'updateStatus'])->name('inbox.status');
     Route::patch('/inbox/{conversation}/assign', [\App\Http\Controllers\InboxController::class, 'assignAgent'])->name('inbox.assign');
+    Route::post('/inbox/{conversation}/transfer', [\App\Http\Controllers\InboxController::class, 'transfer'])->name('inbox.transfer');
 
     // Team Management
     Route::get('/team', [\App\Http\Controllers\TeamMemberController::class, 'index'])->name('team.index');

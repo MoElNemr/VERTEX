@@ -140,7 +140,8 @@ class WhatsAppChannelService implements ChannelServiceInterface
     }
 
     /**
-     * Handle incoming WhatsApp message received via Baileys.
+     * Handle incoming/outgoing WhatsApp messages received via Baileys.
+     * Supports multi-store synchronization for merchants sharing the same phone number.
      */
     protected function handleIncomingMessage(Business $business, array $data): array
     {
@@ -148,6 +149,8 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $text = $data['text'] ?? '[رسالة وسائط]';
         $messageId = (string) ($data['message_id'] ?? ('WA_' . uniqid()));
         $pushName = $data['push_name'] ?? null;
+        $isFromMe = !empty($data['is_from_me']);
+        $accountPhoneNumber = $data['account_phone_number'] ?? $business->whatsappAccount?->phone_number;
 
         if (!$fromJid) {
             return ['status' => 'ignored', 'error' => 'No sender JID.'];
@@ -157,56 +160,107 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $phone = explode('@', $fromJid)[0];
         $name = $pushName ?: ('عميل واتساب +' . $phone);
 
-        // 1. Find or create Contact
-        $contact = Contact::withoutGlobalScopes()->firstOrCreate([
-            'business_id' => $business->id,
-            'platform' => 'whatsapp',
-            'platform_sender_id' => $phone,
-        ], [
-            'name' => $name,
-            'phone' => $phone,
-        ]);
+        // Find all businesses sharing this WhatsApp phone number to prevent confusion and sync history
+        $businessIds = [$business->id];
+        if (!empty($accountPhoneNumber)) {
+            $cleanAccountPhone = preg_replace('/[^0-9]/', '', (string) $accountPhoneNumber);
+            $sharedBusinessIds = WhatsappAccount::withoutGlobalScopes()
+                ->where('status', 'connected')
+                ->where(function ($q) use ($accountPhoneNumber, $cleanAccountPhone) {
+                    $q->where('phone_number', $accountPhoneNumber)
+                      ->orWhereRaw("REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = ?", [$cleanAccountPhone]);
+                })
+                ->pluck('business_id')
+                ->toArray();
 
-        // 2. Find or create Conversation
-        $conversation = Conversation::withoutGlobalScopes()->firstOrCreate([
-            'business_id' => $business->id,
-            'contact_id' => $contact->id,
-            'platform' => 'whatsapp',
-        ], [
-            'status' => 'open',
-            'unread_count' => 0,
-            'last_message_at' => now(),
-        ]);
+            $businessIds = array_values(array_unique(array_merge($businessIds, $sharedBusinessIds)));
+        }
 
-        // 3. Create incoming customer Message
-        $message = Message::create([
-            'conversation_id' => $conversation->id,
-            'sender_type' => 'contact',
-            'platform_message_id' => $messageId,
-            'type' => 'text',
-            'body' => $text,
-            'status' => 'delivered',
-            'metadata' => [
-                'raw_payload' => $data,
-            ],
-        ]);
+        $primaryConversationId = null;
+        $primaryMessageId = null;
 
-        // 4. Update Conversation stats
-        $conversation->increment('unread_count');
-        $conversation->update([
-            'status' => 'open',
-            'last_message_at' => now(),
-        ]);
+        foreach ($businessIds as $bizId) {
+            $biz = ($bizId === $business->id) ? $business : Business::find($bizId);
+            if (!$biz) continue;
 
-        // 5. Trigger Realtime event if exists
-        if (class_exists(\App\Events\MessageReceived::class)) {
-            event(new \App\Events\MessageReceived($message));
+            // 1. Find or create Contact in this business
+            $contact = Contact::withoutGlobalScopes()->firstOrCreate([
+                'business_id' => $biz->id,
+                'platform' => 'whatsapp',
+                'platform_sender_id' => $phone,
+            ], [
+                'name' => $name,
+                'phone' => $phone,
+            ]);
+
+            // 2. Find or create Conversation in this business
+            $conversation = Conversation::withoutGlobalScopes()->firstOrCreate([
+                'business_id' => $biz->id,
+                'contact_id' => $contact->id,
+                'platform' => 'whatsapp',
+            ], [
+                'status' => 'open',
+                'unread_count' => 0,
+                'last_message_at' => now(),
+            ]);
+
+            // 3. Deduplication check: check if message already exists
+            $existingMessage = Message::where('conversation_id', $conversation->id)
+                ->where(function ($q) use ($messageId, $text) {
+                    $q->where('platform_message_id', $messageId)
+                      ->orWhere(function ($sub) use ($text) {
+                          $sub->where('body', $text)
+                              ->where('created_at', '>=', now()->subSeconds(30));
+                      });
+                })
+                ->first();
+
+            if (!$existingMessage) {
+                $senderType = $isFromMe ? 'agent' : 'contact';
+
+                $message = Message::create([
+                    'conversation_id' => $conversation->id,
+                    'sender_type' => $senderType,
+                    'platform_message_id' => $messageId,
+                    'type' => 'text',
+                    'body' => $text,
+                    'status' => 'delivered',
+                    'metadata' => [
+                        'raw_payload' => $data,
+                        'is_from_me' => $isFromMe,
+                    ],
+                ]);
+
+                // 4. Update Conversation stats
+                if (!$isFromMe) {
+                    $conversation->increment('unread_count');
+                }
+                $conversation->update([
+                    'last_message_at' => now(),
+                ]);
+
+                if ($bizId === $business->id) {
+                    $primaryConversationId = $conversation->id;
+                    $primaryMessageId = $message->id;
+                }
+
+                // 5. Trigger Realtime event if exists
+                if (class_exists(\App\Events\MessageReceived::class)) {
+                    event(new \App\Events\MessageReceived($message));
+                }
+            } else {
+                if ($bizId === $business->id) {
+                    $primaryConversationId = $conversation->id;
+                    $primaryMessageId = $existingMessage->id;
+                }
+            }
         }
 
         return [
             'status' => 'success',
-            'conversation_id' => $conversation->id,
-            'message_id' => $message->id,
+            'conversation_id' => $primaryConversationId,
+            'message_id' => $primaryMessageId,
+            'synced_businesses' => $businessIds,
         ];
     }
 

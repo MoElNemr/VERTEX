@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\QuickReply;
@@ -71,8 +72,15 @@ class InboxController extends Controller
         // جلب الردود السريعة الخاصة بالبيزنس
         $quickReplies = QuickReply::where('business_id', $business->id)->get();
 
+        // جلب المتاجر الأخرى التابعة لنفس التاجر للتمكن من تحويل المحادثات بينها
+        $otherBusinesses = Business::where('user_id', $business->user_id)
+            ->where('id', '!=', $business->id)
+            ->select(['id', 'name'])
+            ->get();
+
         return Inertia::render('Inbox/Index', [
             'business' => $business->only(['id', 'name']),
+            'otherBusinesses' => $otherBusinesses,
             'conversations' => $conversations,
             'teamMembers' => $teamMembers,
             'quickReplies' => $quickReplies,
@@ -201,6 +209,77 @@ class InboxController extends Controller
         return response()->json([
             'status' => 'success',
             'conversation' => $conversation->load(['contact', 'assignedAgent:id,name,role']),
+        ]);
+    }
+
+    /**
+     * Transfer conversation to another business owned by the same merchant.
+     */
+    public function transfer(Request $request, Conversation $conversation): JsonResponse
+    {
+        $this->authorizeConversation($request, $conversation);
+
+        $validated = $request->validate([
+            'target_business_id' => ['required', 'integer', 'exists:businesses,id'],
+        ]);
+
+        $targetBusiness = Business::findOrFail($validated['target_business_id']);
+        $currentBusiness = Business::findOrFail(session('current_business_id'));
+
+        // Ensure the target business belongs to the same owner
+        if ($targetBusiness->user_id !== $currentBusiness->user_id) {
+            abort(403, 'غير مصرح بتحويل المحادثة لمتجر غير تابع لك.');
+        }
+
+        // 1. Find or create Contact in target business
+        $contact = $conversation->contact;
+        $targetContact = Contact::withoutGlobalScopes()->firstOrCreate([
+            'business_id' => $targetBusiness->id,
+            'platform' => $conversation->platform,
+            'platform_sender_id' => $contact->platform_sender_id,
+        ], [
+            'name' => $contact->name,
+            'phone' => $contact->phone,
+            'email' => $contact->email,
+            'avatar' => $contact->avatar,
+        ]);
+
+        // 2. Check if target business already has a conversation for this contact
+        $existingTargetConversation = Conversation::withoutGlobalScopes()
+            ->where('business_id', $targetBusiness->id)
+            ->where('contact_id', $targetContact->id)
+            ->where('platform', $conversation->platform)
+            ->first();
+
+        if ($existingTargetConversation) {
+            $existingTargetConversation->update([
+                'status' => 'open',
+                'last_message_at' => now(),
+            ]);
+
+            $conversation->update([
+                'status' => 'closed',
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم نقل وتفعيل المحادثة في متجر ' . $targetBusiness->name . ' بنجاح.',
+                'target_conversation_id' => $existingTargetConversation->id,
+            ]);
+        }
+
+        // 3. Move the current conversation if not already in target business
+        $conversation->update([
+            'business_id' => $targetBusiness->id,
+            'contact_id' => $targetContact->id,
+            'assigned_to' => null,
+            'status' => 'open',
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'تم تحويل المحادثة إلى متجر ' . $targetBusiness->name . ' بنجاح.',
+            'target_conversation_id' => $conversation->id,
         ]);
     }
 }
