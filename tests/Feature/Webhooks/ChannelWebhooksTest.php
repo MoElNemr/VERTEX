@@ -78,7 +78,7 @@ class ChannelWebhooksTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('messages', [
-            'sender_type' => 'customer',
+            'sender_type' => 'contact',
             'body' => 'مرحباً، هل يتوفر شحن للإسكندرية؟',
             'platform_message_id' => '456',
         ]);
@@ -140,7 +140,7 @@ class ChannelWebhooksTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('messages', [
-            'sender_type' => 'customer',
+            'sender_type' => 'contact',
             'body' => 'تفاصيل العرض لو سمحت',
             'platform_message_id' => 'mid.fb_message_777',
         ]);
@@ -187,7 +187,7 @@ class ChannelWebhooksTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('messages', [
-            'sender_type' => 'customer',
+            'sender_type' => 'contact',
             'body' => 'المنتج متوفر بالمقاس ده؟',
             'platform_message_id' => 'mid.ig_message_999',
         ]);
@@ -210,7 +210,7 @@ class ChannelWebhooksTest extends TestCase
 
         $this->assertDatabaseHas('whatsapp_accounts', [
             'business_id' => $this->business->id,
-            'status' => 'qr',
+            'status' => 'connecting',
             'qr_code' => '2@mock_qr_string_data',
         ]);
 
@@ -236,7 +236,7 @@ class ChannelWebhooksTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('messages', [
-            'sender_type' => 'customer',
+            'sender_type' => 'contact',
             'body' => 'عاوز أطلب أوردر جديد',
             'platform_message_id' => 'BAE5_MSG_12345',
         ]);

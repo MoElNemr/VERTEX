@@ -144,7 +144,7 @@ class TelegramChannelService implements ChannelServiceInterface
         // 3. Create incoming customer Message
         $message = Message::create([
             'conversation_id' => $conversation->id,
-            'sender_type' => 'customer',
+            'sender_type' => 'contact',
             'platform_message_id' => $telegramMsgId,
             'type' => 'text',
             'body' => $text,

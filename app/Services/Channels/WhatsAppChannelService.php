@@ -117,6 +117,9 @@ class WhatsAppChannelService implements ChannelServiceInterface
     protected function handleConnectionUpdate(Business $business, array $data): array
     {
         $status = $data['status'] ?? 'disconnected';
+        if ($status === 'qr') {
+            $status = 'connecting';
+        }
         $qrCode = $data['qr_code'] ?? null;
         $phoneNumber = $data['phone_number'] ?? null;
 
@@ -178,7 +181,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         // 3. Create incoming customer Message
         $message = Message::create([
             'conversation_id' => $conversation->id,
-            'sender_type' => 'customer',
+            'sender_type' => 'contact',
             'platform_message_id' => $messageId,
             'type' => 'text',
             'body' => $text,
