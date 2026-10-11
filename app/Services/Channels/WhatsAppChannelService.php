@@ -37,21 +37,21 @@ class WhatsAppChannelService implements ChannelServiceInterface
             ];
         }
 
-        $recipient = $conversation->contact?->phone ?: $conversation->contact?->platform_sender_id;
+        $recipient = $conversation->contact?->platform_sender_id ?: $conversation->contact?->phone;
 
         if (!$recipient) {
             return [
                 'status' => 'failed',
-                'error' => 'No phone number found for WhatsApp contact.',
+                'error' => 'No recipient found for WhatsApp contact.',
             ];
         }
 
-        // Clean recipient number to digits only
-        $cleanPhone = preg_replace('/[^0-9]/', '', $recipient);
+        // Support full JID (@lid, @s.whatsapp.net) or raw phone number
+        $targetTo = str_contains($recipient, '@') ? trim($recipient) : preg_replace('/[^0-9]/', '', $recipient);
 
         try {
-            $response = Http::timeout(5)->post("{$this->serviceUrl}/api/sessions/{$account->session_id}/messages", [
-                'to' => $cleanPhone,
+            $response = Http::timeout(8)->post("{$this->serviceUrl}/api/sessions/{$account->session_id}/messages", [
+                'to' => $targetTo,
                 'text' => $message->body,
             ]);
 
@@ -183,15 +183,31 @@ class WhatsAppChannelService implements ChannelServiceInterface
             $biz = ($bizId === $business->id) ? $business : Business::find($bizId);
             if (!$biz) continue;
 
-            // 1. Find or create Contact in this business
-            $contact = Contact::withoutGlobalScopes()->firstOrCreate([
-                'business_id' => $biz->id,
-                'platform' => 'whatsapp',
-                'platform_sender_id' => $phone,
-            ], [
-                'name' => $name,
-                'phone' => $phone,
-            ]);
+            // 1. Find or create Contact in this business preserving full JID
+            $contact = Contact::withoutGlobalScopes()->where('business_id', $biz->id)
+                ->where('platform', 'whatsapp')
+                ->where(function ($q) use ($fromJid, $phone) {
+                    $q->where('platform_sender_id', $fromJid)
+                      ->orWhere('platform_sender_id', $phone)
+                      ->orWhere('phone', $phone);
+                })
+                ->first();
+
+            if ($contact) {
+                $contact->update([
+                    'platform_sender_id' => $fromJid,
+                    'name' => $name,
+                    'phone' => $phone,
+                ]);
+            } else {
+                $contact = Contact::withoutGlobalScopes()->create([
+                    'business_id' => $biz->id,
+                    'platform' => 'whatsapp',
+                    'platform_sender_id' => $fromJid,
+                    'name' => $name,
+                    'phone' => $phone,
+                ]);
+            }
 
             // 2. Find or create Conversation in this business
             $conversation = Conversation::withoutGlobalScopes()->firstOrCreate([
