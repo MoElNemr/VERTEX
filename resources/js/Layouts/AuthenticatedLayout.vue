@@ -23,8 +23,11 @@ const switchBusiness = (id) => {
 </script>
 
 <template>
-    <div class="h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
-        <nav class="shrink-0 h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur z-30">
+    <div
+        class="flex flex-col bg-slate-950 text-slate-100"
+        :class="fullHeight ? 'h-full overflow-hidden' : 'min-h-screen'"
+    >
+        <nav class="shrink-0 h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur z-30 sticky top-0">
             <!-- Primary Navigation Menu -->
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="flex h-16 justify-between items-center">
@@ -328,8 +331,8 @@ const switchBusiness = (id) => {
 
         <!-- Page Content -->
         <main
-            class="flex-1 min-h-0 flex flex-col"
-            :class="fullHeight ? 'overflow-hidden' : 'overflow-y-auto'"
+            class="flex-1 flex flex-col"
+            :class="fullHeight ? 'min-h-0 overflow-hidden' : ''"
         >
             <slot />
         </main>

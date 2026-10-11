@@ -26,7 +26,8 @@ import {
     AlertCircle,
     Building2,
     Power,
-    Check
+    Check,
+    X
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -60,7 +61,6 @@ const openCreateModal = () => {
     form.clearErrors();
     form.role = 'agent';
     form.is_active = true;
-    // افتراضياً تحديد جميع المتاجر إذا كان متجراً واحداً أو تركه فارغاً ليختار
     form.business_ids = props.businesses.length === 1 ? [props.businesses[0].id] : [];
     showModal.value = true;
 };
@@ -73,7 +73,7 @@ const openEditModal = (member) => {
     form.email = member.email;
     form.password = '';
     form.role = member.role;
-    form.is_active = member.is_active;
+    form.is_active = Boolean(member.is_active);
     form.business_ids = member.businesses ? member.businesses.map(b => b.id) : [];
     showModal.value = true;
 };
@@ -97,12 +97,12 @@ const submitForm = () => {
 };
 
 const toggleMemberStatus = (member) => {
-    router.patch(route('team.toggle-status', member.id));
+    router.patch(route('team.toggle-status', member.id), {}, { preserveScroll: true });
 };
 
 const deleteMember = (member) => {
     if (confirm(`هل أنت متأكد من حذف حساب "${member.name}" من فريق العمل؟`)) {
-        router.delete(route('team.destroy', member.id));
+        router.delete(route('team.destroy', member.id), { preserveScroll: true });
     }
 };
 
@@ -123,6 +123,11 @@ const toggleBusiness = (businessId) => {
     }
 };
 
+const setRoleFilter = (role) => {
+    roleFilter.value = role;
+    applyFilters();
+};
+
 const applyFilters = () => {
     router.get(
         route('team.index'),
@@ -131,8 +136,13 @@ const applyFilters = () => {
             role: roleFilter.value || undefined,
             business_id: businessFilter.value || undefined,
         },
-        { preserveState: true, replace: true }
+        { preserveState: true, preserveScroll: true, replace: true }
     );
+};
+
+const clearSearch = () => {
+    searchQuery.value = '';
+    applyFilters();
 };
 
 const getRoleBadge = (role) => {
@@ -140,21 +150,21 @@ const getRoleBadge = (role) => {
         case 'admin':
             return {
                 label: 'مسؤول',
-                class: 'bg-purple-950/70 text-purple-300 border-purple-800/80',
+                class: 'bg-purple-950/80 text-purple-300 border-purple-800/80',
                 icon: ShieldCheck,
                 color: 'text-purple-400',
             };
         case 'supervisor':
             return {
                 label: 'مشرف',
-                class: 'bg-amber-950/70 text-amber-300 border-amber-800/80',
+                class: 'bg-amber-950/80 text-amber-300 border-amber-800/80',
                 icon: Shield,
                 color: 'text-amber-400',
             };
         default:
             return {
                 label: 'وكيل دعم',
-                class: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/80',
+                class: 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80',
                 icon: Headphones,
                 color: 'text-emerald-400',
             };
@@ -167,30 +177,31 @@ const getRoleBadge = (role) => {
 
     <AuthenticatedLayout>
         <!-- Top Hero Section -->
-        <div class="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md" dir="rtl">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
-                    <div>
-                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-950/60 text-blue-300 border border-blue-800/60 mb-2.5">
+        <div class="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title & Subtitle -->
+                    <div class="space-y-1.5">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-950/70 text-blue-300 border border-blue-800/60">
                             <Sparkles class="w-3.5 h-3.5 text-blue-400" />
-                            <span>المرحلة 4: إدارة الفريق والصلاحيات</span>
+                            <span>فريق العمل والصلاحيات</span>
                         </div>
                         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
                             <span>فريق العمل والوكلاء</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-mono">
+                            <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono border border-slate-700">
                                 {{ stats.total }} أعضاء
                             </span>
                         </h1>
-                        <p class="mt-1 text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-                            أضف أعضاء الفريق ووكلاء الدعم وحدد أدوارهم والمتاجر المصرح لهم برؤيتها مع عزل كامل للبيانات والمحادثات.
+                        <p class="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
+                            أضف أعضاء الفريق ووكلاء الدعم وحدد أدوارهم والمتاجر المخصصة لهم مع عزل تام للبيانات.
                         </p>
                     </div>
 
-                    <!-- Action Button -->
-                    <div class="flex items-center gap-3">
+                    <!-- Add Member Action -->
+                    <div class="flex items-center">
                         <button
                             @click="openCreateModal"
-                            class="cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-blue-600/20 transition w-full sm:w-auto"
+                            class="cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-blue-600/25 transition w-full sm:w-auto"
                         >
                             <UserPlus class="w-4 h-4" />
                             <span>إضافة عضو جديد</span>
@@ -198,45 +209,65 @@ const getRoleBadge = (role) => {
                     </div>
                 </div>
 
-                <!-- Stats Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6">
-                    <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between">
-                        <div>
+                <!-- KPI Stats Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
+                    <!-- All -->
+                    <div
+                        @click="setRoleFilter('')"
+                        class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between cursor-pointer transition hover:border-slate-700"
+                        :class="roleFilter === '' ? 'ring-1 ring-blue-500/50 border-blue-500/50' : ''"
+                    >
+                        <div class="space-y-0.5">
                             <span class="block text-[11px] font-semibold text-slate-400">إجمالي الفريق</span>
                             <span class="text-xl sm:text-2xl font-black text-white">{{ stats.total }}</span>
                         </div>
-                        <div class="p-2.5 rounded-xl bg-blue-950/60 text-blue-400 border border-blue-800/40">
-                            <Users class="w-5 h-5" />
+                        <div class="p-2 sm:p-2.5 rounded-xl bg-blue-950/60 text-blue-400 border border-blue-800/40 shrink-0">
+                            <Users class="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                     </div>
 
-                    <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between">
-                        <div>
+                    <!-- Admins -->
+                    <div
+                        @click="setRoleFilter('admin')"
+                        class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between cursor-pointer transition hover:border-slate-700"
+                        :class="roleFilter === 'admin' ? 'ring-1 ring-purple-500/50 border-purple-500/50' : ''"
+                    >
+                        <div class="space-y-0.5">
                             <span class="block text-[11px] font-semibold text-purple-300">المسؤولين</span>
                             <span class="text-xl sm:text-2xl font-black text-white">{{ stats.admins }}</span>
                         </div>
-                        <div class="p-2.5 rounded-xl bg-purple-950/60 text-purple-400 border border-purple-800/40">
-                            <ShieldCheck class="w-5 h-5" />
+                        <div class="p-2 sm:p-2.5 rounded-xl bg-purple-950/60 text-purple-400 border border-purple-800/40 shrink-0">
+                            <ShieldCheck class="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                     </div>
 
-                    <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between">
-                        <div>
+                    <!-- Supervisors -->
+                    <div
+                        @click="setRoleFilter('supervisor')"
+                        class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between cursor-pointer transition hover:border-slate-700"
+                        :class="roleFilter === 'supervisor' ? 'ring-1 ring-amber-500/50 border-amber-500/50' : ''"
+                    >
+                        <div class="space-y-0.5">
                             <span class="block text-[11px] font-semibold text-amber-300">المشرفين</span>
                             <span class="text-xl sm:text-2xl font-black text-white">{{ stats.supervisors }}</span>
                         </div>
-                        <div class="p-2.5 rounded-xl bg-amber-950/60 text-amber-400 border border-amber-800/40">
-                            <Shield class="w-5 h-5" />
+                        <div class="p-2 sm:p-2.5 rounded-xl bg-amber-950/60 text-amber-400 border border-amber-800/40 shrink-0">
+                            <Shield class="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                     </div>
 
-                    <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between">
-                        <div>
+                    <!-- Agents -->
+                    <div
+                        @click="setRoleFilter('agent')"
+                        class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between cursor-pointer transition hover:border-slate-700"
+                        :class="roleFilter === 'agent' ? 'ring-1 ring-emerald-500/50 border-emerald-500/50' : ''"
+                    >
+                        <div class="space-y-0.5">
                             <span class="block text-[11px] font-semibold text-emerald-300">وكلاء الدعم</span>
                             <span class="text-xl sm:text-2xl font-black text-white">{{ stats.agents }}</span>
                         </div>
-                        <div class="p-2.5 rounded-xl bg-emerald-950/60 text-emerald-400 border border-emerald-800/40">
-                            <Headphones class="w-5 h-5" />
+                        <div class="p-2 sm:p-2.5 rounded-xl bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 shrink-0">
+                            <Headphones class="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                     </div>
                 </div>
@@ -244,44 +275,82 @@ const getRoleBadge = (role) => {
         </div>
 
         <!-- Main Content Area -->
-        <div class="py-6 sm:py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6" dir="rtl">
-            <!-- Search & Filter Bar -->
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/80 p-3 sm:p-4 rounded-2xl border border-slate-800">
-                <div class="relative flex-1">
-                    <Search class="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                        type="text"
-                        v-model="searchQuery"
-                        @input="applyFilters"
-                        placeholder="ابحث بالاسم أو البريد الإلكتروني..."
-                        class="w-full pr-10 pl-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                    />
+        <div class="py-5 sm:py-7 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5 sm:space-y-6 w-full">
+            <!-- Search & Filters Bar (Mobile-Optimized) -->
+            <div class="bg-slate-900/90 p-3 sm:p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <!-- Search Input -->
+                    <div class="relative flex-1">
+                        <Search class="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                            type="text"
+                            v-model="searchQuery"
+                            @input="applyFilters"
+                            placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+                            class="w-full pr-10 pl-9 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                        <button
+                            v-if="searchQuery"
+                            @click="clearSearch"
+                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                        >
+                            <X class="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+
+                    <!-- Store Dropdown Filter -->
+                    <div class="flex items-center gap-2">
+                        <select
+                            v-model="businessFilter"
+                            @change="applyFilters"
+                            class="w-full sm:w-auto bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2.5 focus:border-blue-500 focus:outline-none cursor-pointer"
+                        >
+                            <option value="">جميع المتاجر</option>
+                            <option v-for="b in businesses" :key="b.id" :value="b.id">
+                                {{ b.name }}
+                            </option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <!-- Role Filter -->
-                    <select
-                        v-model="roleFilter"
-                        @change="applyFilters"
-                        class="bg-slate-950/80 border border-slate-800 text-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2 focus:border-blue-500 focus:outline-none cursor-pointer"
+                <!-- Role Filter Quick Pills (One-touch filter for Mobile & Desktop) -->
+                <div class="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 text-xs">
+                    <button
+                        @click="setRoleFilter('')"
+                        class="px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer shrink-0 border"
+                        :class="roleFilter === ''
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'"
                     >
-                        <option value="">جميع الأدوار</option>
-                        <option value="admin">مسؤول</option>
-                        <option value="supervisor">مشرف</option>
-                        <option value="agent">وكيل دعم</option>
-                    </select>
-
-                    <!-- Business Filter -->
-                    <select
-                        v-model="businessFilter"
-                        @change="applyFilters"
-                        class="bg-slate-950/80 border border-slate-800 text-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2 focus:border-blue-500 focus:outline-none cursor-pointer"
+                        الكل ({{ stats.total }})
+                    </button>
+                    <button
+                        @click="setRoleFilter('admin')"
+                        class="px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer shrink-0 border"
+                        :class="roleFilter === 'admin'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-purple-300'"
                     >
-                        <option value="">جميع المتاجر</option>
-                        <option v-for="b in businesses" :key="b.id" :value="b.id">
-                            {{ b.name }}
-                        </option>
-                    </select>
+                        مسؤول ({{ stats.admins }})
+                    </button>
+                    <button
+                        @click="setRoleFilter('supervisor')"
+                        class="px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer shrink-0 border"
+                        :class="roleFilter === 'supervisor'
+                            ? 'bg-amber-600 text-white border-amber-500 shadow-sm'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-amber-300'"
+                    >
+                        مشرف ({{ stats.supervisors }})
+                    </button>
+                    <button
+                        @click="setRoleFilter('agent')"
+                        class="px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer shrink-0 border"
+                        :class="roleFilter === 'agent'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-emerald-300'"
+                    >
+                        وكيل دعم ({{ stats.agents }})
+                    </button>
                 </div>
             </div>
 
@@ -293,100 +362,109 @@ const getRoleBadge = (role) => {
                 <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-blue-950/50 border border-blue-800/50 flex items-center justify-center text-blue-400">
                     <Users class="w-7 h-7" />
                 </div>
-                <h3 class="text-base sm:text-lg font-bold text-white mb-1">لا يوجد أعضاء مطابقين للبحث</h3>
+                <h3 class="text-base sm:text-lg font-bold text-white mb-1">لا يوجد أعضاء مطابقين</h3>
                 <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto mb-6">
-                    لم يتم العثور على أعضاء مسجلين بهذه المعايير. يمكنك إضافة عضو جديد الآن لبدء توزيع المهام.
+                    لم نجد أعضاء فريق يطابقون خيارات البحث أو التصفية الحالية.
                 </p>
                 <button
                     @click="openCreateModal"
-                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer"
                 >
                     <UserPlus class="w-4 h-4" />
                     <span>إضافة عضو جديد</span>
                 </button>
             </div>
 
-            <!-- Members Grid -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Responsive Members Grid Cards -->
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 <div
                     v-for="member in members"
                     :key="member.id"
-                    class="bg-slate-900/90 border rounded-2xl p-5 flex flex-col justify-between transition hover:border-slate-700 shadow-md relative"
-                    :class="member.is_active ? 'border-slate-800' : 'border-rose-950/60 bg-slate-925/60 opacity-80'"
+                    class="bg-slate-900/90 border rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition hover:border-slate-700 shadow-md relative"
+                    :class="member.is_active ? 'border-slate-800' : 'border-rose-950/70 bg-slate-925/60 opacity-80'"
                 >
-                    <div>
-                        <!-- Top Row: Role & Status -->
-                        <div class="flex items-center justify-between mb-3.5">
+                    <div class="space-y-4">
+                        <!-- Top Header: Role badge & Status Pill -->
+                        <div class="flex items-center justify-between gap-2">
+                            <!-- Role Badge -->
                             <span
-                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border shadow-xs"
                                 :class="getRoleBadge(member.role).class"
                             >
                                 <component :is="getRoleBadge(member.role).icon" class="w-3.5 h-3.5" />
                                 <span>{{ getRoleBadge(member.role).label }}</span>
                             </span>
 
+                            <!-- Status Toggle -->
                             <button
                                 @click="toggleMemberStatus(member)"
-                                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border transition cursor-pointer"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer"
                                 :class="member.is_active
-                                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60 hover:bg-rose-950/40 hover:text-rose-400'
-                                    : 'bg-rose-950/60 text-rose-400 border-rose-800/60 hover:bg-emerald-950/40 hover:text-emerald-400'"
-                                :title="member.is_active ? 'انقر للتعطيل' : 'انقر للتفعيل'"
+                                    ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60 hover:bg-rose-950/40 hover:text-rose-300'
+                                    : 'bg-rose-950/60 text-rose-300 border-rose-800/60 hover:bg-emerald-950/40 hover:text-emerald-300'"
+                                :title="member.is_active ? 'انقر لتعطيل الحساب' : 'انقر لتفعيل الحساب'"
                             >
-                                <span class="w-1.5 h-1.5 rounded-full" :class="member.is_active ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+                                <span class="w-2 h-2 rounded-full" :class="member.is_active ? 'bg-emerald-400' : 'bg-rose-400'"></span>
                                 <span>{{ member.is_active ? 'نشط' : 'معطل' }}</span>
                             </button>
                         </div>
 
-                        <!-- Member Info -->
-                        <div class="flex items-start gap-3 mb-4">
-                            <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center text-white font-bold text-sm shrink-0 uppercase shadow">
+                        <!-- Member Info Block -->
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-750 border border-slate-700 flex items-center justify-center text-white font-black text-sm shrink-0 uppercase shadow-md shadow-slate-950">
                                 {{ member.name.charAt(0) }}
                             </div>
                             <div class="min-w-0 flex-1">
                                 <h3 class="text-sm font-bold text-white truncate">{{ member.name }}</h3>
-                                <p class="text-xs text-slate-400 truncate dir-ltr text-right">{{ member.email }}</p>
+                                <p class="text-xs text-slate-400 truncate dir-ltr text-right font-mono">{{ member.email }}</p>
                             </div>
                         </div>
 
-                        <!-- Assigned Businesses -->
+                        <!-- Assigned Stores Block -->
                         <div class="pt-3 border-t border-slate-800/80">
-                            <span class="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
-                                <Store class="w-3.5 h-3.5 text-blue-400" />
-                                <span>المتاجر المخصصة ({{ member.businesses ? member.businesses.length : 0 }}):</span>
-                            </span>
-                            <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-2">
+                                <span class="flex items-center gap-1.5">
+                                    <Store class="w-3.5 h-3.5 text-blue-400" />
+                                    <span>المتاجر المخصصة:</span>
+                                </span>
+                                <span class="font-mono text-slate-300">
+                                    {{ member.businesses ? member.businesses.length : 0 }} متجر
+                                </span>
+                            </div>
+
+                            <div class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                                 <span
                                     v-for="b in member.businesses"
                                     :key="b.id"
-                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800/90 text-[11px] text-slate-300 border border-slate-700/60"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800/90 text-[11px] font-medium text-slate-200 border border-slate-700/60"
                                 >
-                                    <Building2 class="w-3 h-3 text-slate-400" />
-                                    <span class="truncate max-w-[120px]">{{ b.name }}</span>
+                                    <Building2 class="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span class="truncate max-w-[140px]">{{ b.name }}</span>
                                 </span>
                                 <span
                                     v-if="!member.businesses || member.businesses.length === 0"
-                                    class="text-[11px] text-rose-400 italic"
+                                    class="text-[11px] text-rose-400 italic py-0.5"
                                 >
-                                    غير مربوط بأي متجر
+                                    غير مخصص لأي متجر
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Bottom Actions -->
-                    <div class="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                    <!-- Bottom Actions Row -->
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
                         <button
                             @click="openEditModal(member)"
-                            class="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition cursor-pointer p-1"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white text-xs font-semibold border border-slate-700 transition cursor-pointer"
                         >
-                            <Edit2 class="w-3.5 h-3.5" />
+                            <Edit2 class="w-3.5 h-3.5 text-blue-400" />
                             <span>تعديل الصلاحيات</span>
                         </button>
 
                         <button
                             @click="deleteMember(member)"
-                            class="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-400 hover:text-rose-300 transition cursor-pointer p-1"
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs font-semibold transition cursor-pointer"
+                            title="حذف العضو"
                         >
                             <Trash2 class="w-3.5 h-3.5" />
                             <span>حذف</span>
@@ -396,13 +474,13 @@ const getRoleBadge = (role) => {
             </div>
         </div>
 
-        <!-- Add / Edit Team Member Modal -->
+        <!-- Add / Edit Member Modal (Mobile-Optimized) -->
         <Modal :show="showModal" @close="closeModal" max-width="lg">
-            <div class="p-6 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800" dir="rtl">
+            <div class="p-5 sm:p-6 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 max-h-[90vh] overflow-y-auto">
                 <!-- Modal Header -->
                 <div class="flex items-center justify-between pb-4 border-b border-slate-800">
                     <div class="flex items-center gap-2.5">
-                        <div class="p-2 rounded-xl bg-blue-950/60 text-blue-400 border border-blue-800/50">
+                        <div class="p-2 rounded-xl bg-blue-950/60 text-blue-400 border border-blue-800/50 shrink-0">
                             <UserPlus v-if="!isEditing" class="w-5 h-5" />
                             <Edit2 v-else class="w-5 h-5" />
                         </div>
@@ -411,14 +489,20 @@ const getRoleBadge = (role) => {
                                 {{ isEditing ? 'تعديل بيانات وصلاحيات العضو' : 'إضافة عضو جديد للفريق' }}
                             </h2>
                             <p class="text-xs text-slate-400">
-                                {{ isEditing ? 'قم بتحديث الأدوار أو كلمة المرور أو المتاجر المخصصة' : 'أدخل بيانات العضو وحدد دوره ومتاجره في النظام' }}
+                                {{ isEditing ? 'حدّث الأدوار أو كلمة المرور أو المتاجر المخصصة' : 'أدخل بيانات العضو وحدد دوره ومتاجره في النظام' }}
                             </p>
                         </div>
                     </div>
+                    <button
+                        @click="closeModal"
+                        class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                    >
+                        <X class="w-5 h-5" />
+                    </button>
                 </div>
 
                 <!-- Form -->
-                <form @submit.prevent="submitForm" class="mt-5 space-y-4">
+                <form @submit.prevent="submitForm" class="mt-4 space-y-4">
                     <!-- Name -->
                     <div>
                         <InputLabel for="m_name" value="الاسم الكامل" class="text-slate-300 text-xs font-semibold mb-1" />
@@ -426,7 +510,7 @@ const getRoleBadge = (role) => {
                             id="m_name"
                             type="text"
                             v-model="form.name"
-                            class="block w-full text-right bg-slate-950 border-slate-800 text-slate-100 focus:border-blue-500 rounded-xl text-sm"
+                            class="block w-full text-right bg-slate-950 border-slate-800 text-slate-100 focus:border-blue-500 rounded-xl text-xs sm:text-sm py-2.5"
                             required
                             placeholder="مثال: أحمد عبد الله"
                         />
@@ -440,7 +524,7 @@ const getRoleBadge = (role) => {
                             id="m_email"
                             type="email"
                             v-model="form.email"
-                            class="block w-full text-right bg-slate-950 border-slate-800 text-slate-100 focus:border-blue-500 rounded-xl text-sm"
+                            class="block w-full text-right bg-slate-950 border-slate-800 text-slate-100 focus:border-blue-500 rounded-xl text-xs sm:text-sm py-2.5 font-mono"
                             required
                             placeholder="agent@company.com"
                         />
@@ -451,14 +535,14 @@ const getRoleBadge = (role) => {
                     <div>
                         <InputLabel
                             for="m_password"
-                            :value="isEditing ? 'كلمة المرور الجديدة (اتركها فارغة للإبقاء على الحالية)' : 'تعيين كلمة المرور الأولية'"
+                            :value="isEditing ? 'كلمة المرور الجديدة (اتركها فارغة للإبقاء على الحالية)' : 'تعيين كلمة المرور'"
                             class="text-slate-300 text-xs font-semibold mb-1"
                         />
                         <TextInput
                             id="m_password"
                             type="password"
                             v-model="form.password"
-                            class="block w-full text-right bg-slate-950 border-slate-800 text-slate-100 focus:border-blue-500 rounded-xl text-sm"
+                            class="block w-full text-right bg-slate-950 border-slate-800 text-slate-100 focus:border-blue-500 rounded-xl text-xs sm:text-sm py-2.5"
                             :required="!isEditing"
                             placeholder="••••••••"
                         />
@@ -468,24 +552,24 @@ const getRoleBadge = (role) => {
                     <!-- Role Selection Cards -->
                     <div>
                         <InputLabel value="الدور والصلاحيات في النظام" class="text-slate-300 text-xs font-semibold mb-1.5" />
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <!-- Admin -->
                             <div
                                 @click="form.role = 'admin'"
                                 class="p-3 rounded-xl border cursor-pointer transition flex flex-col justify-between"
                                 :class="form.role === 'admin'
-                                    ? 'bg-purple-950/50 border-purple-600 text-white shadow-sm'
-                                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'"
+                                    ? 'bg-purple-950/60 border-purple-500 text-white shadow-sm ring-1 ring-purple-500/50'
+                                    : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:border-slate-700'"
                             >
-                                <div class="flex items-center justify-between mb-1.5">
+                                <div class="flex items-center justify-between mb-1">
                                     <div class="flex items-center gap-1.5 font-bold text-xs" :class="form.role === 'admin' ? 'text-purple-300' : 'text-slate-300'">
-                                        <ShieldCheck class="w-4 h-4 text-purple-400" />
+                                        <ShieldCheck class="w-4 h-4 text-purple-400 shrink-0" />
                                         <span>مسؤول</span>
                                     </div>
                                     <Check v-if="form.role === 'admin'" class="w-3.5 h-3.5 text-purple-400" />
                                 </div>
                                 <p class="text-[10px] text-slate-400 leading-tight">
-                                    تحكم كامل بإدارة الفريق، القنوات، وكافة المحادثات.
+                                    إدارة الفريق، القنوات، وكافة المحادثات.
                                 </p>
                             </div>
 
@@ -494,18 +578,18 @@ const getRoleBadge = (role) => {
                                 @click="form.role = 'supervisor'"
                                 class="p-3 rounded-xl border cursor-pointer transition flex flex-col justify-between"
                                 :class="form.role === 'supervisor'
-                                    ? 'bg-amber-950/50 border-amber-600 text-white shadow-sm'
-                                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'"
+                                    ? 'bg-amber-950/60 border-amber-500 text-white shadow-sm ring-1 ring-amber-500/50'
+                                    : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:border-slate-700'"
                             >
-                                <div class="flex items-center justify-between mb-1.5">
+                                <div class="flex items-center justify-between mb-1">
                                     <div class="flex items-center gap-1.5 font-bold text-xs" :class="form.role === 'supervisor' ? 'text-amber-300' : 'text-slate-300'">
-                                        <Shield class="w-4 h-4 text-amber-400" />
+                                        <Shield class="w-4 h-4 text-amber-400 shrink-0" />
                                         <span>مشرف</span>
                                     </div>
                                     <Check v-if="form.role === 'supervisor'" class="w-3.5 h-3.5 text-amber-400" />
                                 </div>
                                 <p class="text-[10px] text-slate-400 leading-tight">
-                                    متابعة جميع المحادثات وتوزيعها وإسنادها للوكلاء.
+                                    متابعة المحادثات وتوزيعها وإسنادها.
                                 </p>
                             </div>
 
@@ -514,28 +598,28 @@ const getRoleBadge = (role) => {
                                 @click="form.role = 'agent'"
                                 class="p-3 rounded-xl border cursor-pointer transition flex flex-col justify-between"
                                 :class="form.role === 'agent'
-                                    ? 'bg-emerald-950/50 border-emerald-600 text-white shadow-sm'
-                                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'"
+                                    ? 'bg-emerald-950/60 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500/50'
+                                    : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:border-slate-700'"
                             >
-                                <div class="flex items-center justify-between mb-1.5">
+                                <div class="flex items-center justify-between mb-1">
                                     <div class="flex items-center gap-1.5 font-bold text-xs" :class="form.role === 'agent' ? 'text-emerald-300' : 'text-slate-300'">
-                                        <Headphones class="w-4 h-4 text-emerald-400" />
+                                        <Headphones class="w-4 h-4 text-emerald-400 shrink-0" />
                                         <span>وكيل دعم</span>
                                     </div>
                                     <Check v-if="form.role === 'agent'" class="w-3.5 h-3.5 text-emerald-400" />
                                 </div>
                                 <p class="text-[10px] text-slate-400 leading-tight">
-                                    الرد على المحادثات المسندة إليه فقط ضمن متاجره.
+                                    الرد على المحادثات المسندة له فقط.
                                 </p>
                             </div>
                         </div>
                         <InputError class="mt-1 text-xs text-rose-400" :message="form.errors.role" />
                     </div>
 
-                    <!-- Business Assignments -->
-                    <div class="pt-2">
+                    <!-- Business Assignments Checklist -->
+                    <div class="pt-1">
                         <div class="flex items-center justify-between mb-2">
-                            <InputLabel value="المتاجر المخصصة للعضو (Tenant Scoping)" class="text-slate-300 text-xs font-semibold" />
+                            <InputLabel value="المتاجر المصرح بها للعضو (عزل المستأجرين)" class="text-slate-300 text-xs font-semibold" />
                             <div class="flex items-center gap-2 text-[11px]">
                                 <button
                                     type="button"
@@ -555,19 +639,19 @@ const getRoleBadge = (role) => {
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-950/80 rounded-xl border border-slate-800">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-950 rounded-xl border border-slate-800">
                             <div
                                 v-for="b in businesses"
                                 :key="b.id"
                                 @click="toggleBusiness(b.id)"
-                                class="flex items-center justify-between p-2 rounded-lg border cursor-pointer transition select-none"
+                                class="flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition select-none"
                                 :class="form.business_ids.includes(b.id)
-                                    ? 'bg-blue-950/40 border-blue-600/80 text-white'
-                                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'"
+                                    ? 'bg-blue-950/50 border-blue-600 text-white'
+                                    : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'"
                             >
                                 <div class="flex items-center gap-2 truncate">
-                                    <Building2 class="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                    <span class="text-xs font-medium truncate">{{ b.name }}</span>
+                                    <Building2 class="w-4 h-4 text-blue-400 shrink-0" />
+                                    <span class="text-xs font-semibold truncate">{{ b.name }}</span>
                                 </div>
                                 <div
                                     class="w-4 h-4 rounded border flex items-center justify-center shrink-0"
@@ -582,11 +666,11 @@ const getRoleBadge = (role) => {
 
                     <!-- Modal Actions -->
                     <div class="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
-                        <SecondaryButton @click="closeModal" class="border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer text-xs">
+                        <SecondaryButton @click="closeModal" class="border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer text-xs py-2">
                             إلغاء
                         </SecondaryButton>
                         <PrimaryButton
-                            class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer"
+                            class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-5 cursor-pointer"
                             :class="{ 'opacity-25': form.processing }"
                             :disabled="form.processing"
                         >
