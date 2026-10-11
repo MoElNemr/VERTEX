@@ -18,6 +18,12 @@ class Contact extends Model
         'avatar',
         'phone',
         'email',
+        'notes',
+        'tags',
+    ];
+
+    protected $casts = [
+        'tags' => 'array',
     ];
 
     public function conversations()

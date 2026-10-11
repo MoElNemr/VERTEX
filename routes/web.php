@@ -58,6 +58,12 @@ Route::middleware('auth:web,team')->group(function () {
     Route::put('/team/{teamMember}', [\App\Http\Controllers\TeamMemberController::class, 'update'])->name('team.update');
     Route::patch('/team/{teamMember}/toggle-status', [\App\Http\Controllers\TeamMemberController::class, 'toggleStatus'])->name('team.toggle-status');
     Route::delete('/team/{teamMember}', [\App\Http\Controllers\TeamMemberController::class, 'destroy'])->name('team.destroy');
+
+    // Contact Management
+    Route::get('/contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');
+    Route::get('/contacts/export', [\App\Http\Controllers\ContactController::class, 'export'])->name('contacts.export');
+    Route::get('/contacts/{contact}', [\App\Http\Controllers\ContactController::class, 'show'])->name('contacts.show');
+    Route::patch('/contacts/{contact}', [\App\Http\Controllers\ContactController::class, 'update'])->name('contacts.update');
 });
 
 // Incoming Public Webhooks (Exempt from CSRF)

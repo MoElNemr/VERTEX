@@ -169,6 +169,12 @@ const switchBusiness = (id) => {
                                 صندوق الوارد
                             </NavLink>
                             <NavLink
+                                :href="route('contacts.index')"
+                                :active="route().current('contacts.*')"
+                            >
+                                جهات الاتصال
+                            </NavLink>
+                            <NavLink
                                 v-if="$page.props.auth.is_owner"
                                 :href="route('businesses.index')"
                                 :active="route().current('businesses.*')"
@@ -431,6 +437,12 @@ const switchBusiness = (id) => {
                         :active="route().current('inbox.*')"
                     >
                         صندوق الوارد
+                    </ResponsiveNavLink>
+                    <ResponsiveNavLink
+                        :href="route('contacts.index')"
+                        :active="route().current('contacts.*')"
+                    >
+                        جهات الاتصال
                     </ResponsiveNavLink>
                     <ResponsiveNavLink
                         v-if="$page.props.auth.is_owner"
