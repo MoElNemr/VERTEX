@@ -58,4 +58,9 @@ class TeamMember extends Authenticatable
     {
         return $this->role === 'agent';
     }
+
+    public function assignedConversations()
+    {
+        return $this->hasMany(Conversation::class, 'assigned_to');
+    }
 }
