@@ -29,22 +29,22 @@ class Business extends Model
 
     public function whatsappAccount()
     {
-        return $this->hasOne(WhatsappAccount::class);
+        return $this->hasOne(WhatsappAccount::class)->withoutGlobalScopes();
     }
 
     public function facebookAccount()
     {
-        return $this->hasOne(FacebookAccount::class);
+        return $this->hasOne(FacebookAccount::class)->withoutGlobalScopes();
     }
 
     public function instagramAccount()
     {
-        return $this->hasOne(InstagramAccount::class);
+        return $this->hasOne(InstagramAccount::class)->withoutGlobalScopes();
     }
 
     public function telegramAccount()
     {
-        return $this->hasOne(TelegramAccount::class);
+        return $this->hasOne(TelegramAccount::class)->withoutGlobalScopes();
     }
 
     public function contacts()

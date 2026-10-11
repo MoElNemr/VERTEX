@@ -19,6 +19,8 @@ class ChannelController extends Controller
     {
         $this->authorizeBusiness($request, $business);
 
+        session(['current_business_id' => $business->id]);
+
         return Inertia::render('Businesses/Channels', [
             'business' => $business->only(['id', 'name', 'logo']),
             'whatsapp' => $business->whatsappAccount,
