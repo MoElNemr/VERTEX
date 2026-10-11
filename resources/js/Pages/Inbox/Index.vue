@@ -221,6 +221,45 @@ const insertQuickReply = (body) => {
     messageText.value = body;
 };
 
+// AI Suggestion & Summary State
+const isSuggestingAi = ref(false);
+const isSummarizingAi = ref(false);
+const isSummaryModalOpen = ref(false);
+const summaryText = ref('');
+
+const suggestAiReply = async () => {
+    if (!activeConv.value || isSuggestingAi.value) return;
+    try {
+        isSuggestingAi.value = true;
+        const res = await axios.post(route('inbox.ai-suggest', activeConv.value.id));
+        if (res.data?.suggestion) {
+            messageText.value = res.data.suggestion;
+        }
+    } catch (e) {
+        console.error('Failed to get AI suggestion', e);
+        alert(e.response?.data?.error || 'تعذر الحصول على اقتراح ذكي.');
+    } finally {
+        isSuggestingAi.value = false;
+    }
+};
+
+const summarizeConversation = async () => {
+    if (!activeConv.value || isSummarizingAi.value) return;
+    try {
+        isSummarizingAi.value = true;
+        const res = await axios.post(route('inbox.summarize', activeConv.value.id));
+        if (res.data?.summary) {
+            summaryText.value = res.data.summary;
+            isSummaryModalOpen.value = true;
+        }
+    } catch (e) {
+        console.error('Failed to summarize conversation', e);
+        alert('تعذر تلخيص المحادثة.');
+    } finally {
+        isSummarizingAi.value = false;
+    }
+};
+
 // Toggle status (open / closed)
 const updateStatus = async (status) => {
     if (!activeConv.value) return;
@@ -456,11 +495,19 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <!-- Channels Setting Link -->
-                <div class="pt-4 border-t border-slate-800">
+                <!-- Settings Links -->
+                <div class="pt-4 border-t border-slate-800 space-y-2">
+                    <Link
+                        v-if="$page.props.auth.is_owner"
+                        :href="route('ai-settings.show', business.id)"
+                        class="cursor-pointer w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-violet-950/60 hover:bg-violet-900/80 text-xs font-bold text-violet-300 border border-violet-800/60 transition"
+                    >
+                        <Sparkles class="w-3.5 h-3.5 text-violet-400" />
+                        <span>إعدادات المساعد الذكي</span>
+                    </Link>
                     <Link
                         :href="route('channels.index', business.id)"
-                        class="cursor-pointer w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-bold text-slate-300 border border-slate-700/80 transition"
+                        class="cursor-pointer w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-bold text-slate-300 border border-slate-700/80 transition"
                     >
                         <Settings class="w-3.5 h-3.5 text-slate-400" />
                         <span>إعدادات القنوات</span>
@@ -785,6 +832,17 @@ onUnmounted(() => {
                                 <span>المسند: {{ activeConv.assigned_agent.name }}</span>
                             </div>
 
+                            <!-- Summarize Button -->
+                            <button
+                                @click="summarizeConversation"
+                                :disabled="isSummarizingAi"
+                                class="cursor-pointer px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-950/80 hover:bg-violet-900 text-violet-300 border border-violet-800 transition flex items-center gap-1.5 disabled:opacity-50"
+                                title="تلخيص المحادثة بالذكاء الاصطناعي"
+                            >
+                                <Sparkles class="w-3.5 h-3.5 text-violet-400" />
+                                <span class="hidden sm:inline">{{ isSummarizingAi ? 'جاري التلخيص...' : 'تلخيص' }}</span>
+                            </button>
+
                             <!-- Transfer button -->
                             <button
                                 v-if="otherBusinesses && otherBusinesses.length > 0"
@@ -861,22 +919,37 @@ onUnmounted(() => {
 
                     <!-- Message Composer Area (Anchored to bottom, always visible) -->
                     <div class="shrink-0 p-3 sm:p-4 border-t border-slate-800 bg-slate-900/95 backdrop-blur space-y-2.5">
-                        <!-- Quick Replies Pill Bar -->
-                        <div
-                            v-if="quickReplies && quickReplies.length > 0"
-                            class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none"
-                        >
-                            <span class="text-[11px] font-bold text-slate-400 shrink-0 flex items-center gap-1">
-                                <Zap class="w-3 h-3 text-amber-400" />
-                                <span class="hidden sm:inline">ردود سريعة:</span>
-                            </span>
-                            <button
-                                v-for="qr in quickReplies"
-                                :key="qr.id"
-                                @click="insertQuickReply(qr.body)"
-                                class="cursor-pointer text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/80 whitespace-nowrap transition"
+                        <!-- Quick Replies & AI Suggest Bar -->
+                        <div class="flex items-center justify-between gap-2 overflow-x-auto pb-1 scrollbar-none">
+                            <div
+                                v-if="quickReplies && quickReplies.length > 0"
+                                class="flex items-center gap-1.5 overflow-x-auto scrollbar-none"
                             >
-                                {{ qr.title }}
+                                <span class="text-[11px] font-bold text-slate-400 shrink-0 flex items-center gap-1">
+                                    <Zap class="w-3 h-3 text-amber-400" />
+                                    <span class="hidden sm:inline">ردود سريعة:</span>
+                                </span>
+                                <button
+                                    v-for="qr in quickReplies"
+                                    :key="qr.id"
+                                    @click="insertQuickReply(qr.body)"
+                                    class="cursor-pointer text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/80 whitespace-nowrap transition"
+                                >
+                                    {{ qr.title }}
+                                </button>
+                            </div>
+                            <div v-else></div>
+
+                            <!-- AI Suggest Reply Button -->
+                            <button
+                                type="button"
+                                @click="suggestAiReply"
+                                :disabled="isSuggestingAi"
+                                class="cursor-pointer shrink-0 text-[11px] px-3 py-1 rounded-full bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 flex items-center gap-1.5 transition disabled:opacity-50 font-semibold"
+                                title="اقتراح رد ذكي من المساعد الاصطناعي"
+                            >
+                                <Sparkles class="w-3.5 h-3.5 text-violet-400" />
+                                <span>{{ isSuggestingAi ? 'جاري التفكير...' : 'اقتراح رد ذكي' }}</span>
                             </button>
                         </div>
 
@@ -962,6 +1035,51 @@ onUnmounted(() => {
                             class="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-2 disabled:opacity-50"
                         >
                             <span>{{ isTransferring ? 'جاري التحويل...' : 'تأكيد التحويل' }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- AI Summary Modal -->
+        <transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div
+                v-if="isSummaryModalOpen"
+                class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                @click.self="isSummaryModalOpen = false"
+            >
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <Sparkles class="w-5 h-5 text-violet-400" />
+                            <h3 class="text-sm font-bold text-white">ملخص المحادثة بالذكاء الاصطناعي</h3>
+                        </div>
+                        <button
+                            @click="isSummaryModalOpen = false"
+                            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                        >
+                            <X class="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-950 border border-slate-850 rounded-xl p-4 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
+                        {{ summaryText || 'لا يوجد ملخص متاح.' }}
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+                        <button
+                            type="button"
+                            @click="isSummaryModalOpen = false"
+                            class="px-4 py-2 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white transition cursor-pointer"
+                        >
+                            إغلاق
                         </button>
                     </div>
                 </div>

@@ -45,6 +45,12 @@ Route::middleware('auth:web,team')->group(function () {
     Route::patch('/inbox/{conversation}/status', [\App\Http\Controllers\InboxController::class, 'updateStatus'])->name('inbox.status');
     Route::patch('/inbox/{conversation}/assign', [\App\Http\Controllers\InboxController::class, 'assignAgent'])->name('inbox.assign');
     Route::post('/inbox/{conversation}/transfer', [\App\Http\Controllers\InboxController::class, 'transfer'])->name('inbox.transfer');
+    Route::post('/inbox/{conversation}/ai-suggest', [\App\Http\Controllers\InboxController::class, 'suggestReply'])->name('inbox.ai-suggest');
+    Route::post('/inbox/{conversation}/summarize', [\App\Http\Controllers\InboxController::class, 'summarize'])->name('inbox.summarize');
+
+    // AI Settings
+    Route::get('/businesses/{business}/ai-settings', [\App\Http\Controllers\AiSettingController::class, 'show'])->name('ai-settings.show');
+    Route::post('/businesses/{business}/ai-settings', [\App\Http\Controllers\AiSettingController::class, 'update'])->name('ai-settings.update');
 
     // Team Management
     Route::get('/team', [\App\Http\Controllers\TeamMemberController::class, 'index'])->name('team.index');

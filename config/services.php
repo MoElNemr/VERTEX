@@ -39,4 +39,9 @@ return [
         'service_url' => env('WHATSAPP_SERVICE_URL', 'http://127.0.0.1:3000'),
     ],
 
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'url' => env('OPENAI_API_URL', 'https://api.openai.com/v1'),
+    ],
+
 ];

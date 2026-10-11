@@ -8,12 +8,14 @@ use App\Models\Conversation;
 use App\Models\FacebookAccount;
 use App\Models\InstagramAccount;
 use App\Models\Message;
+use App\Services\Channels\Concerns\HandlesAiAutoReply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class MetaChannelService implements ChannelServiceInterface
 {
+    use HandlesAiAutoReply;
     /**
      * Send an outbound message to Facebook Messenger or Instagram Direct.
      */
@@ -268,6 +270,9 @@ class MetaChannelService implements ChannelServiceInterface
 
                 // 5. Trigger Realtime event
                 broadcast(new \App\Events\MessageSent($conversation, $message));
+
+                // 6. Check AI auto-reply
+                $this->handleAiAutoReply($conversation, $text);
 
                 $processedMessages[] = $message->id;
             }

@@ -7,12 +7,14 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\WhatsappAccount;
+use App\Services\Channels\Concerns\HandlesAiAutoReply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppChannelService implements ChannelServiceInterface
 {
+    use HandlesAiAutoReply;
     protected string $serviceUrl;
 
     public function __construct()
@@ -262,6 +264,11 @@ class WhatsAppChannelService implements ChannelServiceInterface
 
                 // 5. Trigger Realtime event
                 broadcast(new \App\Events\MessageSent($conversation, $message));
+
+                // 6. Check AI auto-reply
+                if (!$isFromMe) {
+                    $this->handleAiAutoReply($conversation, $text);
+                }
             } else {
                 if ($bizId === $business->id) {
                     $primaryConversationId = $conversation->id;

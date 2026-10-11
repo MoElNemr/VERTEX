@@ -7,12 +7,14 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\TelegramAccount;
+use App\Services\Channels\Concerns\HandlesAiAutoReply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class TelegramChannelService implements ChannelServiceInterface
 {
+    use HandlesAiAutoReply;
     /**
      * Send an outbound message to Telegram.
      */
@@ -162,8 +164,11 @@ class TelegramChannelService implements ChannelServiceInterface
             'last_message_at' => now(),
         ]);
 
-        // 5. Trigger Realtime event if exists
+        // 5. Trigger Realtime event
         $this->dispatchRealtimeEvent($message);
+
+        // 6. Check AI auto-reply
+        $this->handleAiAutoReply($conversation, $text);
 
         return [
             'status' => 'success',

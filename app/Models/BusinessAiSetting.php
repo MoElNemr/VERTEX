@@ -12,6 +12,13 @@ class BusinessAiSetting extends Model
 
     protected $fillable = [
         'business_id',
+        'ai_enabled',
+        'ai_model',
+        'ai_personality',
+        'ai_instructions',
+        'working_hours_only',
+        'work_start_hour',
+        'work_end_hour',
         'is_enabled',
         'provider',
         'api_key',
@@ -22,6 +29,10 @@ class BusinessAiSetting extends Model
     ];
 
     protected $casts = [
+        'ai_enabled' => 'boolean',
+        'working_hours_only' => 'boolean',
+        'work_start_hour' => 'integer',
+        'work_end_hour' => 'integer',
         'is_enabled' => 'boolean',
         'auto_reply_platforms' => 'array',
         'reply_delay_seconds' => 'integer',

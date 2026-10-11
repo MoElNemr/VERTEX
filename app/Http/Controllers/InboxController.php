@@ -306,4 +306,41 @@ class InboxController extends Controller
             'target_conversation_id' => $conversation->id,
         ]);
     }
+
+    /**
+     * Generate an AI-suggested response for the active conversation.
+     */
+    public function suggestReply(Request $request, Conversation $conversation): JsonResponse
+    {
+        $this->authorizeConversation($request, $conversation);
+
+        $setting = \App\Models\BusinessAiSetting::where('business_id', $conversation->business_id)->first();
+        if (!$setting || !$setting->ai_enabled) {
+            return response()->json(['error' => 'المساعد الذكي غير مفعّل لهذا المتجر.'], 422);
+        }
+
+        $suggestion = app(\App\Services\AiService::class)->suggestReply($conversation, $setting);
+
+        return response()->json(['suggestion' => $suggestion]);
+    }
+
+    /**
+     * Generate an AI summary for the active conversation.
+     */
+    public function summarize(Request $request, Conversation $conversation): JsonResponse
+    {
+        $this->authorizeConversation($request, $conversation);
+
+        $setting = \App\Models\BusinessAiSetting::where('business_id', $conversation->business_id)->first();
+        if (!$setting) {
+            $setting = new \App\Models\BusinessAiSetting([
+                'ai_model' => 'gpt-4o-mini',
+                'ai_personality' => '',
+            ]);
+        }
+
+        $summary = app(\App\Services\AiService::class)->summarize($conversation, $setting);
+
+        return response()->json(['summary' => $summary]);
+    }
 }
