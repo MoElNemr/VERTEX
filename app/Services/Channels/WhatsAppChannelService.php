@@ -218,21 +218,32 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $sessionId = 'session_' . $business->id;
 
         try {
-            $response = Http::timeout(5)->post("{$this->serviceUrl}/api/sessions/start", [
+            $response = Http::timeout(8)->post("{$this->serviceUrl}/api/sessions/start", [
                 'business_id' => $business->id,
                 'session_id' => $sessionId,
                 'webhook_url' => route('webhooks.whatsapp', $business->id),
             ]);
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+                $qrCode = $data['qr_image'] ?? $data['qr_code'] ?? null;
+
+                $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
+                    'business_id' => $business->id,
+                ], [
+                    'session_id' => $sessionId,
+                    'status' => $data['status'] ?? 'connecting',
+                    'qr_code' => $qrCode,
+                ]);
+
+                return $data;
             }
         } catch (\Throwable $e) {
-            Log::info('Baileys microservice offline for QR generation, generating mock QR.');
+            Log::info('Baileys microservice offline for QR generation, generating mock QR: ' . $e->getMessage());
         }
 
         // Mock QR code data string for visual testing
-        $mockQr = '2@' . base64_encode('vertex_qr_' . $business->id . '_' . time()) . ',vertex_demo,auth';
+        $mockQr = 'https://wa.me/settings/linked_devices?auth=vertex_' . $business->id . '_' . time();
 
         $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
             'business_id' => $business->id,
@@ -245,6 +256,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         return [
             'status' => 'qr_ready',
             'qr_code' => $mockQr,
+            'qr_image' => null,
             'simulated' => true,
         ];
     }

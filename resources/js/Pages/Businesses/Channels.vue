@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 import {
     CheckCircle2,
@@ -53,15 +53,42 @@ const isGeneratingQr = ref(false);
 const qrCodeData = ref(props.whatsapp?.qr_code || null);
 const qrErrorMessage = ref('');
 
+const computedQrImage = computed(() => {
+    if (!qrCodeData.value) return null;
+    if (qrCodeData.value.startsWith('data:image')) {
+        return qrCodeData.value;
+    }
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(qrCodeData.value)}`;
+});
+
 const generateWhatsAppQr = async () => {
     isGeneratingQr.value = true;
     qrErrorMessage.value = '';
     try {
         const response = await axios.post(route('channels.whatsapp.qr', props.business.id));
-        if (response.data?.qr_image) {
-            qrCodeData.value = response.data.qr_image;
-        } else if (response.data?.qr_code) {
-            qrCodeData.value = response.data.qr_code;
+        const resData = response.data || {};
+
+        if (resData.qr_image) {
+            qrCodeData.value = resData.qr_image;
+        } else if (resData.qr_code) {
+            qrCodeData.value = resData.qr_code;
+        }
+
+        // If session is still connecting and QR is not ready yet, poll up to 4 times
+        if (!qrCodeData.value && resData.status === 'connecting') {
+            for (let i = 0; i < 4; i++) {
+                await new Promise(r => setTimeout(r, 1200));
+                try {
+                    const pollRes = await axios.post(route('channels.whatsapp.qr', props.business.id));
+                    if (pollRes.data?.qr_image) {
+                        qrCodeData.value = pollRes.data.qr_image;
+                        break;
+                    } else if (pollRes.data?.qr_code) {
+                        qrCodeData.value = pollRes.data.qr_code;
+                        break;
+                    }
+                } catch (e) {}
+            }
         }
     } catch (err) {
         qrErrorMessage.value = err.response?.data?.message || 'تعذر توليد رمز QR، تأكد من تشغيل خادم واتساب.';
@@ -153,15 +180,10 @@ const disconnect = (channel) => {
                             <div v-else-if="qrCodeData" class="space-y-4 py-2">
                                 <div class="bg-white p-3 rounded-2xl inline-block shadow-lg border border-slate-700">
                                     <img
-                                        v-if="qrCodeData.startsWith('data:image')"
-                                        :src="qrCodeData"
+                                        :src="computedQrImage"
                                         alt="WhatsApp QR Code"
-                                        class="w-44 h-44 object-contain"
+                                        class="w-48 h-48 object-contain rounded-xl"
                                     />
-                                    <div v-else class="w-44 h-44 flex flex-col items-center justify-center text-slate-900 font-mono text-[10px] break-all p-2 bg-slate-100 rounded">
-                                        <QrCode class="w-12 h-12 text-slate-700 mb-2" />
-                                        <span>رمز التحقق متاح</span>
-                                    </div>
                                 </div>
                                 <p class="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
                                     افتح تطبيق واتساب على هاتفك > <strong>الأجهزة المرتبطة</strong> > <strong>ربط جهاز</strong>، ثم وجّه الكاميرا نحو الشاشة.
