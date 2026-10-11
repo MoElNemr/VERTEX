@@ -211,12 +211,10 @@ class TelegramChannelService implements ChannelServiceInterface
     }
 
     /**
-     * Gracefully dispatch realtime broadcast event if available.
+     * Gracefully dispatch realtime broadcast event.
      */
     protected function dispatchRealtimeEvent(Message $message): void
     {
-        if (class_exists(\App\Events\MessageReceived::class)) {
-            event(new \App\Events\MessageReceived($message));
-        }
+        broadcast(new \App\Events\MessageSent($message->conversation, $message));
     }
 }

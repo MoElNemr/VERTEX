@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ConversationUpdated;
+use App\Events\MessageSent;
 use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
@@ -149,6 +151,9 @@ class InboxController extends Controller
             'status' => 'open',
             'last_message_at' => now(),
         ]);
+
+        broadcast(new MessageSent($conversation, $message));
+
         // إرسال الرسالة إلى المنصة الخارجية المناسبة (تيليجرام، واتساب، فيسبوك، إنستجرام)
         try {
             app(\App\Services\Channels\ChannelManager::class)->sendMessage($conversation, $message);
@@ -175,6 +180,8 @@ class InboxController extends Controller
         $conversation->update([
             'status' => $validated['status'],
         ]);
+
+        broadcast(new ConversationUpdated($conversation));
 
         return response()->json([
             'status' => 'success',
@@ -220,6 +227,8 @@ class InboxController extends Controller
         $conversation->update([
             'assigned_to' => $validated['assigned_to'],
         ]);
+
+        broadcast(new ConversationUpdated($conversation));
 
         return response()->json([
             'status' => 'success',

@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import axios from 'axios';
 import {
     Search,
@@ -63,6 +63,8 @@ const isFilterDrawerOpen = ref(false);
 // Synchronize state when switching active business or when conversations update
 watch(() => props.business?.id, (newBusinessId, oldBusinessId) => {
     if (newBusinessId !== oldBusinessId) {
+        unsubscribeEcho(oldBusinessId);
+        subscribeEcho(newBusinessId);
         conversationsList.value = [...(props.conversations || [])];
         searchQuery.value = '';
         selectedPlatform.value = 'all';
@@ -293,6 +295,64 @@ const scrollToBottom = async () => {
     }
 };
 
+let pollingInterval = null;
+
+const subscribeEcho = (businessId) => {
+    if (!window.Echo || !businessId) return;
+
+    window.Echo.private(`business.${businessId}`)
+        .listen('.message.sent', (data) => {
+            // if message is for active conversation, append it
+            if (activeConv.value && activeConv.value.id === data.conversation_id) {
+                // avoid duplicates
+                if (!messages.value.find(m => m.id === data.message.id)) {
+                    messages.value.push(data.message);
+                    scrollToBottom();
+                }
+            }
+            // update conversation in list (unread count, last message preview, last_message_at)
+            const idx = conversationsList.value.findIndex(c => c.id === data.conversation_id);
+            if (idx !== -1) {
+                const conv = { ...conversationsList.value[idx] };
+                conv.last_message_at = data.conversation.last_message_at;
+                conv.unread_count = activeConv.value?.id === data.conversation_id ? 0 : (conv.unread_count || 0) + (data.message.sender_type === 'contact' ? 1 : 0);
+                if (data.message.sender_type === 'contact') {
+                    conv.latest_message = { body: data.message.body };
+                }
+                conversationsList.value.splice(idx, 1, conv);
+                // sort by last_message_at
+                conversationsList.value.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+            } else if (data.message.sender_type === 'contact') {
+                const newConv = {
+                    ...data.conversation,
+                    latest_message: { body: data.message.body },
+                };
+                conversationsList.value.unshift(newConv);
+            }
+            // browser notification for inbound
+            if (data.message.sender_type === 'contact' && document.hidden) {
+                if (window.Notification && Notification.permission === 'granted') {
+                    new Notification('رسالة جديدة', { body: data.message.body });
+                }
+            }
+        })
+        .listen('.conversation.updated', (data) => {
+            const idx = conversationsList.value.findIndex(c => c.id === data.conversation.id);
+            if (idx !== -1) {
+                conversationsList.value.splice(idx, 1, { ...conversationsList.value[idx], ...data.conversation });
+            }
+            if (activeConv.value?.id === data.conversation.id) {
+                activeConv.value = { ...activeConv.value, ...data.conversation };
+            }
+        });
+};
+
+const unsubscribeEcho = (businessId) => {
+    if (window.Echo && businessId) {
+        window.Echo.leave(`business.${businessId}`);
+    }
+};
+
 // On Mounted
 onMounted(() => {
     if (props.activeConversationId) {
@@ -301,6 +361,33 @@ onMounted(() => {
     } else if (window.innerWidth >= 768 && conversationsList.value.length > 0) {
         // On desktop/tablet auto-select first conversation, but on mobile stay on list
         selectConversation(conversationsList.value[0]);
+    }
+
+    if (props.business?.id) {
+        subscribeEcho(props.business.id);
+    }
+
+    // Request notification permission
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
+    // Polling fallback every 30 seconds when Echo disconnects
+    pollingInterval = setInterval(async () => {
+        if (window.Echo?.connector?.socket?.readyState !== 1) {
+            try {
+                await axios.get(route('inbox.index'));
+            } catch (e) { /* silent */ }
+        }
+    }, 30000);
+});
+
+onUnmounted(() => {
+    if (props.business?.id) {
+        unsubscribeEcho(props.business.id);
+    }
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
     }
 });
 </script>

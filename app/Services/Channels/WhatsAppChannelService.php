@@ -260,10 +260,8 @@ class WhatsAppChannelService implements ChannelServiceInterface
                     $primaryMessageId = $message->id;
                 }
 
-                // 5. Trigger Realtime event if exists
-                if (class_exists(\App\Events\MessageReceived::class)) {
-                    event(new \App\Events\MessageReceived($message));
-                }
+                // 5. Trigger Realtime event
+                broadcast(new \App\Events\MessageSent($conversation, $message));
             } else {
                 if ($bizId === $business->id) {
                     $primaryConversationId = $conversation->id;

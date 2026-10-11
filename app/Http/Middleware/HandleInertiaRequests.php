@@ -60,6 +60,7 @@ class HandleInertiaRequests extends Middleware
                 'can_manage_team' => $isOwner || $role === 'admin',
                 'can_manage_channels' => $isOwner || $role === 'admin',
                 'can_manage_businesses' => $isOwner,
+                'can_view_all_conversations' => $isOwner || in_array($role, ['admin', 'supervisor']),
             ],
             'currentBusiness' => $currentBusiness,
             'businesses' => $businesses,

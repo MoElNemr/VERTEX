@@ -266,10 +266,8 @@ class MetaChannelService implements ChannelServiceInterface
                     'last_message_at' => now(),
                 ]);
 
-                // 5. Trigger Realtime event if exists
-                if (class_exists(\App\Events\MessageReceived::class)) {
-                    event(new \App\Events\MessageReceived($message));
-                }
+                // 5. Trigger Realtime event
+                broadcast(new \App\Events\MessageSent($conversation, $message));
 
                 $processedMessages[] = $message->id;
             }
