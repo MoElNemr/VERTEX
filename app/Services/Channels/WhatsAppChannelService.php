@@ -262,6 +262,39 @@ class WhatsAppChannelService implements ChannelServiceInterface
     }
 
     /**
+     * Request 8-digit Pairing Code for WhatsApp phone number connection.
+     */
+    public function requestPairingCode(Business $business, string $phoneNumber): array
+    {
+        $sessionId = 'session_' . $business->id;
+        $cleanPhone = preg_replace('/[^0-9]/', '', $phoneNumber);
+
+        try {
+            $response = Http::timeout(10)->post("{$this->serviceUrl}/api/sessions/pairing-code", [
+                'business_id' => $business->id,
+                'session_id' => $sessionId,
+                'phone_number' => $cleanPhone,
+                'webhook_url' => route('webhooks.whatsapp', $business->id),
+            ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return [
+                'status' => 'failed',
+                'message' => $response->json('error') ?? 'فشل الحصول على كود الربط من خادم واتساب.',
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Pairing code request error: ' . $e->getMessage());
+            return [
+                'status' => 'failed',
+                'message' => 'تعذر الاتصال بخادم واتساب: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Terminate and remove WhatsApp session from microservice.
      */
     public function disconnect(Business $business): bool

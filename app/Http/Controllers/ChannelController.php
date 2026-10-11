@@ -201,6 +201,22 @@ class ChannelController extends Controller
     }
 
     /**
+     * Request 8-digit Pairing Code for WhatsApp connection.
+     */
+    public function requestWhatsAppPairingCode(Request $request, Business $business): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeBusiness($request, $business);
+
+        $validated = $request->validate([
+            'phone_number' => ['required', 'string', 'min:8', 'max:20'],
+        ]);
+
+        $result = app(\App\Services\Channels\WhatsAppChannelService::class)->requestPairingCode($business, $validated['phone_number']);
+
+        return response()->json($result);
+    }
+
+    /**
      * Helper to verify user permissions.
      */
     protected function authorizeBusiness(Request $request, Business $business): void
