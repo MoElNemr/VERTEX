@@ -168,13 +168,14 @@ const startStatusPolling = () => {
     if (statusPollTimer) clearInterval(statusPollTimer);
     statusPollTimer = setInterval(async () => {
         try {
-            const res = await axios.get(route('channels.whatsapp.status', props.business.id));
+            const statusUrl = `/businesses/${props.business.id}/channels/whatsapp/status`;
+            const res = await axios.get(statusUrl);
             if (res.data?.connected) {
                 clearInterval(statusPollTimer);
                 window.location.reload();
             }
         } catch (e) {}
-    }, 2500);
+    }, 2000);
 };
 
 const copyPairingCode = () => {
