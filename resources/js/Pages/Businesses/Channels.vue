@@ -15,6 +15,18 @@ import {
     Smartphone,
     Copy,
     Check,
+    Sparkles,
+    Bot,
+    Sliders,
+    Clock,
+    Save,
+    Layers,
+    ShieldCheck,
+    HelpCircle,
+    SlidersHorizontal,
+    Radio,
+    Zap,
+    Tag,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -23,7 +35,80 @@ const props = defineProps({
     facebook: Object,
     instagram: Object,
     telegram: Object,
+    aiSetting: Object,
+    initialTab: {
+        type: String,
+        default: 'channels',
+    },
 });
+
+const activeTab = ref(props.initialTab || 'channels');
+
+// AI Settings Form
+const aiForm = useForm({
+    ai_enabled: Boolean(props.aiSetting?.ai_enabled ?? props.aiSetting?.is_enabled),
+    ai_model: props.aiSetting?.ai_model || props.aiSetting?.model || 'gpt-4o-mini',
+    ai_personality: props.aiSetting?.ai_personality || '',
+    ai_instructions: props.aiSetting?.ai_instructions || props.aiSetting?.system_prompt || '',
+    working_hours_only: Boolean(props.aiSetting?.working_hours_only),
+    work_start_hour: props.aiSetting?.work_start_hour ?? 9,
+    work_end_hour: props.aiSetting?.work_end_hour ?? 18,
+    auto_reply_platforms: Array.isArray(props.aiSetting?.auto_reply_platforms)
+        ? props.aiSetting.auto_reply_platforms
+        : ['whatsapp', 'facebook', 'instagram', 'telegram'],
+    reply_delay_seconds: props.aiSetting?.reply_delay_seconds ?? 2,
+});
+
+const saveAiSettings = () => {
+    aiForm.post(route('ai-settings.update', props.business.id), {
+        preserveScroll: true,
+    });
+};
+
+const toggleAiPlatform = (platform) => {
+    const list = [...aiForm.auto_reply_platforms];
+    const index = list.indexOf(platform);
+    if (index > -1) {
+        list.splice(index, 1);
+    } else {
+        list.push(platform);
+    }
+    aiForm.auto_reply_platforms = list;
+};
+
+const applyPreset = (type) => {
+    if (type === 'shoes') {
+        aiForm.ai_personality = `أنت ممثل مبيعات واستشارات خبير لمتجر الأحذية (${props.business.name})، تتحدث بلباقة وترحب بالعميل دائمًا.`;
+        aiForm.ai_instructions = `تعليمات وقواعد متجر الأحذية (${props.business.name}):
+1. المقاسات: نستخدم جدول المقاسات الأوروبية القياسية (EU 37 إلى 46).
+2. الشحن: التوصيل لكافة المحافظات خلال 24 - 48 ساعة مع ميزة معاينة المقاس قبل الدفع.
+3. الاستبدال: متاح خلال 14 يومًا بشرط عدم استخدام الحذاء خارج المنزل ووجود العلبة الأصلية.
+4. النصيحة: انصح العميل باختيار مقاس أكبر بنصف درجة إذا كان الحذاء رياضي، أو نفس مقاسه المعتاد في الأحذية الكلاسيك.
+5. الدفع: متاح كاش عند الاستلام ومحافظ إلكترونية.`;
+    } else if (type === 'clothes') {
+        aiForm.ai_personality = `أنت مستشار موضة وممثل مبيعات لمتجر الملابس والأزياء (${props.business.name})، أسلوبك أنيق ومساعد للعميل في اختيار مقاسه وألوانه.`;
+        aiForm.ai_instructions = `تعليمات وقواعد متجر الملابس (${props.business.name}):
+1. التشكيلة: خامات قطنية 100% عالية الجودة مصممة للاستخدام اليومي والمناسبات.
+2. المقاسات: نوفر من S إلى 3XL. اطلب من العميل وزنه وطوله التقريبي لتحديد المقاس المناسب.
+3. الاستبدال والاسترجاع: متاح خلال 14 يوماً مع الحفاظ على كارت الصنف (التيكت) سليمًا.
+4. كود الخصم: إذا كان العميل يشتري قطعتين أو أكثر، اعرض عليه كود (FASHION10) للحصول على خصم 10%.
+5. الشحن: شحن فوري والتوصيل خلال يومين عمل.`;
+    } else if (type === 'electronics') {
+        aiForm.ai_personality = `أنت خبير دعم تقني ومبيعات في متجر (${props.business.name})، إجاباتك محددة، دقيقة، ومبنية على المواصفات الفنية.`;
+        aiForm.ai_instructions = `تعليمات متجر الإلكترونيات (${props.business.name}):
+1. الضمان: جميع المنتجات جديدة وأصلية 100% ومشمولة بضمان رسمي لمدة عامين.
+2. الشحن: شحن مؤمّن ضد الكسر والتلف ويتم التوصيل في علب محكمة.
+3. الإرجاع: الاسترجاع خلال 14 يوماً إذا كان الجهاز في حالته الأصلية وتغليف المصنع لم يفتح.
+4. الدعم الفني: لأي استفسار تركيبي أو إعداد، اشرح الخطوات البسيطة ووجه العميل لخدمة الدعم إذا لزم الأمر.`;
+    } else if (type === 'general') {
+        aiForm.ai_personality = `أنت ممثل خدمة عملاء محترف لمتجر (${props.business.name})، تجيب بود وترحاب وإيجاز مفيد.`;
+        aiForm.ai_instructions = `قواعد وإرشادات عامة لمتجر (${props.business.name}):
+1. الترحيب بالعميل والإجابة على استفسارات الأسعار والمنتجات بوضوح.
+2. الشحن والتوصيل خلال 2 إلى 3 أيام عمل.
+3. الاستبدال متاح خلال 14 يومًا مع الفاتورة.
+4. عند مواجهة استفسار معقد، اعلم العميل أن أحد مسؤولي الفريق سيتابعه على الفور.`;
+    }
+};
 
 // Forms
 const telegramForm = useForm({
@@ -215,11 +300,16 @@ const disconnect = (channel) => {
 
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-950/60 text-blue-300 border border-blue-800/60 mb-2">
+                            <span>متجر: {{ business.name }}</span>
+                        </div>
                         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                            ربط القنوات والمنصات
+                            {{ activeTab === 'channels' ? 'ربط القنوات والمنصات' : 'إعدادات المساعد الذكي والبرومبت' }}
                         </h1>
                         <p class="mt-1 text-sm text-slate-400">
-                            قم بربط وتفعيل حسابات واتساب، تيليجرام، فيسبوك، وإنستجرام لمتجر <span class="font-bold text-slate-200">{{ business.name }}</span>.
+                            {{ activeTab === 'channels'
+                                ? `قم بربط وتفعيل حسابات واتساب، تيليجرام، فيسبوك، وإنستجرام لمتجر ${business.name}.`
+                                : `تخصيص البرومبت، النبرة، وقواعد الرد الآلي بالذكاء الاصطناعي لمتجر ${business.name}.` }}
                         </p>
                     </div>
 
@@ -231,12 +321,45 @@ const disconnect = (channel) => {
                         <ArrowRight class="w-4 h-4" />
                     </Link>
                 </div>
+
+                <!-- Navigation Tabs -->
+                <div class="mt-6 flex items-center gap-3 border-b border-slate-800 pt-2">
+                    <button
+                        type="button"
+                        @click="activeTab = 'channels'"
+                        class="cursor-pointer inline-flex items-center gap-2.5 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition"
+                        :class="activeTab === 'channels'
+                            ? 'border-blue-500 text-blue-400 bg-blue-500/10 rounded-t-xl shadow-sm'
+                            : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-t-xl'"
+                    >
+                        <Layers class="w-4 h-4" />
+                        <span>قنوات التواصل</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="activeTab = 'ai'"
+                        class="cursor-pointer inline-flex items-center gap-2.5 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition"
+                        :class="activeTab === 'ai'
+                            ? 'border-violet-500 text-violet-400 bg-violet-500/10 rounded-t-xl shadow-sm'
+                            : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-t-xl'"
+                    >
+                        <Sparkles class="w-4 h-4 text-violet-400" />
+                        <span>المساعد الذكي والبرومبت (AI)</span>
+                        <span
+                            class="px-2 py-0.5 text-[10px] rounded-full font-bold"
+                            :class="aiForm.ai_enabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'"
+                        >
+                            {{ aiForm.ai_enabled ? 'مفعل' : 'معطل' }}
+                        </span>
+                    </button>
+                </div>
             </div>
         </div>
 
         <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <!-- Channels 2-column Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div v-if="activeTab === 'channels'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 <!-- 1. WhatsApp Card -->
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
@@ -638,6 +761,303 @@ const disconnect = (channel) => {
                     </div>
                 </div>
 
+            </div>
+
+            <!-- AI Assistant Settings Panel -->
+            <div v-else-if="activeTab === 'ai'" class="max-w-5xl mx-auto space-y-6">
+                <!-- Top Notice Card -->
+                <div class="bg-gradient-to-r from-violet-950/40 to-slate-900 border border-violet-800/40 rounded-2xl p-6 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+                        <div class="flex items-start gap-4">
+                            <div class="p-3.5 bg-violet-600/20 border border-violet-500/30 rounded-2xl text-violet-400 shrink-0 shadow-inner">
+                                <Bot class="w-8 h-8" />
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h2 class="text-lg font-bold text-white">المساعد الذكي لمتجر: {{ business.name }}</h2>
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                                        <Sparkles class="w-3 h-3" />
+                                        نظام مستقل لكل متجر
+                                    </span>
+                                </div>
+                                <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                                    كل متجر لديك يمتلك برومبت، شخصية، وقواعد عمل منفصلة كلياً. لو عندك متجر أحذية ومتجر ملابس، كل متجر سيرد تلقائياً ببضاعته وقواعده دون تداخل.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Main AI Toggle for this store -->
+                        <div class="flex items-center gap-3 bg-slate-950/80 px-4 py-3 rounded-2xl border border-slate-800 shrink-0">
+                            <span class="text-xs font-bold" :class="aiForm.ai_enabled ? 'text-emerald-400' : 'text-slate-400'">
+                                {{ aiForm.ai_enabled ? 'الذكاء الاصطناعي مفعّل' : 'الذكاء الاصطناعي معطّل' }}
+                            </span>
+                            <label class="relative inline-flex items-center cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    v-model="aiForm.ai_enabled"
+                                    class="sr-only peer"
+                                />
+                                <div class="w-12 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Preset Templates -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <div class="flex items-center gap-2">
+                            <Tag class="w-4 h-4 text-violet-400" />
+                            <h3 class="text-xs sm:text-sm font-bold text-white">نماذج برومبت جاهزة بنقرة واحدة (Quick Presets)</h3>
+                        </div>
+                        <span class="text-[11px] text-slate-400">انقر لملء الشخصية والتعليمات تلقائياً لمتجرك</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <button
+                            type="button"
+                            @click="applyPreset('shoes')"
+                            class="p-3 rounded-xl bg-slate-950 hover:bg-violet-950/30 border border-slate-800 hover:border-violet-500/50 text-start transition group cursor-pointer"
+                        >
+                            <div class="font-bold text-xs text-white group-hover:text-violet-300 flex items-center justify-between">
+                                <span>👞 متجر أحذية</span>
+                                <span class="text-[10px] text-slate-500 font-normal">جاهز</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1 line-clamp-1">مقاسات EU 37-46، شحن 48h، معاينة</p>
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="applyPreset('clothes')"
+                            class="p-3 rounded-xl bg-slate-950 hover:bg-violet-950/30 border border-slate-800 hover:border-violet-500/50 text-start transition group cursor-pointer"
+                        >
+                            <div class="font-bold text-xs text-white group-hover:text-violet-300 flex items-center justify-between">
+                                <span>👗 متجر ملابس وأزياء</span>
+                                <span class="text-[10px] text-slate-500 font-normal">جاهز</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1 line-clamp-1">مقاسات S-3XL، قطن 100%، كود خصم</p>
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="applyPreset('electronics')"
+                            class="p-3 rounded-xl bg-slate-950 hover:bg-violet-950/30 border border-slate-800 hover:border-violet-500/50 text-start transition group cursor-pointer"
+                        >
+                            <div class="font-bold text-xs text-white group-hover:text-violet-300 flex items-center justify-between">
+                                <span>📱 متجر إلكترونيات</span>
+                                <span class="text-[10px] text-slate-500 font-normal">جاهز</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1 line-clamp-1">ضمان سنتين، شحن مؤمّن، مواصفات</p>
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="applyPreset('general')"
+                            class="p-3 rounded-xl bg-slate-950 hover:bg-violet-950/30 border border-slate-800 hover:border-violet-500/50 text-start transition group cursor-pointer"
+                        >
+                            <div class="font-bold text-xs text-white group-hover:text-violet-300 flex items-center justify-between">
+                                <span>🏢 متجر عام ودعم</span>
+                                <span class="text-[10px] text-slate-500 font-normal">جاهز</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1 line-clamp-1">ترحيب بالعملاء، إجابات سريعة</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Form -->
+                <form @submit.prevent="saveAiSettings" class="space-y-6">
+                    <!-- Model & Persona Card -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                        <div class="border-b border-slate-800 pb-4">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <Sliders class="w-4 h-4 text-violet-400" />
+                                محرك ونبرة الذكاء الاصطناعي لمتجر {{ business.name }}
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5">اختر النموذج الأنسب وحدد أسلوب الحوار</p>
+                        </div>
+
+                        <!-- AI Model -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-2">
+                                نموذج الذكاء الاصطناعي (AI Model)
+                            </label>
+                            <select
+                                v-model="aiForm.ai_model"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+                            >
+                                <option value="gpt-4o-mini">GPT-4o Mini (سريع، فائق الكفاءة واقتصادي - موصى به للردود السريعة)</option>
+                                <option value="gpt-4o">GPT-4o (الأعلى ذكاءً للمحادثات المعقدة وتفاصيل المنتجات)</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo (قوي ومعالجة نصوص طويلة)</option>
+                                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (أسلوب أدبي طبيعي وتفاعل بشري متقدم)</option>
+                                <option value="gemini-1.5-flash">Gemini 1.5 Flash (استجابة فورية وخفيفة)</option>
+                            </select>
+                            <InputError class="mt-1" :message="aiForm.errors.ai_model" />
+                        </div>
+
+                        <!-- Personality & Tone -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-2">
+                                شخصية ونبرة المساعد لمتجر {{ business.name }} (Persona & Tone)
+                            </label>
+                            <textarea
+                                v-model="aiForm.ai_personality"
+                                rows="3"
+                                placeholder="مثال: أنت ممثل مبيعات محترف وودود في متجر فيرتكس، ترحب دائمًا بالعميل باسمه وتقدم نصائح دقيقة بلهجة مهذبة..."
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs sm:text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition leading-relaxed"
+                            ></textarea>
+                            <p class="text-[11px] text-slate-500 mt-1">تحدد نبرة الخطاب وأسلوب التفاعل مع عملاء هذا المتجر تحديداً.</p>
+                            <InputError class="mt-1" :message="aiForm.errors.ai_personality" />
+                        </div>
+
+                        <!-- System Prompt / Custom Instructions -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-xs font-bold text-slate-300">
+                                    البرومبت وتعليمات المتجر (Store Prompt & Guidelines)
+                                </label>
+                                <span class="text-[11px] font-mono text-slate-500">
+                                    {{ aiForm.ai_instructions ? aiForm.ai_instructions.length : 0 }} حرف
+                                </span>
+                            </div>
+                            <textarea
+                                v-model="aiForm.ai_instructions"
+                                rows="6"
+                                placeholder="اكتب هنا جميع تفاصيل متجرك مثل:
+- أنواع المنتجات وأسعارها والمقاسات المتوفرة.
+- مناطق وسرعة الشحن وتكلفته.
+- سياسة الاستبدال والاسترجاع والشروط.
+- العروض الحالية وأكواد الخصم."
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition leading-relaxed"
+                            ></textarea>
+                            <p class="text-[11px] text-slate-500 mt-1">هذا البرومبت يغذي المساعد الذكي بمعلومات منتجات وقواعد متجر {{ business.name }} فقط.</p>
+                            <InputError class="mt-1" :message="aiForm.errors.ai_instructions" />
+                        </div>
+                    </div>
+
+                    <!-- Auto-Reply Channels & Working Hours -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                        <div class="border-b border-slate-800 pb-4">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <Zap class="w-4 h-4 text-amber-400" />
+                                قنوات التفعيل وجدولة ساعات العمل
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5">تحكم في أين ومتى يتولى الذكاء الاصطناعي الرد التلقائي</p>
+                        </div>
+
+                        <!-- Channels Checkboxes -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-3">
+                                تفعيل الرد الآلي على القنوات التالية لمتجر {{ business.name }}:
+                            </label>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <button
+                                    type="button"
+                                    @click="toggleAiPlatform('whatsapp')"
+                                    class="p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition cursor-pointer"
+                                    :class="aiForm.auto_reply_platforms.includes('whatsapp')
+                                        ? 'bg-emerald-950/30 border-emerald-600/60 text-emerald-300'
+                                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                                >
+                                    <span>واتساب (WhatsApp)</span>
+                                    <CheckCircle2 v-if="aiForm.auto_reply_platforms.includes('whatsapp')" class="w-4 h-4 text-emerald-400" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="toggleAiPlatform('telegram')"
+                                    class="p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition cursor-pointer"
+                                    :class="aiForm.auto_reply_platforms.includes('telegram')
+                                        ? 'bg-sky-950/30 border-sky-600/60 text-sky-300'
+                                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                                >
+                                    <span>تيليجرام (Telegram)</span>
+                                    <CheckCircle2 v-if="aiForm.auto_reply_platforms.includes('telegram')" class="w-4 h-4 text-sky-400" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="toggleAiPlatform('facebook')"
+                                    class="p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition cursor-pointer"
+                                    :class="aiForm.auto_reply_platforms.includes('facebook')
+                                        ? 'bg-blue-950/30 border-blue-600/60 text-blue-300'
+                                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                                >
+                                    <span>فيسبوك (Messenger)</span>
+                                    <CheckCircle2 v-if="aiForm.auto_reply_platforms.includes('facebook')" class="w-4 h-4 text-blue-400" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="toggleAiPlatform('instagram')"
+                                    class="p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition cursor-pointer"
+                                    :class="aiForm.auto_reply_platforms.includes('instagram')
+                                        ? 'bg-pink-950/30 border-pink-600/60 text-pink-300'
+                                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                                >
+                                    <span>إنستجرام (Direct)</span>
+                                    <CheckCircle2 v-if="aiForm.auto_reply_platforms.includes('instagram')" class="w-4 h-4 text-pink-400" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Working Hours vs 24/7 -->
+                        <div class="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <span class="text-xs font-bold text-slate-200 block">تقييد الردود بساعات العمل فقط</span>
+                                <span class="text-[11px] text-slate-400">إذا تم التعطيل، سيرد المساعد التلقائي على مدار 24 ساعة يومياً.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                                <input
+                                    type="checkbox"
+                                    v-model="aiForm.working_hours_only"
+                                    class="sr-only peer"
+                                />
+                                <div class="w-12 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                            </label>
+                        </div>
+
+                        <!-- Hours Inputs -->
+                        <div v-if="aiForm.working_hours_only" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">بداية العمل (ساعة بنظام 24: من 0 إلى 23)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="23"
+                                    v-model.number="aiForm.work_start_hour"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">نهاية العمل (ساعة بنظام 24: من 0 إلى 23)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="23"
+                                    v-model.number="aiForm.work_end_hour"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Actions -->
+                    <div class="flex items-center justify-between gap-4 pt-2">
+                        <div class="text-xs text-slate-400">
+                            يتم حفظ التعديلات فوراً لمتجر <span class="font-bold text-white">{{ business.name }}</span>.
+                        </div>
+
+                        <button
+                            type="submit"
+                            :disabled="aiForm.processing"
+                            class="cursor-pointer inline-flex items-center gap-2 px-6 py-3.5 bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white font-bold rounded-xl text-xs sm:text-sm transition shadow-lg shadow-violet-600/30 disabled:opacity-50"
+                        >
+                            <Loader2 v-if="aiForm.processing" class="w-4 h-4 animate-spin" />
+                            <Save v-else class="w-4 h-4" />
+                            <span>{{ aiForm.processing ? 'جاري الحفظ...' : `حفظ إعدادات المساعد لمتجر ${business.name}` }}</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </AuthenticatedLayout>

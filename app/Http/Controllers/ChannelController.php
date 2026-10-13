@@ -21,12 +21,32 @@ class ChannelController extends Controller
 
         session(['current_business_id' => $business->id]);
 
+        $aiSetting = \App\Models\BusinessAiSetting::withoutGlobalScopes()->firstOrCreate(
+            ['business_id' => $business->id],
+            [
+                'ai_enabled' => false,
+                'is_enabled' => false,
+                'ai_model' => 'gpt-4o-mini',
+                'model' => 'gpt-4o-mini',
+                'ai_personality' => 'أنت ممثل مبيعات وخدمة عملاء ودود واحترافي لمتجر ' . $business->name . '، تتحدث بلباقة وترحب بالعميل دائمًا.',
+                'ai_instructions' => '',
+                'system_prompt' => '',
+                'working_hours_only' => false,
+                'work_start_hour' => 9,
+                'work_end_hour' => 18,
+                'auto_reply_platforms' => ['whatsapp', 'facebook', 'instagram', 'telegram'],
+                'reply_delay_seconds' => 2,
+            ]
+        );
+
         return Inertia::render('Businesses/Channels', [
             'business' => $business->only(['id', 'name', 'logo']),
             'whatsapp' => $business->whatsappAccount,
             'facebook' => $business->facebookAccount,
             'instagram' => $business->instagramAccount,
             'telegram' => $business->telegramAccount,
+            'aiSetting' => $aiSetting,
+            'initialTab' => $request->query('tab', 'channels'),
         ]);
     }
 
