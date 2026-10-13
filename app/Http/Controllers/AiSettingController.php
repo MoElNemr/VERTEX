@@ -33,8 +33,11 @@ class AiSettingController extends Controller
         $validated = $request->validate([
             'ai_enabled' => ['nullable', 'boolean'],
             'is_enabled' => ['nullable', 'boolean'],
-            'ai_model' => ['nullable', 'string', 'in:gpt-4o-mini,gpt-4o,gpt-4-turbo,gemini-1.5-flash,claude-3-5-sonnet'],
-            'model' => ['nullable', 'string'],
+            'ai_model' => ['nullable', 'string', 'max:100'],
+            'model' => ['nullable', 'string', 'max:100'],
+            'api_key' => ['nullable', 'string', 'max:500'],
+            'clear_api_key' => ['nullable', 'boolean'],
+            'apply_to_all_stores' => ['nullable', 'boolean'],
             'ai_personality' => ['nullable', 'string', 'max:1000'],
             'ai_instructions' => ['nullable', 'string', 'max:5000'],
             'system_prompt' => ['nullable', 'string', 'max:5000'],
@@ -47,12 +50,13 @@ class AiSettingController extends Controller
 
         // Synchronize naming variants for full compatibility
         $enabled = $request->has('ai_enabled') ? (bool) $request->input('ai_enabled') : (bool) $request->input('is_enabled', false);
-        $model = $request->input('ai_model') ?: ($request->input('model') ?: 'gpt-4o-mini');
+        $model = $request->input('ai_model') ?: ($request->input('model') ?: 'llama-3.3-70b-versatile');
         $instructions = $request->input('ai_instructions') ?: ($request->input('system_prompt') ?: '');
 
         $dataToSave = [
             'ai_enabled' => $enabled,
             'is_enabled' => $enabled,
+            'provider' => 'groq',
             'ai_model' => $model,
             'model' => $model,
             'ai_personality' => $request->input('ai_personality', ''),
@@ -65,12 +69,38 @@ class AiSettingController extends Controller
             'reply_delay_seconds' => (int) ($request->input('reply_delay_seconds') ?? 2),
         ];
 
-        BusinessAiSetting::withoutGlobalScopes()->updateOrCreate(
+        // API key is per-business and NOT required to be unique (users can share one Groq key across multiple stores)
+        if ($request->has('api_key')) {
+            $apiKey = trim((string) $request->input('api_key'));
+            if ($apiKey !== '') {
+                $dataToSave['api_key'] = $apiKey;
+            } elseif ($request->boolean('clear_api_key')) {
+                $dataToSave['api_key'] = null;
+            }
+        }
+
+        $setting = BusinessAiSetting::withoutGlobalScopes()->updateOrCreate(
             ['business_id' => $business->id],
             $dataToSave
         );
 
-        return back()->with('success', 'تم حفظ إعدادات الذكاء الاصطناعي لمتجر ' . $business->name . ' بنجاح.');
+        // Allow user to use this one Groq API key for all their stores if requested
+        if ($request->boolean('apply_to_all_stores') && !empty($setting->api_key)) {
+            $user = auth('web')->user() ?: auth('team')->user();
+            $ownerId = auth('web')->user() ? $user->id : $business->user_id;
+            $userStoreIds = Business::where('user_id', $ownerId)->pluck('id');
+            foreach ($userStoreIds as $bId) {
+                BusinessAiSetting::withoutGlobalScopes()->updateOrCreate(
+                    ['business_id' => $bId],
+                    [
+                        'api_key' => $setting->api_key,
+                        'provider' => 'groq',
+                    ]
+                );
+            }
+        }
+
+        return back()->with('success', 'تم حفظ إعدادات Groq للذكاء الاصطناعي لمتجر ' . $business->name . ' بنجاح.');
     }
 
     protected function authorizeBusinessAccess(Business $business): void

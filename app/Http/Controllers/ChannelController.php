@@ -26,8 +26,9 @@ class ChannelController extends Controller
             [
                 'ai_enabled' => false,
                 'is_enabled' => false,
-                'ai_model' => 'gpt-4o-mini',
-                'model' => 'gpt-4o-mini',
+                'provider' => 'groq',
+                'ai_model' => 'llama-3.3-70b-versatile',
+                'model' => 'llama-3.3-70b-versatile',
                 'ai_personality' => 'أنت ممثل مبيعات وخدمة عملاء ودود واحترافي لمتجر ' . $business->name . '، تتحدث بلباقة وترحب بالعميل دائمًا.',
                 'ai_instructions' => '',
                 'system_prompt' => '',
@@ -39,6 +40,19 @@ class ChannelController extends Controller
             ]
         );
 
+        $ownerId = auth('web')->user() ? auth('web')->id() : $business->user_id;
+        $sharedApiKey = null;
+        if ($ownerId) {
+            $otherSetting = \App\Models\BusinessAiSetting::withoutGlobalScopes()
+                ->whereIn('business_id', Business::where('user_id', $ownerId)->where('id', '!=', $business->id)->pluck('id'))
+                ->whereNotNull('api_key')
+                ->where('api_key', '!=', '')
+                ->first();
+            if ($otherSetting) {
+                $sharedApiKey = $otherSetting->api_key;
+            }
+        }
+
         return Inertia::render('Businesses/Channels', [
             'business' => $business->only(['id', 'name', 'logo']),
             'whatsapp' => $business->whatsappAccount,
@@ -46,6 +60,7 @@ class ChannelController extends Controller
             'instagram' => $business->instagramAccount,
             'telegram' => $business->telegramAccount,
             'aiSetting' => $aiSetting,
+            'sharedApiKey' => $sharedApiKey,
             'initialTab' => $request->query('tab', 'channels'),
         ]);
     }

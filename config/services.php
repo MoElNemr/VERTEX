@@ -44,4 +44,9 @@ return [
         'url' => env('OPENAI_API_URL', 'https://api.openai.com/v1'),
     ],
 
+    'groq' => [
+        'key' => env('GROQ_API_KEY'),
+        'url' => env('GROQ_API_URL', 'https://api.groq.com/openai/v1'),
+    ],
+
 ];

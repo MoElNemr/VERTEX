@@ -27,6 +27,10 @@ import {
     Radio,
     Zap,
     Tag,
+    Key,
+    Eye,
+    EyeOff,
+    ExternalLink,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -36,6 +40,7 @@ const props = defineProps({
     instagram: Object,
     telegram: Object,
     aiSetting: Object,
+    sharedApiKey: String,
     initialTab: {
         type: String,
         default: 'channels',
@@ -43,11 +48,16 @@ const props = defineProps({
 });
 
 const activeTab = ref(props.initialTab || 'channels');
+const showApiKey = ref(false);
 
-// AI Settings Form
+// AI Settings Form (Direct to GROQ)
 const aiForm = useForm({
     ai_enabled: Boolean(props.aiSetting?.ai_enabled ?? props.aiSetting?.is_enabled),
-    ai_model: props.aiSetting?.ai_model || props.aiSetting?.model || 'gpt-4o-mini',
+    provider: 'groq',
+    ai_model: props.aiSetting?.ai_model || props.aiSetting?.model || 'llama-3.3-70b-versatile',
+    api_key: props.aiSetting?.api_key || '',
+    apply_to_all_stores: false,
+    clear_api_key: false,
     ai_personality: props.aiSetting?.ai_personality || '',
     ai_instructions: props.aiSetting?.ai_instructions || props.aiSetting?.system_prompt || '',
     working_hours_only: Boolean(props.aiSetting?.working_hours_only),
@@ -58,6 +68,12 @@ const aiForm = useForm({
         : ['whatsapp', 'facebook', 'instagram', 'telegram'],
     reply_delay_seconds: props.aiSetting?.reply_delay_seconds ?? 2,
 });
+
+const useSharedKey = () => {
+    if (props.sharedApiKey) {
+        aiForm.api_key = props.sharedApiKey;
+    }
+};
 
 const saveAiSettings = () => {
     aiForm.post(route('ai-settings.update', props.business.id), {
@@ -1028,27 +1044,113 @@ const disconnect = (channel) => {
                     <!-- Model & Persona Card -->
                     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
                         <div class="border-b border-slate-800 pb-4">
-                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                                <Sliders class="w-4 h-4 text-violet-400" />
-                                محرك ونبرة الذكاء الاصطناعي لمتجر {{ business.name }}
-                            </h3>
-                            <p class="text-xs text-slate-400 mt-0.5">اختر النموذج الأنسب وحدد أسلوب الحوار</p>
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <Sliders class="w-4 h-4 text-violet-400" />
+                                    محرك Groq ونبرة الذكاء الاصطناعي لمتجر {{ business.name }}
+                                </h3>
+                                <span class="text-[11px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                                    GROQ Direct API
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-0.5">اتصال سحابي فائق السرعة عبر محركات GROQ</p>
                         </div>
 
-                        <!-- AI Model -->
+                        <!-- Groq API Key Section -->
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <label class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                                    <Key class="w-4 h-4 text-amber-400" />
+                                    مفتاح Groq API للمتجر (Groq API Key)
+                                    <span v-if="aiForm.api_key" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        <CheckCircle2 class="w-3 h-3" />
+                                        المفتاح محدد
+                                    </span>
+                                    <span v-else class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        مطلوب للربط المباشر
+                                    </span>
+                                </label>
+                                <a
+                                    href="https://console.groq.com/keys"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-[11px] text-violet-400 hover:text-violet-300 inline-flex items-center gap-1 transition"
+                                >
+                                    <span>إنشاء مفتاح مجاني من console.groq.com</span>
+                                    <ExternalLink class="w-3 h-3" />
+                                </a>
+                            </div>
+
+                            <div class="relative">
+                                <input
+                                    :type="showApiKey ? 'text' : 'password'"
+                                    v-model="aiForm.api_key"
+                                    placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 pe-12 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
+                                />
+                                <div class="absolute inset-y-0 end-0 pe-2.5 flex items-center">
+                                    <button
+                                        type="button"
+                                        @click="showApiKey = !showApiKey"
+                                        class="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                                        :title="showApiKey ? 'إخفاء المفتاح' : 'إظهار المفتاح'"
+                                    >
+                                        <EyeOff v-if="showApiKey" class="w-3.5 h-3.5" />
+                                        <Eye v-else class="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                            <InputError class="mt-1" :message="aiForm.errors.api_key" />
+
+                            <!-- Notice that key is not unique and can be shared across all user stores -->
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
+                                <p>
+                                    💡 كل متجر يمتلك إعداداته المستقلة، ويمكنك استخدام نفس مفتاح Groq لجميع متاجرك بكل سهولة.
+                                </p>
+                                <button
+                                    v-if="sharedApiKey && !aiForm.api_key"
+                                    type="button"
+                                    @click="useSharedKey"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-950/60 hover:bg-violet-900/80 text-violet-300 border border-violet-700/50 text-[11px] font-semibold transition cursor-pointer shrink-0"
+                                >
+                                    <Sparkles class="w-3 h-3 text-violet-400" />
+                                    <span>استخدام نفس المفتاح المحفوظ في متجر آخر</span>
+                                </button>
+                            </div>
+
+                            <!-- Apply to all stores checkbox -->
+                            <div class="pt-2 border-t border-slate-900 flex items-center gap-2">
+                                <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        v-model="aiForm.apply_to_all_stores"
+                                        class="rounded bg-slate-900 border-slate-700 text-violet-600 focus:ring-violet-500"
+                                    />
+                                    <span class="text-xs font-medium text-slate-300">
+                                        تطبيق هذا المفتاح تلقائياً على كافة متاجري الأخرى
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- AI Model (Groq models) -->
                         <div>
-                            <label class="block text-xs font-bold text-slate-300 mb-2">
-                                نموذج الذكاء الاصطناعي (AI Model)
-                            </label>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-xs font-bold text-slate-300">
+                                    نموذج GROQ للذكاء الاصطناعي (Groq AI Model)
+                                </label>
+                                <span class="text-[11px] text-emerald-400 font-medium">⚡ اتصال مباشر عبر Groq</span>
+                            </div>
                             <select
                                 v-model="aiForm.ai_model"
                                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
                             >
-                                <option value="gpt-4o-mini">GPT-4o Mini (سريع، فائق الكفاءة واقتصادي - موصى به للردود السريعة)</option>
-                                <option value="gpt-4o">GPT-4o (الأعلى ذكاءً للمحادثات المعقدة وتفاصيل المنتجات)</option>
-                                <option value="gpt-4-turbo">GPT-4 Turbo (قوي ومعالجة نصوص طويلة)</option>
-                                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (أسلوب أدبي طبيعي وتفاعل بشري متقدم)</option>
-                                <option value="gemini-1.5-flash">Gemini 1.5 Flash (استجابة فورية وخفيفة)</option>
+                                <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (الأقوى والأعلى ذكاءً - موصى به لكافة الردود والاستفسارات)</option>
+                                <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (فائق السرعة وأقل استهلاكاً - استجابة فورية)</option>
+                                <option value="mixtral-8x7b-32768">Mixtral 8x7B 32k (نافذة سياق واسعة واستيعاب عالي للمعلومات)</option>
+                                <option value="gemma2-9b-it">Gemma 2 9B IT (نموذج Google المتطور عبر محرك Groq)</option>
+                                <option value="llama-3.2-3b-preview">Llama 3.2 3B (خفيف وسريع جداً للردود التلقائية البسيطة)</option>
+                                <option value="llama-3.2-1b-preview">Llama 3.2 1B (أصغر وأسرع نموذج)</option>
                             </select>
                             <InputError class="mt-1" :message="aiForm.errors.ai_model" />
                         </div>

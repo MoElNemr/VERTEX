@@ -125,4 +125,109 @@ class PerBusinessAiChannelsTest extends TestCase
         $this->assertEquals('Businesses/Channels', $res->viewData('page')['component']);
         $this->assertEquals('ai', $res->viewData('page')['props']['initialTab']);
     }
+
+    public function test_user_can_save_groq_api_key_and_share_same_key_across_stores_not_unique(): void
+    {
+        $sameGroqKey = 'gsk_shared_groq_test_api_key_1234567890';
+
+        $res = $this->actingAs($this->merchant)
+            ->post(route('ai-settings.update', $this->shoesStore->id), [
+                'ai_enabled' => true,
+                'ai_model' => 'llama-3.3-70b-versatile',
+                'api_key' => $sameGroqKey,
+            ])
+            ->assertRedirect();
+
+        // 2. Save EXACT same Groq key on Clothes Store (proving key is not unique)
+        $this->actingAs($this->merchant)
+            ->post(route('ai-settings.update', $this->clothesStore->id), [
+                'ai_enabled' => true,
+                'ai_model' => 'llama-3.1-8b-instant',
+                'api_key' => $sameGroqKey,
+            ])
+            ->assertRedirect();
+
+        // 3. Verify in database: both stores have the exact same key and provider = groq
+        $shoesSetting = BusinessAiSetting::withoutGlobalScopes()->where('business_id', $this->shoesStore->id)->first();
+        $clothesSetting = BusinessAiSetting::withoutGlobalScopes()->where('business_id', $this->clothesStore->id)->first();
+
+        $this->assertNotNull($shoesSetting);
+        $this->assertNotNull($clothesSetting);
+        $this->assertEquals('groq', $shoesSetting->provider);
+        $this->assertEquals('groq', $clothesSetting->provider);
+        $this->assertEquals($sameGroqKey, $shoesSetting->api_key);
+        $this->assertEquals($sameGroqKey, $clothesSetting->api_key);
+    }
+
+    public function test_user_can_apply_one_groq_api_key_to_all_stores_with_single_action(): void
+    {
+        $masterKey = 'gsk_master_universal_key_999999999';
+
+        $this->actingAs($this->merchant)
+            ->post(route('ai-settings.update', $this->shoesStore->id), [
+                'ai_enabled' => true,
+                'ai_model' => 'llama-3.3-70b-versatile',
+                'api_key' => $masterKey,
+                'apply_to_all_stores' => true,
+            ])
+            ->assertRedirect();
+
+        $shoesSetting = BusinessAiSetting::withoutGlobalScopes()->where('business_id', $this->shoesStore->id)->first();
+        $clothesSetting = BusinessAiSetting::withoutGlobalScopes()->where('business_id', $this->clothesStore->id)->first();
+
+        $this->assertEquals($masterKey, $shoesSetting->api_key);
+        $this->assertEquals($masterKey, $clothesSetting->api_key);
+        $this->assertEquals('groq', $shoesSetting->provider);
+        $this->assertEquals('groq', $clothesSetting->provider);
+    }
+
+    public function test_ai_service_makes_direct_call_to_groq_api_using_business_key(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://api.groq.com/openai/v1/chat/completions' => \Illuminate\Support\Facades\Http::response([
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => 'مرحباً بك في متجر الأحذية! هذا رد تم توليده مباشرة عبر Groq.',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $setting = BusinessAiSetting::create([
+            'business_id' => $this->shoesStore->id,
+            'ai_enabled' => true,
+            'provider' => 'groq',
+            'ai_model' => 'llama-3.3-70b-versatile',
+            'api_key' => 'gsk_test_groq_direct_endpoint_key',
+            'ai_personality' => 'مساعد متجر أحذية محترف',
+        ]);
+
+        $contact = Contact::create([
+            'business_id' => $this->shoesStore->id,
+            'name' => 'Ahmed Test',
+            'platform' => 'whatsapp',
+            'platform_sender_id' => '201012345678',
+        ]);
+
+        $conversation = Conversation::create([
+            'business_id' => $this->shoesStore->id,
+            'contact_id' => $contact->id,
+            'platform' => 'whatsapp',
+            'status' => 'open',
+            'unread_count' => 0,
+            'last_message_at' => now(),
+        ]);
+
+        $reply = app(AiService::class)->autoReply($conversation, $setting, 'هل المقاس 42 متوفر؟');
+
+        $this->assertEquals('مرحباً بك في متجر الأحذية! هذا رد تم توليده مباشرة عبر Groq.', $reply);
+
+        \Illuminate\Support\Facades\Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
+            return $request->url() === 'https://api.groq.com/openai/v1/chat/completions'
+                && $request->hasHeader('Authorization', 'Bearer gsk_test_groq_direct_endpoint_key')
+                && $request['model'] === 'llama-3.3-70b-versatile';
+        });
+    }
 }

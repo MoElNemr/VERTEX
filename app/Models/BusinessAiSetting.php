@@ -28,6 +28,12 @@ class BusinessAiSetting extends Model
         'reply_delay_seconds',
     ];
 
+    protected $attributes = [
+        'provider' => 'groq',
+        'ai_model' => 'llama-3.3-70b-versatile',
+        'model' => 'llama-3.3-70b-versatile',
+    ];
+
     protected $casts = [
         'ai_enabled' => 'boolean',
         'working_hours_only' => 'boolean',
@@ -38,4 +44,14 @@ class BusinessAiSetting extends Model
         'reply_delay_seconds' => 'integer',
         'api_key' => 'encrypted',
     ];
+
+    public function getEffectiveApiKeyAttribute(): ?string
+    {
+        return $this->api_key ?: (config('services.groq.key') ?: env('GROQ_API_KEY'));
+    }
+
+    public function getHasApiKeyAttribute(): bool
+    {
+        return !empty($this->effective_api_key);
+    }
 }
