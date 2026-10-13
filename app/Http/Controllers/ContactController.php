@@ -46,6 +46,8 @@ class ContactController extends Controller
 
         $business = Business::findOrFail($currentBusinessId);
         $search = $request->query('search');
+        $platform = $request->query('platform') ?: $request->query('channel');
+        $validPlatforms = ['whatsapp', 'facebook', 'instagram', 'telegram'];
 
         $query = Contact::where('business_id', $business->id)
             ->withCount('conversations')
@@ -62,13 +64,25 @@ class ContactController extends Controller
             });
         }
 
+        if ($platform && in_array($platform, $validPlatforms)) {
+            $query->where('platform', $platform);
+        }
+
         $contacts = $query->orderByDesc('updated_at')->paginate(20)->withQueryString();
+
+        $platformCounts = Contact::where('business_id', $business->id)
+            ->selectRaw('platform, count(*) as count')
+            ->groupBy('platform')
+            ->pluck('count', 'platform')
+            ->toArray();
 
         return Inertia::render('Contacts/Index', [
             'business' => $business->only(['id', 'name']),
             'contacts' => $contacts,
+            'platformCounts' => $platformCounts,
             'filters' => [
                 'search' => $search,
+                'platform' => $platform,
             ],
         ]);
     }
@@ -140,7 +154,7 @@ class ContactController extends Controller
     }
 
     /**
-     * تصدير جميع جهات اتصال المتجر الحالي كملف CSV
+     * تصدير جهات اتصال المتجر الحالي كملف CSV (لجميع القنوات أو لقناة محددة)
      */
     public function export(Request $request): StreamedResponse|RedirectResponse
     {
@@ -151,7 +165,18 @@ class ContactController extends Controller
         }
 
         $business = Business::findOrFail($currentBusinessId);
-        $filename = 'contacts-' . $business->id . '-' . date('Y-m-d') . '.csv';
+        $channel = $request->query('channel') ?: $request->query('platform');
+        $validChannels = ['whatsapp', 'facebook', 'instagram', 'telegram'];
+
+        $query = Contact::where('business_id', $business->id);
+
+        if ($channel && in_array($channel, $validChannels)) {
+            $query->where('platform', $channel);
+            $filename = 'contacts-' . $channel . '-' . $business->id . '-' . date('Y-m-d') . '.csv';
+        } else {
+            $channel = null;
+            $filename = 'contacts-all-' . $business->id . '-' . date('Y-m-d') . '.csv';
+        }
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -161,7 +186,7 @@ class ContactController extends Controller
             'Expires' => '0',
         ];
 
-        $callback = function () use ($business) {
+        $callback = function () use ($query) {
             $file = fopen('php://output', 'w');
             // Write UTF-8 BOM for proper Arabic display in Excel
             fputs($file, "\xEF\xBB\xBF");
@@ -179,23 +204,21 @@ class ContactController extends Controller
                 'تاريخ الإنشاء',
             ]);
 
-            Contact::where('business_id', $business->id)
-                ->orderBy('id')
-                ->chunk(200, function ($contacts) use ($file) {
-                    foreach ($contacts as $contact) {
-                        fputcsv($file, [
-                            $contact->id,
-                            $contact->name ?? '',
-                            $contact->phone ?? '',
-                            $contact->email ?? '',
-                            $contact->platform,
-                            $contact->platform_sender_id,
-                            is_array($contact->tags) ? implode(', ', $contact->tags) : '',
-                            $contact->notes ?? '',
-                            $contact->created_at?->format('Y-m-d H:i') ?? '',
-                        ]);
-                    }
-                });
+            $query->orderBy('id')->chunk(200, function ($contacts) use ($file) {
+                foreach ($contacts as $contact) {
+                    fputcsv($file, [
+                        $contact->id,
+                        $contact->name ?? '',
+                        $contact->phone ?? '',
+                        $contact->email ?? '',
+                        $contact->platform,
+                        $contact->platform_sender_id,
+                        is_array($contact->tags) ? implode(', ', $contact->tags) : '',
+                        $contact->notes ?? '',
+                        $contact->created_at?->format('Y-m-d H:i') ?? '',
+                    ]);
+                }
+            });
 
             fclose($file);
         };

@@ -32,13 +32,20 @@ const props = defineProps({
     stats: {
         type: Object,
         default: () => ({
+            total_contacts: 0,
+            contacts_today: 0,
+            contacts_this_week: 0,
             total_conversations: 0,
             open: 0,
             closed: 0,
             pending: 0,
+            unread: 0,
+            total_messages: 0,
             messages_today: 0,
             messages_this_week: 0,
-            avg_response_minutes: 1.8,
+            incoming_messages: 0,
+            outgoing_messages: 0,
+            avg_response_minutes: 0,
             by_platform: {},
         }),
     },
@@ -48,13 +55,12 @@ const props = defineProps({
             total_campaigns: 0,
             active_campaigns: 0,
             completed_campaigns: 0,
+            retargeting_campaigns: 0,
+            bulk_campaigns: 0,
             total_recipients: 0,
             messages_sent: 0,
-            delivery_rate: 98.4,
-            estimated_revenue: 14820,
-            ad_spend: 2140,
-            roi_percent: 340.8,
-            roi_multiplier: 4.4,
+            messages_failed: 0,
+            delivery_rate: 0,
             platform_distribution: {},
             time_series: [],
             recent_campaigns: [],
@@ -67,11 +73,24 @@ const props = defineProps({
 });
 
 // Selected metric for interactive SVG chart
-const activeMetric = ref('revenue'); // 'revenue' | 'impressions' | 'conversions'
+const activeMetric = ref('messages'); // 'messages' | 'conversations' | 'contacts'
 const hoveredIndex = ref(null);
 
 const timeSeries = computed(() => {
     return props.marketing?.time_series || [];
+});
+
+const maxDailyMessages = computed(() => {
+    const list = timeSeries.value;
+    if (!list || list.length === 0) return 0;
+    return Math.max(...list.map(i => i.messages || 0));
+});
+
+const avgDailyMessages = computed(() => {
+    const list = timeSeries.value;
+    if (!list || list.length === 0) return '0.0';
+    const sum = list.reduce((acc, i) => acc + (i.messages || 0), 0);
+    return (sum / list.length).toFixed(1);
 });
 
 // Calculate SVG coordinates for line chart
@@ -85,19 +104,19 @@ const chartPoints = computed(() => {
     const padY = 20;
 
     const values = list.map(item => {
-        if (activeMetric.value === 'revenue') return item.roi * 100;
-        if (activeMetric.value === 'impressions') return item.impressions;
-        return item.conversions;
+        if (activeMetric.value === 'messages') return item.messages || 0;
+        if (activeMetric.value === 'conversations') return item.conversations || 0;
+        return item.contacts || 0;
     });
 
-    const minVal = Math.min(...values) * 0.9;
-    const maxVal = Math.max(...values) * 1.05 || 1;
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values, 1);
 
-    const stepX = (width - padX * 2) / (list.length - 1);
+    const stepX = (width - padX * 2) / Math.max(1, list.length - 1);
 
     const pts = values.map((val, idx) => {
         const x = padX + idx * stepX;
-        const normalized = (val - minVal) / (maxVal - minVal || 1);
+        const normalized = (val - minVal) / Math.max(1, maxVal - minVal);
         const y = height - padY - (normalized * (height - padY * 2));
         return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, val, raw: list[idx] };
     });
@@ -106,7 +125,6 @@ const chartPoints = computed(() => {
 
     let path = `M ${pts[0].x} ${pts[0].y}`;
     for (let i = 1; i < pts.length; i++) {
-        // Smooth cubic bezier curves
         const prev = pts[i - 1];
         const curr = pts[i];
         const cp1x = prev.x + (curr.x - prev.x) / 2;
@@ -127,51 +145,41 @@ const platformsList = computed(() => {
     const dist = props.marketing?.platform_distribution || {};
     return [
         {
-            key: 'instagram',
-            name: 'Instagram',
-            share: dist.instagram?.share ?? 38,
-            count: dist.instagram?.count ?? 0,
-            growth: dist.instagram?.growth ?? '+14.2%',
-            color: 'bg-gradient-to-r from-pink-500 to-rose-500',
-            textColor: 'text-pink-400',
-            badgeBg: 'bg-pink-500/10 border-pink-500/20 text-pink-400',
-        },
-        {
-            key: 'facebook',
-            name: 'Facebook',
-            share: dist.facebook?.share ?? 28,
-            count: dist.facebook?.count ?? 0,
-            growth: dist.facebook?.growth ?? '+8.7%',
-            color: 'bg-blue-600',
-            textColor: 'text-blue-400',
-            badgeBg: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
-        },
-        {
-            key: 'tiktok',
-            name: 'TikTok',
-            share: dist.tiktok?.share ?? 20,
-            count: dist.tiktok?.count ?? 0,
-            growth: dist.tiktok?.growth ?? '+32.4%',
-            color: 'bg-gradient-to-r from-cyan-400 to-teal-400',
-            textColor: 'text-cyan-400',
-            badgeBg: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
-        },
-        {
             key: 'whatsapp',
             name: 'WhatsApp',
-            share: dist.whatsapp?.share ?? 10,
+            share: dist.whatsapp?.share ?? 0,
             count: dist.whatsapp?.count ?? 0,
-            growth: dist.whatsapp?.growth ?? '+19.1%',
+            newThisWeek: dist.whatsapp?.new_this_week ?? 0,
             color: 'bg-emerald-500',
             textColor: 'text-emerald-400',
             badgeBg: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
         },
         {
+            key: 'facebook',
+            name: 'Facebook',
+            share: dist.facebook?.share ?? 0,
+            count: dist.facebook?.count ?? 0,
+            newThisWeek: dist.facebook?.new_this_week ?? 0,
+            color: 'bg-blue-600',
+            textColor: 'text-blue-400',
+            badgeBg: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+        },
+        {
+            key: 'instagram',
+            name: 'Instagram',
+            share: dist.instagram?.share ?? 0,
+            count: dist.instagram?.count ?? 0,
+            newThisWeek: dist.instagram?.new_this_week ?? 0,
+            color: 'bg-gradient-to-r from-pink-500 to-rose-500',
+            textColor: 'text-pink-400',
+            badgeBg: 'bg-pink-500/10 border-pink-500/20 text-pink-400',
+        },
+        {
             key: 'telegram',
             name: 'Telegram',
-            share: dist.telegram?.share ?? 4,
+            share: dist.telegram?.share ?? 0,
             count: dist.telegram?.count ?? 0,
-            growth: dist.telegram?.growth ?? '+5.0%',
+            newThisWeek: dist.telegram?.new_this_week ?? 0,
             color: 'bg-sky-500',
             textColor: 'text-sky-400',
             badgeBg: 'bg-sky-500/10 border-sky-500/20 text-sky-400',
@@ -232,98 +240,100 @@ const platformsList = computed(() => {
         </template>
 
         <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-5">
-            <!-- 1. BENTO ROW 1: COMPACT HIGH-DENSITY KPI STRIP (Linear / Stripe style) -->
+            <!-- 1. BENTO ROW 1: REAL HIGH-DENSITY KPI STRIP -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                <!-- KPI 1: Marketing ROI & Multiplier -->
+                <!-- KPI 1: Real Contacts Metric -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 transition hover:border-slate-700">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400">العائد على الاستثمار (ROI)</span>
+                        <span class="text-xs font-medium text-slate-400">جهات الاتصال والجمهور</span>
                         <span class="inline-flex items-center gap-0.5 text-[11px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                            <ArrowUpRight class="w-3 h-3" />
-                            +{{ marketing.roi_percent }}%
+                            <Users class="w-3 h-3" />
+                            +{{ stats.contacts_this_week || 0 }} هذا الأسبوع
                         </span>
                     </div>
                     <div class="mt-2.5 flex items-baseline gap-2">
-                        <span class="text-2xl font-bold font-mono text-white tracking-tight">{{ marketing.roi_multiplier }}x</span>
-                        <span class="text-[11px] text-slate-500">مضاعف العائد التسويقي</span>
+                        <span class="text-2xl font-bold font-mono text-white tracking-tight">{{ (stats.total_contacts || 0).toLocaleString() }}</span>
+                        <span class="text-[11px] text-slate-500">عميل مسجل</span>
                     </div>
                     <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>الإنفاق التقديري:</span>
-                        <span class="font-mono text-slate-200">${{ marketing.ad_spend.toLocaleString() }}</span>
+                        <span>مسجلين اليوم:</span>
+                        <span class="font-mono text-slate-200 font-semibold">{{ stats.contacts_today || 0 }} عميل</span>
                     </div>
                 </div>
 
-                <!-- KPI 2: Attributed Revenue -->
+                <!-- KPI 2: Real Messages Activity -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 transition hover:border-slate-700">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400">الإيرادات المحققة</span>
+                        <span class="text-xs font-medium text-slate-400">إجمالي الرسائل المتبادلة</span>
                         <span class="inline-flex items-center gap-0.5 text-[11px] font-mono font-semibold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
-                            <Zap class="w-3 h-3" />
-                            نشط
+                            <MessageSquare class="w-3 h-3" />
+                            {{ stats.messages_today || 0 }} اليوم
                         </span>
                     </div>
                     <div class="mt-2.5 flex items-baseline gap-2">
-                        <span class="text-2xl font-bold font-mono text-white tracking-tight">${{ marketing.estimated_revenue.toLocaleString() }}</span>
-                        <span class="text-[11px] text-slate-500">مبيعات الحملات</span>
+                        <span class="text-2xl font-bold font-mono text-white tracking-tight">{{ (stats.total_messages || 0).toLocaleString() }}</span>
+                        <span class="text-[11px] text-slate-500">رسالة متبادلة</span>
                     </div>
                     <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>معدل تسليم الحملات:</span>
-                        <span class="font-mono text-emerald-400 font-semibold">{{ marketing.delivery_rate }}%</span>
+                        <span>الصادرة: <span class="font-mono text-slate-200 font-semibold">{{ (stats.outgoing_messages || 0).toLocaleString() }}</span></span>
+                        <span>الواردة: <span class="font-mono text-slate-200 font-semibold">{{ (stats.incoming_messages || 0).toLocaleString() }}</span></span>
                     </div>
                 </div>
 
-                <!-- KPI 3: Total Marketing Dispatches -->
+                <!-- KPI 3: Real Marketing Campaigns Dispatches -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 transition hover:border-slate-700">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400">رسائل الحملات والاستهداف</span>
-                        <span class="p-1 rounded bg-slate-800 text-blue-400 border border-slate-700/60">
-                            <Send class="w-3.5 h-3.5" />
+                        <span class="text-xs font-medium text-slate-400">رسائل الحملات والتسويق</span>
+                        <span class="inline-flex items-center gap-0.5 text-[11px] font-mono font-semibold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+                            <Send class="w-3 h-3" />
+                            {{ marketing.total_campaigns || 0 }} حملة
                         </span>
                     </div>
                     <div class="mt-2.5 flex items-baseline gap-2">
                         <span class="text-2xl font-bold font-mono text-white tracking-tight">
-                            {{ (marketing.messages_sent || stats.messages_today).toLocaleString() }}
+                            {{ (marketing.messages_sent || 0).toLocaleString() }}
                         </span>
                         <span class="text-[11px] text-slate-500">مرسلة بنجاح</span>
                     </div>
                     <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>إجمالي المستهدفين:</span>
-                        <span class="font-mono text-slate-200 font-semibold">{{ marketing.total_recipients.toLocaleString() }}</span>
+                        <span>المستهدفين: <span class="font-mono text-slate-200 font-semibold">{{ (marketing.total_recipients || 0).toLocaleString() }}</span></span>
+                        <span>نسبة التسليم: <span class="font-mono text-emerald-400 font-semibold">{{ marketing.delivery_rate }}%</span></span>
                     </div>
                 </div>
 
-                <!-- KPI 4: Conversations & Response Time -->
+                <!-- KPI 4: Real Conversations & Response Time -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 transition hover:border-slate-700">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-medium text-slate-400">المحادثات وسرعة الرد</span>
-                        <span class="p-1 rounded bg-slate-800 text-emerald-400 border border-slate-700/60">
-                            <Clock class="w-3.5 h-3.5" />
+                        <span class="inline-flex items-center gap-0.5 text-[11px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                            <Clock class="w-3 h-3" />
+                            {{ stats.open || 0 }} مفتوحة
                         </span>
                     </div>
                     <div class="mt-2.5 flex items-baseline gap-2">
-                        <span class="text-2xl font-bold font-mono text-white tracking-tight">{{ stats.total_conversations }}</span>
+                        <span class="text-2xl font-bold font-mono text-white tracking-tight">{{ (stats.total_conversations || 0).toLocaleString() }}</span>
                         <span class="text-[11px] text-slate-500">محادثة</span>
                     </div>
                     <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
                         <span class="text-slate-400">متوسط أول استجابة:</span>
-                        <span class="font-mono text-blue-400 font-bold">{{ stats.avg_response_minutes }} دقيقة</span>
+                        <span class="font-mono text-blue-400 font-bold">{{ stats.avg_response_minutes > 0 ? stats.avg_response_minutes + ' دقيقة' : '—' }}</span>
                     </div>
                 </div>
             </div>
 
             <!-- 2. BENTO ROW 2: MAIN DATA VISUALIZATION (8 cols) & SOCIAL PLATFORM DISTRIBUTION (4 cols) -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-                <!-- HERO CELL: Performance & ROI Trend SVG Line Chart (8 cols) -->
+                <!-- HERO CELL: Real 14-Day Performance SVG Line Chart (8 cols) -->
                 <div class="lg:col-span-8 bg-slate-900/85 border border-slate-800/90 rounded-xl p-5 flex flex-col justify-between">
                     <div>
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
                             <div>
                                 <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
                                     <BarChart3 class="w-4 h-4 text-blue-400" />
-                                    <span>أداء الحملات ومسار العائد (ROI Curve)</span>
+                                    <span>حركة التفاعل والمراسلات (14 يوماً)</span>
                                 </h3>
                                 <p class="text-[11px] text-slate-400 mt-0.5">
-                                    مسار الـ 14 يوماً الأخيرة لمعدل العائد الاستثماري وحجم التفاعل التسويقي
+                                    بيانات فعلية من واقع الرسائل والمحادثات وجهات الاتصال اليومية
                                 </p>
                             </div>
 
@@ -331,27 +341,27 @@ const platformsList = computed(() => {
                             <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
                                 <button
                                     type="button"
-                                    @click="activeMetric = 'revenue'"
+                                    @click="activeMetric = 'messages'"
                                     class="px-2.5 py-1 text-[11px] font-medium rounded-md transition cursor-pointer"
-                                    :class="activeMetric === 'revenue' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                    :class="activeMetric === 'messages' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
                                 >
-                                    العائد (ROI)
+                                    الرسائل
                                 </button>
                                 <button
                                     type="button"
-                                    @click="activeMetric = 'impressions'"
+                                    @click="activeMetric = 'conversations'"
                                     class="px-2.5 py-1 text-[11px] font-medium rounded-md transition cursor-pointer"
-                                    :class="activeMetric === 'impressions' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                    :class="activeMetric === 'conversations' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
                                 >
-                                    المشاهدات
+                                    المحادثات
                                 </button>
                                 <button
                                     type="button"
-                                    @click="activeMetric = 'conversions'"
+                                    @click="activeMetric = 'contacts'"
                                     class="px-2.5 py-1 text-[11px] font-medium rounded-md transition cursor-pointer"
-                                    :class="activeMetric === 'conversions' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                    :class="activeMetric === 'contacts' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
                                 >
-                                    التحويلات
+                                    جهات الاتصال
                                 </button>
                             </div>
                         </div>
@@ -419,24 +429,24 @@ const platformsList = computed(() => {
                         </div>
                     </div>
 
-                    <!-- Chart Summary Footer Bar -->
+                    <!-- Chart Summary Footer Bar with Real Metrics -->
                     <div class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-xs">
                         <div class="p-2 rounded bg-slate-950/60 border border-slate-800/60">
-                            <span class="text-[10px] text-slate-500 block">أعلى عائد يومي</span>
-                            <span class="font-mono font-bold text-white text-xs">5.2x ROI</span>
+                            <span class="text-[10px] text-slate-500 block">أعلى نشاط يومي</span>
+                            <span class="font-mono font-bold text-white text-xs">{{ maxDailyMessages }} رسالة</span>
                         </div>
                         <div class="p-2 rounded bg-slate-950/60 border border-slate-800/60">
-                            <span class="text-[10px] text-slate-500 block">متوسط التحويل اليومي</span>
-                            <span class="font-mono font-bold text-blue-400 text-xs">14.2%</span>
+                            <span class="text-[10px] text-slate-500 block">متوسط الرسائل اليومي</span>
+                            <span class="font-mono font-bold text-blue-400 text-xs">{{ avgDailyMessages }} رسالة</span>
                         </div>
                         <div class="p-2 rounded bg-slate-950/60 border border-slate-800/60">
-                            <span class="text-[10px] text-slate-500 block">استقرار التوصيل</span>
-                            <span class="font-mono font-bold text-emerald-400 text-xs">99.1%</span>
+                            <span class="text-[10px] text-slate-500 block">نسبة تسليم الحملات</span>
+                            <span class="font-mono font-bold text-emerald-400 text-xs">{{ marketing.delivery_rate }}%</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- SIDE CELL: Social Media Platform Distribution (Instagram, Facebook, TikTok) (4 cols) -->
+                <!-- SIDE CELL: Social Media Platform Distribution (4 Real Channels) (4 cols) -->
                 <div class="lg:col-span-4 bg-slate-900/85 border border-slate-800/90 rounded-xl p-5 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -446,10 +456,10 @@ const platformsList = computed(() => {
                                     <span>توزيع منصات التواصل</span>
                                 </h3>
                                 <p class="text-[11px] text-slate-400 mt-0.5">
-                                    نسبة التوزيع والحصص التسويقية
+                                    توزيع جهات الاتصال على القنوات
                                 </p>
                             </div>
-                            <span class="text-[11px] font-mono text-slate-500">5 منصات</span>
+                            <span class="text-[11px] font-mono text-slate-500">4 قنوات</span>
                         </div>
 
                         <!-- Platforms Bars -->
@@ -463,7 +473,7 @@ const platformsList = computed(() => {
                                     <div class="flex items-center gap-2">
                                         <span class="font-bold text-slate-200">{{ p.name }}</span>
                                         <span class="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded border" :class="p.badgeBg">
-                                            {{ p.growth }}
+                                            {{ p.newThisWeek > 0 ? `+${p.newThisWeek} هذا الأسبوع` : 'نشط' }}
                                         </span>
                                     </div>
                                     <div class="flex items-center gap-2">
@@ -528,8 +538,8 @@ const platformsList = computed(() => {
                                 <span class="font-mono font-bold text-blue-400">10 ثواني + تذبذب عشوائي</span>
                             </div>
                             <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
-                                <span>الحملات المنفذة:</span>
-                                <span class="font-mono font-bold text-white">{{ marketing.total_campaigns }} حملة</span>
+                                <span>حملات إعادة الاستهداف:</span>
+                                <span class="font-mono font-bold text-white">{{ marketing.retargeting_campaigns || 0 }} حملة</span>
                             </div>
                         </div>
                     </div>
@@ -573,8 +583,8 @@ const platformsList = computed(() => {
                                 <span class="font-bold text-white">تأخير تدريجي مخصص</span>
                             </div>
                             <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
-                                <span>معاينة مسبقة للملف:</span>
-                                <span class="font-bold text-emerald-400">فلترة الأرقام الخاطئة</span>
+                                <span>حملات الإرسال الجماعي:</span>
+                                <span class="font-mono font-bold text-emerald-400">{{ marketing.bulk_campaigns || 0 }} حملة</span>
                             </div>
                         </div>
                     </div>

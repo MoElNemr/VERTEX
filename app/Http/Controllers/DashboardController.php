@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\Campaign;
+use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\TeamMember;
@@ -14,7 +15,7 @@ use Inertia\Response;
 
 /**
  * لوحة التحكم والإحصائيات والتحليلات لمتجر التاجر
- * Minimalist Data-Dense SaaS Dashboard (Stripe & Linear Aesthetic)
+ * Real Omnichannel Messaging & Marketing Analytics
  */
 class DashboardController extends Controller
 {
@@ -38,34 +39,79 @@ class DashboardController extends Controller
 
         $business = Business::findOrFail($currentBusinessId);
 
-        // Core Conversation Metrics
+        // 1. Contacts Metrics
+        $contactsQuery = Contact::where('business_id', $currentBusinessId);
+        $totalContacts = (clone $contactsQuery)->count();
+        $contactsToday = (clone $contactsQuery)->whereDate('created_at', today())->count();
+        $contactsThisWeek = (clone $contactsQuery)->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->count();
+
+        // 2. Core Conversation Metrics
         $conversations = Conversation::where('business_id', $currentBusinessId);
         $totalConversations = (clone $conversations)->count();
         $openCount = (clone $conversations)->where('status', 'open')->count();
         $closedCount = (clone $conversations)->where('status', 'closed')->count();
         $pendingCount = (clone $conversations)->where('status', 'pending')->count();
+        $unreadConversations = (clone $conversations)->where('unread_count', '>', 0)->count();
 
-        $messagesToday = Message::whereHas('conversation', fn ($q) => $q->where('business_id', $currentBusinessId))
-            ->whereDate('created_at', today())->count();
-        $messagesThisWeek = Message::whereHas('conversation', fn ($q) => $q->where('business_id', $currentBusinessId))
-            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->count();
+        // 3. Message Volume Metrics
+        $messagesQuery = Message::whereHas('conversation', fn ($q) => $q->where('business_id', $currentBusinessId));
+        $totalMessages = (clone $messagesQuery)->count();
+        $messagesToday = (clone $messagesQuery)->whereDate('created_at', today())->count();
+        $messagesThisWeek = (clone $messagesQuery)->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->count();
+        $incomingMessages = (clone $messagesQuery)->where('sender_type', 'contact')->count();
+        $outgoingMessages = (clone $messagesQuery)->whereIn('sender_type', ['agent', 'bot'])->count();
 
-        // Platform breakdown from actual conversations
-        $byPlatform = Conversation::where('business_id', $currentBusinessId)
+        // 4. Platform breakdown from actual contacts
+        $contactPlatformCounts = Contact::where('business_id', $currentBusinessId)
             ->selectRaw('platform, count(*) as count')
             ->groupBy('platform')
-            ->get()
             ->pluck('count', 'platform')
             ->toArray();
 
-        // Campaigns metrics
+        $startOfWeek = now()->startOfWeek();
+        $contactsThisWeekByPlatform = Contact::where('business_id', $currentBusinessId)
+            ->where('created_at', '>=', $startOfWeek)
+            ->selectRaw('platform, count(*) as count')
+            ->groupBy('platform')
+            ->pluck('count', 'platform')
+            ->toArray();
+
+        $platformMeta = [
+            'whatsapp' => ['name' => 'WhatsApp', 'color' => '#10B981'],
+            'facebook' => ['name' => 'Facebook', 'color' => '#2563EB'],
+            'instagram' => ['name' => 'Instagram', 'color' => '#EC4899'],
+            'telegram' => ['name' => 'Telegram', 'color' => '#0EA5E9'],
+        ];
+
+        $platformDistribution = [];
+        foreach ($platformMeta as $platKey => $meta) {
+            $count = $contactPlatformCounts[$platKey] ?? 0;
+            $share = $totalContacts > 0 ? round(($count / $totalContacts) * 100, 1) : 0.0;
+            $newThisWeek = $contactsThisWeekByPlatform[$platKey] ?? 0;
+            $platformDistribution[$platKey] = [
+                'name' => $meta['name'],
+                'count' => $count,
+                'color' => $meta['color'],
+                'share' => $share,
+                'new_this_week' => $newThisWeek,
+            ];
+        }
+
+        // 5. Campaigns Metrics
         $campaignsQuery = Campaign::withoutGlobalScopes()->where('business_id', $currentBusinessId);
         $totalCampaigns = (clone $campaignsQuery)->count();
         $activeCampaigns = (clone $campaignsQuery)->where('status', 'processing')->count();
         $completedCampaigns = (clone $campaignsQuery)->where('status', 'completed')->count();
-        $totalCampaignRecipients = (clone $campaignsQuery)->sum('total_recipients');
-        $totalCampaignSent = (clone $campaignsQuery)->sum('sent_count');
-        $totalCampaignFailed = (clone $campaignsQuery)->sum('failed_count');
+        $retargetingCampaigns = (clone $campaignsQuery)->where('type', 'retargeting')->count();
+        $bulkCampaigns = (clone $campaignsQuery)->where('type', '!=', 'retargeting')->count();
+        $totalCampaignRecipients = (int) (clone $campaignsQuery)->sum('total_recipients');
+        $totalCampaignSent = (int) (clone $campaignsQuery)->sum('sent_count');
+        $totalCampaignFailed = (int) (clone $campaignsQuery)->sum('failed_count');
+
+        $totalDispatched = $totalCampaignSent + $totalCampaignFailed;
+        $deliveryRate = $totalDispatched > 0
+            ? round(($totalCampaignSent / $totalDispatched) * 100, 1)
+            : ($totalCampaignRecipients > 0 ? 0.0 : 100.0);
 
         // Recent 5 campaigns
         $recentCampaigns = (clone $campaignsQuery)
@@ -73,67 +119,13 @@ class DashboardController extends Controller
             ->limit(5)
             ->get(['id', 'name', 'type', 'platforms', 'status', 'total_recipients', 'sent_count', 'failed_count', 'created_at']);
 
-        // Delivery rate
-        $deliveryRate = $totalCampaignRecipients > 0
-            ? round(($totalCampaignSent / max(1, $totalCampaignSent + $totalCampaignFailed)) * 100, 1)
-            : 98.4;
-
-        // Marketing ROI & Conversion calculations
-        // Based on campaign engagement and closed deals/conversations
-        $closedDeals = max(1, $closedCount);
-        $avgDealValue = 42.50; // Average order/deal value in USD
-        $adSpendEst = max(120, ($totalCampaigns * 45) + ($totalConversations * 0.85));
-        $generatedRevenueEst = round(($closedDeals * $avgDealValue) + ($totalCampaignSent * 1.8), 2);
-        $roiPercentage = $adSpendEst > 0 ? round((($generatedRevenueEst - $adSpendEst) / $adSpendEst) * 100, 1) : 340.0;
-        $roiMultiplier = $adSpendEst > 0 ? round($generatedRevenueEst / $adSpendEst, 1) : 4.4;
-
-        // Platform distribution data (Instagram, Facebook, TikTok, WhatsApp, Telegram)
-        $totalAudience = array_sum($byPlatform) ?: 100;
-        $platformDistribution = [
-            'instagram' => [
-                'name' => 'Instagram',
-                'count' => $byPlatform['instagram'] ?? max(12, (int) round($totalAudience * 0.38)),
-                'color' => '#EC4899', // Pink
-                'share' => 38,
-                'growth' => '+14.2%',
-            ],
-            'facebook' => [
-                'name' => 'Facebook',
-                'count' => $byPlatform['facebook'] ?? max(8, (int) round($totalAudience * 0.28)),
-                'color' => '#2563EB', // Blue
-                'share' => 28,
-                'growth' => '+8.7%',
-            ],
-            'tiktok' => [
-                'name' => 'TikTok',
-                'count' => max(6, (int) round($totalAudience * 0.20)),
-                'color' => '#06B6D4', // Cyan
-                'share' => 20,
-                'growth' => '+32.4%',
-            ],
-            'whatsapp' => [
-                'name' => 'WhatsApp',
-                'count' => $byPlatform['whatsapp'] ?? max(5, (int) round($totalAudience * 0.10)),
-                'color' => '#10B981', // Emerald
-                'share' => 10,
-                'growth' => '+19.1%',
-            ],
-            'telegram' => [
-                'name' => 'Telegram',
-                'count' => $byPlatform['telegram'] ?? max(3, (int) round($totalAudience * 0.04)),
-                'color' => '#0EA5E9', // Sky
-                'share' => 4,
-                'growth' => '+5.0%',
-            ],
-        ];
-
-        // 14-day time series performance data for Line Chart & Sparklines
+        // 6. 14-day time series performance data for Line Chart & Sparklines
         $timeSeries = $this->generateTimeSeriesPerformance($currentBusinessId);
 
-        // Avg first response time (minutes)
+        // 7. Avg first response time (minutes)
         $avgResponseMinutes = $this->calcAvgResponseTime((int) $currentBusinessId);
 
-        // Team performance
+        // 8. Team performance
         $teamPerformance = TeamMember::whereHas('businesses', fn ($q) => $q->where('businesses.id', $currentBusinessId))
             ->withCount(['assignedConversations as handled_count' => fn ($q) => $q->where('business_id', $currentBusinessId)])
             ->get()
@@ -146,26 +138,32 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'business' => $business->only(['id', 'name']),
             'stats' => [
+                'total_contacts' => $totalContacts,
+                'contacts_today' => $contactsToday,
+                'contacts_this_week' => $contactsThisWeek,
                 'total_conversations' => $totalConversations,
                 'open' => $openCount,
                 'closed' => $closedCount,
                 'pending' => $pendingCount,
+                'unread' => $unreadConversations,
+                'total_messages' => $totalMessages,
                 'messages_today' => $messagesToday,
                 'messages_this_week' => $messagesThisWeek,
+                'incoming_messages' => $incomingMessages,
+                'outgoing_messages' => $outgoingMessages,
                 'avg_response_minutes' => $avgResponseMinutes,
-                'by_platform' => $byPlatform,
+                'by_platform' => $contactPlatformCounts,
             ],
             'marketing' => [
                 'total_campaigns' => $totalCampaigns,
                 'active_campaigns' => $activeCampaigns,
                 'completed_campaigns' => $completedCampaigns,
-                'total_recipients' => (int) $totalCampaignRecipients,
-                'messages_sent' => (int) $totalCampaignSent,
+                'retargeting_campaigns' => $retargetingCampaigns,
+                'bulk_campaigns' => $bulkCampaigns,
+                'total_recipients' => $totalCampaignRecipients,
+                'messages_sent' => $totalCampaignSent,
+                'messages_failed' => $totalCampaignFailed,
                 'delivery_rate' => $deliveryRate,
-                'estimated_revenue' => $generatedRevenueEst,
-                'ad_spend' => $adSpendEst,
-                'roi_percent' => $roiPercentage,
-                'roi_multiplier' => $roiMultiplier,
                 'platform_distribution' => $platformDistribution,
                 'time_series' => $timeSeries,
                 'recent_campaigns' => $recentCampaigns,
@@ -175,33 +173,39 @@ class DashboardController extends Controller
     }
 
     /**
-     * Generate 14-day time series performance metrics for line charts.
+     * Generate real 14-day time series performance metrics for line charts.
      */
     protected function generateTimeSeriesPerformance(int $businessId): array
     {
         $days = [];
+
         for ($i = 13; $i >= 0; $i--) {
             $date = now()->subDays($i);
             $dayStr = $date->format('M d');
             $shortDay = $date->format('d/m');
+            $dateString = $date->toDateString();
 
-            // Count messages sent on that day
+            // Count messages sent/received on that day
             $msgCount = Message::whereHas('conversation', fn ($q) => $q->where('business_id', $businessId))
-                ->whereDate('created_at', $date->toDateString())
+                ->whereDate('created_at', $dateString)
                 ->count();
 
-            // Seed a realistic baseline trend if quiet
-            $trafficBase = 120 + (($i % 4) * 28) + ($msgCount * 12);
-            $conversions = (int) round($trafficBase * 0.14);
-            $roiVal = round(3.2 + (($i % 5) * 0.4), 1);
+            // Count conversations created on that day
+            $convCount = Conversation::where('business_id', $businessId)
+                ->whereDate('created_at', $dateString)
+                ->count();
+
+            // Count new contacts created on that day
+            $contactCount = Contact::where('business_id', $businessId)
+                ->whereDate('created_at', $dateString)
+                ->count();
 
             $days[] = [
                 'date' => $dayStr,
                 'short' => $shortDay,
-                'impressions' => $trafficBase,
-                'messages' => max($msgCount, (int) round($trafficBase * 0.35)),
-                'conversions' => $conversions,
-                'roi' => $roiVal,
+                'messages' => $msgCount,
+                'conversations' => $convCount,
+                'contacts' => $contactCount,
             ];
         }
 
@@ -227,6 +231,6 @@ class DashboardController extends Controller
                 }
             });
 
-        return count($times) > 0 ? round(array_sum($times) / count($times), 1) : 1.8;
+        return count($times) > 0 ? round(array_sum($times) / count($times), 1) : 0.0;
     }
 }

@@ -19,15 +19,26 @@ import {
     ChevronLeft,
     ChevronRight,
     Edit2,
+    ChevronDown,
+    Layers,
+    MessageSquare,
+    Camera,
+    Send,
 } from 'lucide-vue-next';
 
 const props = defineProps({
     business: Object,
     contacts: Object,
     filters: Object,
+    platformCounts: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const searchQuery = ref(props.filters?.search || '');
+const selectedPlatform = ref(props.filters?.platform || 'all');
+const isExportMenuOpen = ref(false);
 let searchTimeout = null;
 
 const onSearchInput = () => {
@@ -35,10 +46,25 @@ const onSearchInput = () => {
     searchTimeout = setTimeout(() => {
         router.get(
             route('contacts.index'),
-            { search: searchQuery.value },
+            {
+                search: searchQuery.value,
+                platform: selectedPlatform.value === 'all' ? undefined : selectedPlatform.value,
+            },
             { preserveState: true, replace: true }
         );
     }, 350);
+};
+
+const filterByPlatform = (plat) => {
+    selectedPlatform.value = plat;
+    router.get(
+        route('contacts.index'),
+        {
+            search: searchQuery.value,
+            platform: plat === 'all' ? undefined : plat,
+        },
+        { preserveState: true, replace: true }
+    );
 };
 
 // Selected Contact Modal
@@ -164,29 +190,126 @@ const formatDate = (dateString) => {
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 w-full sm:w-auto">
-                    <!-- Export CSV Button -->
-                    <a
-                        :href="route('contacts.export')"
-                        target="_blank"
-                        class="cursor-pointer flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-bold transition shadow-sm"
+                <div class="relative w-full sm:w-auto">
+                    <!-- Export CSV Button with Channel Selector Dropdown -->
+                    <button
+                        type="button"
+                        @click="isExportMenuOpen = !isExportMenuOpen"
+                        class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-bold transition shadow-sm"
                     >
-                        <Download class="w-4 h-4 text-slate-400" />
-                        <span>تصدير CSV</span>
-                    </a>
+                        <Download class="w-4 h-4 text-blue-400" />
+                        <span>تصدير CSV حسب القناة</span>
+                        <ChevronDown class="w-3.5 h-3.5 text-slate-400 transition" :class="{ 'rotate-180': isExportMenuOpen }" />
+                    </button>
+
+                    <!-- Backdrop -->
+                    <div
+                        v-if="isExportMenuOpen"
+                        class="fixed inset-0 z-40"
+                        @click="isExportMenuOpen = false"
+                    ></div>
+
+                    <!-- Dropdown Menu -->
+                    <transition
+                        enter-active-class="transition ease-out duration-100"
+                        enter-from-class="opacity-0 scale-95"
+                        enter-to-class="opacity-100 scale-100"
+                        leave-active-class="transition ease-in duration-75"
+                        leave-from-class="opacity-100 scale-100"
+                        leave-to-class="opacity-0 scale-95"
+                    >
+                        <div
+                            v-if="isExportMenuOpen"
+                            class="absolute end-0 mt-2 w-64 rounded-xl bg-slate-900 border border-slate-750 shadow-2xl p-1.5 z-50 overflow-hidden divide-y divide-slate-800/80"
+                        >
+                            <div class="p-1 space-y-1">
+                                <a
+                                    :href="route('contacts.export')"
+                                    @click="isExportMenuOpen = false"
+                                    class="flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <Layers class="w-4 h-4 text-blue-400" />
+                                        <span>جميع القنوات (الكل)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold">
+                                        {{ contacts.total }}
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="p-1 space-y-1">
+                                <a
+                                    :href="route('contacts.export', { channel: 'whatsapp' })"
+                                    @click="isExportMenuOpen = false"
+                                    class="flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <MessageSquare class="w-4 h-4 text-emerald-400" />
+                                        <span>قناة واتساب (WhatsApp)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">
+                                        {{ platformCounts?.whatsapp || 0 }}
+                                    </span>
+                                </a>
+
+                                <a
+                                    :href="route('contacts.export', { channel: 'facebook' })"
+                                    @click="isExportMenuOpen = false"
+                                    class="flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <MessageCircle class="w-4 h-4 text-blue-400" />
+                                        <span>قناة فيسبوك (Facebook)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold">
+                                        {{ platformCounts?.facebook || 0 }}
+                                    </span>
+                                </a>
+
+                                <a
+                                    :href="route('contacts.export', { channel: 'instagram' })"
+                                    @click="isExportMenuOpen = false"
+                                    class="flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <Camera class="w-4 h-4 text-pink-400" />
+                                        <span>قناة إنستجرام (Instagram)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-400 font-bold">
+                                        {{ platformCounts?.instagram || 0 }}
+                                    </span>
+                                </a>
+
+                                <a
+                                    :href="route('contacts.export', { channel: 'telegram' })"
+                                    @click="isExportMenuOpen = false"
+                                    class="flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <Send class="w-4 h-4 text-sky-400" />
+                                        <span>قناة تيليجرام (Telegram)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 font-bold">
+                                        {{ platformCounts?.telegram || 0 }}
+                                    </span>
+                                </a>
+                            </div>
+                        </div>
+                    </transition>
                 </div>
             </div>
         </template>
 
         <div class="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             <!-- Search & Filter Bar -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div class="relative w-full sm:w-96">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col lg:flex-row items-center justify-between gap-4">
+                <div class="relative w-full lg:w-80 shrink-0">
                     <input
                         v-model="searchQuery"
                         @input="onSearchInput"
                         type="text"
-                        placeholder="بحث بالاسم، رقم الهاتف، أو البريد الإلكتروني..."
+                        placeholder="بحث بالاسم، رقم الهاتف، أو البريد..."
                         class="w-full bg-slate-950 border border-slate-800 rounded-xl pe-4 ps-10 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
                     />
                     <Search class="w-4 h-4 text-slate-500 absolute start-3.5 top-3 pointer-events-none" />
@@ -199,7 +322,59 @@ const formatDate = (dateString) => {
                     </button>
                 </div>
 
-                <div class="text-xs text-slate-400 font-mono">
+                <!-- Platform Filter Tabs -->
+                <div class="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 scrollbar-none">
+                    <button
+                        type="button"
+                        @click="filterByPlatform('all')"
+                        class="cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition"
+                        :class="selectedPlatform === 'all' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'"
+                    >
+                        الكل
+                    </button>
+                    <button
+                        type="button"
+                        @click="filterByPlatform('whatsapp')"
+                        class="cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                        :class="selectedPlatform === 'whatsapp' ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'"
+                    >
+                        <MessageSquare class="w-3.5 h-3.5" :class="selectedPlatform === 'whatsapp' ? 'text-white' : 'text-emerald-400'" />
+                        <span>واتساب</span>
+                        <span class="text-[10px] font-mono opacity-80 font-bold">({{ platformCounts?.whatsapp || 0 }})</span>
+                    </button>
+                    <button
+                        type="button"
+                        @click="filterByPlatform('facebook')"
+                        class="cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                        :class="selectedPlatform === 'facebook' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'"
+                    >
+                        <MessageCircle class="w-3.5 h-3.5" :class="selectedPlatform === 'facebook' ? 'text-white' : 'text-blue-400'" />
+                        <span>فيسبوك</span>
+                        <span class="text-[10px] font-mono opacity-80 font-bold">({{ platformCounts?.facebook || 0 }})</span>
+                    </button>
+                    <button
+                        type="button"
+                        @click="filterByPlatform('instagram')"
+                        class="cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                        :class="selectedPlatform === 'instagram' ? 'bg-pink-600 text-white font-bold shadow-sm' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'"
+                    >
+                        <Camera class="w-3.5 h-3.5" :class="selectedPlatform === 'instagram' ? 'text-white' : 'text-pink-400'" />
+                        <span>إنستجرام</span>
+                        <span class="text-[10px] font-mono opacity-80 font-bold">({{ platformCounts?.instagram || 0 }})</span>
+                    </button>
+                    <button
+                        type="button"
+                        @click="filterByPlatform('telegram')"
+                        class="cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                        :class="selectedPlatform === 'telegram' ? 'bg-sky-600 text-white font-bold shadow-sm' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'"
+                    >
+                        <Send class="w-3.5 h-3.5" :class="selectedPlatform === 'telegram' ? 'text-white' : 'text-sky-400'" />
+                        <span>تيليجرام</span>
+                        <span class="text-[10px] font-mono opacity-80 font-bold">({{ platformCounts?.telegram || 0 }})</span>
+                    </button>
+                </div>
+
+                <div class="text-xs text-slate-400 font-mono shrink-0">
                     إجمالي النتائج: <span class="text-white font-bold">{{ contacts.total }}</span> عميل
                 </div>
             </div>

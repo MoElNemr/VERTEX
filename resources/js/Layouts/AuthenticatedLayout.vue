@@ -23,6 +23,8 @@ import {
     LogOut,
     User,
     Crown,
+    PanelRightClose,
+    PanelRightOpen,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -31,6 +33,17 @@ const props = defineProps({
         default: false,
     },
 });
+
+const isSidebarCollapsed = ref(
+    typeof window !== 'undefined' ? localStorage.getItem('vertex_sidebar_collapsed') === 'true' : false
+);
+
+const toggleSidebar = () => {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value;
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('vertex_sidebar_collapsed', isSidebarCollapsed.value ? 'true' : 'false');
+    }
+};
 
 const isMobileNavOpen = ref(false);
 const isBusinessDropdownOpen = ref(false);
@@ -95,7 +108,10 @@ watch(
         <!-- ======================================================== -->
         <!-- 1. DESKTOP SIDE NAVIGATION PANEL (Linear / Stripe Style) -->
         <!-- ======================================================== -->
-        <aside class="hidden md:flex flex-col w-64 shrink-0 bg-slate-900/95 border-e border-slate-800/90 h-screen sticky top-0 z-30 select-none">
+        <aside
+            class="hidden md:flex flex-col shrink-0 bg-slate-900/95 border-e border-slate-800/90 h-screen sticky top-0 z-30 select-none transition-all duration-300 ease-in-out"
+            :class="isSidebarCollapsed ? 'w-0 border-transparent opacity-0 overflow-hidden pointer-events-none' : 'w-64'"
+        >
             <!-- Brand & Workspace Header -->
             <div class="p-4 border-b border-slate-800/80">
                 <div class="flex items-center justify-between">
@@ -107,9 +123,19 @@ watch(
                         </div>
                     </Link>
 
-                    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                        v2.4
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            v2.4
+                        </span>
+                        <button
+                            type="button"
+                            @click="toggleSidebar"
+                            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                            title="إخفاء القائمة الجانبية"
+                        >
+                            <PanelRightClose class="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Business / Store Switcher Selector in Sidebar -->
@@ -368,6 +394,18 @@ watch(
                 </div>
             </div>
         </aside>
+
+        <!-- Floating Button to Re-open Desktop Sidebar When Collapsed -->
+        <button
+            v-if="isSidebarCollapsed"
+            type="button"
+            @click="toggleSidebar"
+            class="hidden md:flex fixed top-3 start-3 z-40 items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/95 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 shadow-2xl backdrop-blur-md transition cursor-pointer"
+            title="إظهار القائمة الجانبية"
+        >
+            <PanelRightOpen class="w-4 h-4 text-blue-400" />
+            <span class="text-xs font-bold">القائمة</span>
+        </button>
 
         <!-- ======================================================== -->
         <!-- 2. MOBILE TOP BAR & SLIDE-OVER DRAWER -->

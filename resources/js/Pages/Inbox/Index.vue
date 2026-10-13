@@ -26,7 +26,9 @@ import {
     Camera,
     ChevronRight,
     SlidersHorizontal,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Maximize2,
+    Minimize2,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -59,6 +61,7 @@ const isLoadingMessages = ref(false);
 const isSending = ref(false);
 const messagesContainer = ref(null);
 const isFilterDrawerOpen = ref(false);
+const isConvListHidden = ref(false);
 
 // Synchronize state when switching active business or when conversations update
 watch(() => props.business?.id, (newBusinessId, oldBusinessId) => {
@@ -439,230 +442,68 @@ onUnmounted(() => {
         <div class="h-full flex flex-1 overflow-hidden bg-slate-950 text-slate-100 relative">
 
             <!-- ============================================================== -->
-            <!-- 1. DESKTOP SIDEBAR: Platform & Status Filters (Hidden on Mobile/Tablet) -->
-            <!-- ============================================================== -->
-            <aside class="hidden lg:flex w-64 border-l border-slate-800 bg-slate-900/90 flex-col justify-between shrink-0 p-4">
-                <div class="space-y-6">
-                    <!-- Business Title Badge -->
-                    <div class="pb-3 border-b border-slate-800/80">
-                        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">صندوق الوارد</span>
-                        <h2 class="text-base font-bold text-white truncate">{{ business.name }}</h2>
-                    </div>
-
-                    <!-- Platforms Filter -->
-                    <div>
-                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2.5">تصفية المنصات</span>
-                        <div class="space-y-1">
-                            <button
-                                v-for="p in platformList"
-                                :key="p.id"
-                                @click="selectedPlatform = p.id"
-                                class="cursor-pointer w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition"
-                                :class="selectedPlatform === p.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'"
-                            >
-                                <div class="flex items-center gap-2.5">
-                                    <component
-                                        :is="p.icon"
-                                        class="w-4 h-4"
-                                        :class="selectedPlatform === p.id ? 'text-white' : p.color"
-                                    />
-                                    <span>{{ p.name }}</span>
-                                </div>
-                                <span
-                                    class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full"
-                                    :class="selectedPlatform === p.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'"
-                                >
-                                    {{ getPlatformCount(p.id) }}
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Status Filter -->
-                    <div>
-                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2.5">حالة المحادثة</span>
-                        <div class="grid grid-cols-3 gap-1 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
-                            <button
-                                v-for="s in statusOptions"
-                                :key="s.id"
-                                @click="selectedStatus = s.id"
-                                class="cursor-pointer py-1.5 text-center text-xs font-semibold rounded-lg transition"
-                                :class="selectedStatus === s.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
-                            >
-                                {{ s.label }}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings Links -->
-                <div class="pt-4 border-t border-slate-800 space-y-2">
-                    <Link
-                        v-if="$page.props.auth.is_owner"
-                        :href="route('ai-settings.show', business.id)"
-                        class="cursor-pointer w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-violet-950/60 hover:bg-violet-900/80 text-xs font-bold text-violet-300 border border-violet-800/60 transition"
-                    >
-                        <Sparkles class="w-3.5 h-3.5 text-violet-400" />
-                        <span>إعدادات المساعد الذكي</span>
-                    </Link>
-                    <Link
-                        :href="route('channels.index', business.id)"
-                        class="cursor-pointer w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-bold text-slate-300 border border-slate-700/80 transition"
-                    >
-                        <Settings class="w-3.5 h-3.5 text-slate-400" />
-                        <span>إعدادات القنوات</span>
-                    </Link>
-                </div>
-            </aside>
-
-            <!-- ============================================================== -->
-            <!-- 2. MOBILE / TABLET FILTER SLIDE-OVER DRAWER -->
-            <!-- ============================================================== -->
-            <transition
-                enter-active-class="transition duration-300 ease-out"
-                enter-from-class="opacity-0"
-                enter-to-class="opacity-100"
-                leave-active-class="transition duration-200 ease-in"
-                leave-from-class="opacity-100"
-                leave-to-class="opacity-0"
-            >
-                <div
-                    v-if="isFilterDrawerOpen"
-                    @click="isFilterDrawerOpen = false"
-                    class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 lg:hidden"
-                ></div>
-            </transition>
-
-            <transition
-                enter-active-class="transition duration-300 ease-out"
-                enter-from-class="translate-x-full"
-                enter-to-class="translate-x-0"
-                leave-active-class="transition duration-200 ease-in"
-                leave-from-class="translate-x-0"
-                leave-to-class="translate-x-full"
-            >
-                <div
-                    v-if="isFilterDrawerOpen"
-                    class="fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-slate-900 border-l border-slate-800 p-5 z-50 flex flex-col justify-between shadow-2xl lg:hidden"
-                >
-                    <div class="space-y-6">
-                        <!-- Drawer Header -->
-                        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
-                            <div>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">تصفية صندوق الوارد</span>
-                                <h3 class="text-sm font-bold text-white">{{ business.name }}</h3>
-                            </div>
-                            <button
-                                @click="isFilterDrawerOpen = false"
-                                class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-                            >
-                                <X class="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <!-- Platforms -->
-                        <div>
-                            <span class="text-xs font-bold text-slate-400 block mb-2.5">المنصات</span>
-                            <div class="space-y-1.5">
-                                <button
-                                    v-for="p in platformList"
-                                    :key="p.id"
-                                    @click="selectedPlatform = p.id; isFilterDrawerOpen = false"
-                                    class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer"
-                                    :class="selectedPlatform === p.id ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800'"
-                                >
-                                    <div class="flex items-center gap-2.5">
-                                        <component :is="p.icon" class="w-4 h-4" :class="selectedPlatform === p.id ? 'text-white' : p.color" />
-                                        <span>{{ p.name }}</span>
-                                    </div>
-                                    <span
-                                        class="text-[11px] font-mono px-2 py-0.5 rounded-full font-bold"
-                                        :class="selectedPlatform === p.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'"
-                                    >
-                                        {{ getPlatformCount(p.id) }}
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Status -->
-                        <div>
-                            <span class="text-xs font-bold text-slate-400 block mb-2.5">الحالة</span>
-                            <div class="grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800">
-                                <button
-                                    v-for="s in statusOptions"
-                                    :key="s.id"
-                                    @click="selectedStatus = s.id; isFilterDrawerOpen = false"
-                                    class="py-2 text-center text-xs font-semibold rounded-lg transition cursor-pointer"
-                                    :class="selectedStatus === s.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'"
-                                >
-                                    {{ s.label }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Bottom channels link -->
-                    <div class="pt-4 border-t border-slate-800">
-                        <Link
-                            :href="route('channels.index', business.id)"
-                            class="w-full flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-bold text-slate-200 transition"
-                        >
-                            <Settings class="w-4 h-4 text-slate-400" />
-                            <span>إعدادات القنوات</span>
-                        </Link>
-                    </div>
-                </div>
-            </transition>
-
-            <!-- ============================================================== -->
-            <!-- 3. CONVERSATIONS LIST COLUMN -->
-            <!-- Desktop: w-80/w-96 | Mobile: Full width if no activeConv, hidden if activeConv -->
+            <!-- CONVERSATIONS LIST & FILTERS COLUMN (Unified Single Column) -->
+            <!-- Desktop: w-80/w-88 | Mobile: Full width if no activeConv, hidden if activeConv -->
             <!-- ============================================================== -->
             <div
-                class="flex-col border-l border-slate-800 bg-slate-900/40 shrink-0"
+                class="flex-col border-l border-slate-800 bg-slate-900/60 shrink-0 transition-all duration-200 select-none"
                 :class="[
-                    activeConv ? 'hidden md:flex md:w-80 lg:w-88 xl:w-96' : 'flex w-full md:w-80 lg:w-88 xl:w-96'
+                    isConvListHidden ? 'hidden' : '',
+                    activeConv ? 'hidden md:flex md:w-80 lg:w-84 xl:w-92' : 'flex w-full md:w-80 lg:w-84 xl:w-92'
                 ]"
             >
-                <!-- Search & Filters Header -->
-                <div class="p-3.5 sm:p-4 border-b border-slate-800 shrink-0 space-y-2.5">
-                    <div class="flex items-center gap-2">
-                        <!-- Search Box -->
-                        <div class="relative flex-1">
-                            <input
-                                id="inbox-search-input"
-                                v-model="searchQuery"
-                                type="text"
-                                placeholder="بحث بالاسم أو نص الرسالة..."
-                                class="w-full pe-4 ps-9 py-2.5 rounded-xl text-xs bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
-                            />
-                            <Search class="w-4 h-4 text-slate-500 absolute start-3 top-3 pointer-events-none" />
-                            <button
-                                v-if="searchQuery"
-                                @click="searchQuery = ''"
-                                class="cursor-pointer absolute end-3 top-2.5 text-slate-500 hover:text-slate-300 p-0.5"
-                            >
-                                <X class="w-3.5 h-3.5" />
-                            </button>
+                <!-- Unified Header: Title, Shortcuts, Search, Platform Tabs & Status -->
+                <div class="p-3 sm:p-3.5 border-b border-slate-800 shrink-0 space-y-2.5 bg-slate-900/90">
+                    <!-- Top Title & Quick Settings -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-white tracking-wide">صندوق المحادثات</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                                {{ filteredConversations.length }}
+                            </span>
                         </div>
 
-                        <!-- Mobile Filter Drawer Toggle Button -->
+                        <!-- Settings & Links -->
+                        <div class="flex items-center gap-1">
+                            <Link
+                                v-if="$page.props.auth.is_owner"
+                                :href="route('ai-settings.show', business.id)"
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-violet-300 hover:bg-slate-800 transition cursor-pointer"
+                                title="إعدادات المساعد الذكي"
+                            >
+                                <Sparkles class="w-3.5 h-3.5 text-violet-400" />
+                            </Link>
+                            <Link
+                                :href="route('channels.index', business.id)"
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition cursor-pointer"
+                                title="إعدادات القنوات"
+                            >
+                                <Settings class="w-3.5 h-3.5" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    <!-- Search Input Box -->
+                    <div class="relative">
+                        <input
+                            id="inbox-search-input"
+                            v-model="searchQuery"
+                            type="text"
+                            placeholder="بحث بالاسم أو رقم الهاتف..."
+                            class="w-full pe-8 ps-8 py-2 rounded-xl text-xs bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
+                        />
+                        <Search class="w-3.5 h-3.5 text-slate-500 absolute start-2.5 top-2.5 pointer-events-none" />
                         <button
-                            @click="isFilterDrawerOpen = true"
-                            class="lg:hidden p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition cursor-pointer relative"
-                            title="تصفية المحادثات"
+                            v-if="searchQuery"
+                            @click="searchQuery = ''"
+                            class="cursor-pointer absolute end-2.5 top-2 text-slate-500 hover:text-slate-300 p-0.5"
                         >
-                            <SlidersHorizontal class="w-4 h-4" />
-                            <span
-                                v-if="selectedPlatform !== 'all' || selectedStatus !== 'all'"
-                                class="w-2 h-2 rounded-full bg-blue-500 absolute -top-0.5 -end-0.5 ring-2 ring-slate-900"
-                            ></span>
+                            <X class="w-3.5 h-3.5" />
                         </button>
                     </div>
 
-                    <!-- Quick Horizontal Platform Scroll Pills (Visible on all screens for quick filtering) -->
-                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
+                    <!-- Platform Filter Tabs (Unified horizontal scroll with icons & badges) -->
+                    <div class="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5 scrollbar-none">
                         <button
                             v-for="p in platformList"
                             :key="p.id"
@@ -670,10 +511,33 @@ onUnmounted(() => {
                             class="cursor-pointer shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition flex items-center gap-1.5 whitespace-nowrap"
                             :class="selectedPlatform === p.id
                                 ? 'bg-blue-600 text-white font-bold shadow-sm'
-                                : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'"
+                                : 'bg-slate-950/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800/80'"
                         >
+                            <component
+                                :is="p.icon"
+                                class="w-3.5 h-3.5"
+                                :class="selectedPlatform === p.id ? 'text-white' : p.color"
+                            />
                             <span>{{ p.name }}</span>
-                            <span class="text-[10px] font-mono opacity-80">({{ getPlatformCount(p.id) }})</span>
+                            <span
+                                class="text-[10px] font-mono px-1 rounded-full"
+                                :class="selectedPlatform === p.id ? 'bg-white/20 text-white font-bold' : 'opacity-70'"
+                            >
+                                {{ getPlatformCount(p.id) }}
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Status Filter Segmented Buttons (All / Open / Closed) -->
+                    <div class="grid grid-cols-3 gap-1 p-0.5 bg-slate-950 rounded-lg border border-slate-800/80">
+                        <button
+                            v-for="s in statusOptions"
+                            :key="s.id"
+                            @click="selectedStatus = s.id"
+                            class="cursor-pointer py-1 text-center text-[11px] font-semibold rounded-md transition"
+                            :class="selectedStatus === s.id ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                        >
+                            {{ s.label }}
                         </button>
                     </div>
                 </div>
@@ -780,6 +644,16 @@ onUnmounted(() => {
                                 <ChevronRight class="w-5 h-5" />
                             </button>
 
+                            <!-- Desktop Restore List Button when list is hidden -->
+                            <button
+                                v-if="isConvListHidden"
+                                @click="isConvListHidden = false"
+                                class="hidden md:flex p-2 -ms-1.5 rounded-xl text-blue-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+                                title="إظهار قائمة المحادثات"
+                            >
+                                <ChevronRight class="w-5 h-5" />
+                            </button>
+
                             <!-- Avatar -->
                             <div class="relative shrink-0">
                                 <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-200 text-xs sm:text-sm">
@@ -872,6 +746,17 @@ onUnmounted(() => {
                                 <RotateCcw class="w-3.5 h-3.5" />
                                 <span class="hidden sm:inline">إعادة فتح</span>
                                 <span class="sm:hidden">فتح</span>
+                            </button>
+
+                            <!-- Expand / Fullscreen Chat Box Toggle -->
+                            <button
+                                type="button"
+                                @click="isConvListHidden = !isConvListHidden"
+                                class="hidden md:flex p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                                :title="isConvListHidden ? 'إظهار قائمة المحادثات' : 'تكبير مساحة المحادثة'"
+                            >
+                                <Maximize2 v-if="!isConvListHidden" class="w-4 h-4" />
+                                <Minimize2 v-else class="w-4 h-4" />
                             </button>
                         </div>
                     </div>
