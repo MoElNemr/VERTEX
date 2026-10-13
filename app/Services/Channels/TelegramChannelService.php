@@ -220,6 +220,10 @@ class TelegramChannelService implements ChannelServiceInterface
      */
     protected function dispatchRealtimeEvent(Message $message): void
     {
-        broadcast(new \App\Events\MessageSent($message->conversation, $message));
+        try {
+            broadcast(new \App\Events\MessageSent($message->conversation, $message));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Broadcast failed in Telegram message: ' . $e->getMessage());
+        }
     }
 }

@@ -18,8 +18,8 @@
         </include>
     </source>
     <php>
-        <server name="APP_BASE_PATH" value="M:\work\centeral\vertex-phase4"/>
-        <env name="APP_BASE_PATH" value="M:\work\centeral\vertex-phase4"/>
+        <server name="APP_BASE_PATH" value="M:\work\centeral\vertex"/>
+        <env name="APP_BASE_PATH" value="M:\work\centeral\vertex"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

@@ -61,6 +61,7 @@ class WebhookSimulatorController extends Controller
     {
         $validated = $request->validate([
             'sender_id' => ['nullable', 'string'],
+            'sender_name' => ['nullable', 'string'],
             'text' => ['required', 'string'],
         ]);
 
@@ -95,6 +96,56 @@ class WebhookSimulatorController extends Controller
     }
 
     /**
+     * Simulate an incoming Facebook post comment (Comment-to-DM trigger).
+     */
+    public function simulateFacebookComment(Request $request, Business $business): JsonResponse
+    {
+        $validated = $request->validate([
+            'sender_id' => ['nullable', 'string'],
+            'sender_name' => ['nullable', 'string'],
+            'text' => ['required', 'string'],
+        ]);
+
+        $senderId = $validated['sender_id'] ?? ('fb_user_' . rand(100000, 999999));
+        $senderName = $validated['sender_name'] ?? 'معلق فيسبوك تجريبي';
+        $commentId = 'fb_cmt_' . rand(100000, 999999);
+
+        $fakeRequest = new Request([
+            'object' => 'page',
+            'entry' => [
+                [
+                    'id' => 'page_12345',
+                    'time' => round(microtime(true) * 1000),
+                    'changes' => [
+                        [
+                            'field' => 'feed',
+                            'value' => [
+                                'item' => 'comment',
+                                'verb' => 'add',
+                                'comment_id' => $commentId,
+                                'post_id' => 'post_' . rand(1000, 9999),
+                                'from' => [
+                                    'id' => $senderId,
+                                    'name' => $senderName,
+                                ],
+                                'message' => $validated['text'],
+                                'created_time' => time(),
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $result = $this->channelManager->meta()->handleWebhook($business, $fakeRequest);
+
+        return response()->json([
+            'simulated_platform' => 'facebook_comment',
+            'result' => $result,
+        ]);
+    }
+
+    /**
      * Simulate an incoming Instagram Direct message.
      */
     public function simulateInstagram(Request $request, Business $business): JsonResponse
@@ -104,18 +155,18 @@ class WebhookSimulatorController extends Controller
             'text' => ['required', 'string'],
         ]);
 
-        $senderId = $validated['sender_id'] ?? ('ig_user_' . rand(100000, 999999));
+        $senderId = $validated['sender_id'] ?? ('ig_id_' . rand(100000, 999999));
 
         $fakeRequest = new Request([
             'object' => 'instagram',
             'entry' => [
                 [
-                    'id' => 'ig_business_123',
+                    'id' => 'ig_12345',
                     'time' => round(microtime(true) * 1000),
                     'messaging' => [
                         [
                             'sender' => ['id' => $senderId],
-                            'recipient' => ['id' => 'ig_business_123'],
+                            'recipient' => ['id' => 'ig_12345'],
                             'message' => [
                                 'mid' => 'mid.' . uniqid(),
                                 'text' => $validated['text'],
@@ -130,6 +181,55 @@ class WebhookSimulatorController extends Controller
 
         return response()->json([
             'simulated_platform' => 'instagram',
+            'result' => $result,
+        ]);
+    }
+
+    /**
+     * Simulate an incoming Instagram post comment (Comment-to-DM trigger).
+     */
+    public function simulateInstagramComment(Request $request, Business $business): JsonResponse
+    {
+        $validated = $request->validate([
+            'sender_id' => ['nullable', 'string'],
+            'username' => ['nullable', 'string'],
+            'text' => ['required', 'string'],
+        ]);
+
+        $senderId = $validated['sender_id'] ?? ('ig_user_' . rand(100000, 999999));
+        $username = $validated['username'] ?? ('insta_buyer_' . rand(100, 999));
+        $commentId = 'ig_cmt_' . rand(100000, 999999);
+
+        $fakeRequest = new Request([
+            'object' => 'instagram',
+            'entry' => [
+                [
+                    'id' => 'ig_12345',
+                    'time' => round(microtime(true) * 1000),
+                    'changes' => [
+                        [
+                            'field' => 'comments',
+                            'value' => [
+                                'id' => $commentId,
+                                'text' => $validated['text'],
+                                'from' => [
+                                    'id' => $senderId,
+                                    'username' => $username,
+                                ],
+                                'media' => [
+                                    'id' => 'media_' . rand(1000, 9999),
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $result = $this->channelManager->meta()->handleWebhook($business, $fakeRequest);
+
+        return response()->json([
+            'simulated_platform' => 'instagram_comment',
             'result' => $result,
         ]);
     }

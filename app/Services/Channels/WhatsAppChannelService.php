@@ -222,15 +222,9 @@ class WhatsAppChannelService implements ChannelServiceInterface
                 'last_message_at' => now(),
             ]);
 
-            // 3. Deduplication check: check if message already exists
+            // 3. Deduplication check: check if message already exists by platform_message_id
             $existingMessage = Message::where('conversation_id', $conversation->id)
-                ->where(function ($q) use ($messageId, $text) {
-                    $q->where('platform_message_id', $messageId)
-                      ->orWhere(function ($sub) use ($text) {
-                          $sub->where('body', $text)
-                              ->where('created_at', '>=', now()->subSeconds(30));
-                      });
-                })
+                ->where('platform_message_id', $messageId)
                 ->first();
 
             if (!$existingMessage) {
@@ -263,7 +257,11 @@ class WhatsAppChannelService implements ChannelServiceInterface
                 }
 
                 // 5. Trigger Realtime event
-                broadcast(new \App\Events\MessageSent($conversation, $message));
+                try {
+                    broadcast(new \App\Events\MessageSent($conversation, $message));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Broadcast failed for WhatsApp message: ' . $e->getMessage());
+                }
 
                 // 6. Check AI auto-reply
                 if (!$isFromMe) {

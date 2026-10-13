@@ -1,12 +1,10 @@
 <script setup>
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import { ref } from 'vue';
 import Checkbox from '@/Components/Checkbox.vue';
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import GuestLayout from '@/Layouts/GuestLayout.vue';
+import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ShieldCheck, Users, Headphones, ArrowLeft } from 'lucide-vue-next';
+import { Mail, Lock, Eye, EyeOff, LogIn, Store, Users, Loader2, ShieldCheck, Headphones } from 'lucide-vue-next';
 
 defineProps({
     status: {
@@ -20,6 +18,8 @@ const form = useForm({
     remember: false,
 });
 
+const showPassword = ref(false);
+
 const submit = () => {
     form.post(route('team.login'), {
         onFinish: () => form.reset('password'),
@@ -28,112 +28,132 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="تسجيل دخول فريق العمل - VERTEX" />
+    <GuestLayout>
+        <Head title="تسجيل دخول فريق العمل - Vertex" />
 
-    <div class="min-h-screen flex flex-col justify-center items-center bg-slate-950 text-slate-100 p-4 sm:p-6" dir="rtl">
-        <!-- Background Glow -->
-        <div class="absolute inset-0 overflow-hidden pointer-events-none">
-            <div class="absolute -top-40 right-1/2 translate-x-1/2 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl"></div>
-            <div class="absolute bottom-10 right-10 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl"></div>
+        <!-- Header -->
+        <div class="mb-6 text-center">
+            <h2 class="text-xl font-extrabold text-white tracking-tight">تسجيل دخول فريق العمل</h2>
+            <p class="text-xs text-slate-400 mt-1">مرحباً بك! أدخل بياناتك للوصول إلى محادثات ومهام المتاجر المسندة إليك</p>
         </div>
 
-        <div class="relative w-full max-w-md">
-            <!-- Header Brand -->
-            <div class="text-center mb-6">
-                <Link href="/" class="inline-flex items-center justify-center mb-3">
-                    <ApplicationLogo class="h-10 w-auto fill-current text-blue-500" />
-                </Link>
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-800/60 mb-2">
-                    <ShieldCheck class="w-3.5 h-3.5 text-indigo-400" />
-                    <span>بوابة الوكلاء وفريق العمل</span>
-                </div>
-                <h1 class="text-2xl font-black text-white tracking-tight">تسجيل دخول فريق العمل</h1>
-                <p class="text-xs text-slate-400 mt-1">
-                    أدخل بيانات الدخول المخصصة لك للوصول لمحادثات المتاجر المسندة إليك
-                </p>
+        <!-- Role Toggle Tabs (Identical to Login.vue, Team Member is Active) -->
+        <div class="grid grid-cols-2 p-1 rounded-xl bg-slate-950/80 border border-slate-800 mb-6 text-xs font-semibold">
+            <Link
+                :href="route('login')"
+                class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition"
+            >
+                <Store class="w-3.5 h-3.5" />
+                <span>صاحب المتجر</span>
+            </Link>
+            <button
+                type="button"
+                class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-blue-600 text-white shadow-sm transition cursor-default"
+            >
+                <Users class="w-3.5 h-3.5" />
+                <span>عضو الفريق</span>
+            </button>
+        </div>
+
+        <!-- Role Badges inside the card -->
+        <div class="grid grid-cols-3 gap-2 mb-5">
+            <div class="flex items-center justify-center gap-1 p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-[10px] font-medium text-slate-300">
+                <ShieldCheck class="w-3 h-3 text-purple-400 shrink-0" />
+                <span>مسؤول</span>
             </div>
-
-            <!-- Role Pills Info -->
-            <div class="grid grid-cols-3 gap-2 mb-6">
-                <div class="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-medium text-slate-300">
-                    <ShieldCheck class="w-3.5 h-3.5 text-purple-400" />
-                    <span>مسؤول</span>
-                </div>
-                <div class="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-medium text-slate-300">
-                    <Users class="w-3.5 h-3.5 text-amber-400" />
-                    <span>مشرف</span>
-                </div>
-                <div class="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-medium text-slate-300">
-                    <Headphones class="w-3.5 h-3.5 text-emerald-400" />
-                    <span>وكيل دعم</span>
-                </div>
+            <div class="flex items-center justify-center gap-1 p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-[10px] font-medium text-slate-300">
+                <Users class="w-3 h-3 text-amber-400 shrink-0" />
+                <span>مشرف</span>
             </div>
-
-            <!-- Card Box -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-sm">
-                <div v-if="status" class="mb-4 text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 rounded-xl p-3">
-                    {{ status }}
-                </div>
-
-                <form @submit.prevent="submit" class="space-y-4">
-                    <div>
-                        <InputLabel for="email" value="البريد الإلكتروني للعمل" class="text-slate-300 text-xs font-semibold mb-1" />
-                        <TextInput
-                            id="email"
-                            type="email"
-                            class="block w-full text-right bg-slate-950/80 border-slate-800 text-slate-100 focus:border-blue-500 focus:ring-blue-500 rounded-xl text-sm"
-                            v-model="form.email"
-                            required
-                            autofocus
-                            placeholder="agent@example.com"
-                            autocomplete="username"
-                        />
-                        <InputError class="mt-1.5 text-xs text-rose-400" :message="form.errors.email" />
-                    </div>
-
-                    <div>
-                        <InputLabel for="password" value="كلمة المرور" class="text-slate-300 text-xs font-semibold mb-1" />
-                        <TextInput
-                            id="password"
-                            type="password"
-                            class="block w-full text-right bg-slate-950/80 border-slate-800 text-slate-100 focus:border-blue-500 focus:ring-blue-500 rounded-xl text-sm"
-                            v-model="form.password"
-                            required
-                            placeholder="••••••••"
-                            autocomplete="current-password"
-                        />
-                        <InputError class="mt-1.5 text-xs text-rose-400" :message="form.errors.password" />
-                    </div>
-
-                    <div class="flex items-center justify-between pt-1">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <Checkbox name="remember" v-model:checked="form.remember" class="border-slate-700 bg-slate-950 text-blue-600 rounded" />
-                            <span class="text-xs text-slate-400 select-none">تذكرني على هذا الجهاز</span>
-                        </label>
-                    </div>
-
-                    <div class="pt-2">
-                        <PrimaryButton
-                            class="w-full justify-center py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/20 cursor-pointer"
-                            :class="{ 'opacity-25': form.processing }"
-                            :disabled="form.processing"
-                        >
-                            تسجيل الدخول للمنصة
-                        </PrimaryButton>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Bottom Switch to Owner Login -->
-            <div class="mt-6 text-center">
-                <Link
-                    :href="route('login')"
-                    class="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-blue-400 transition"
-                >
-                    <span>أنت مالك المتجر؟ الدخول من بوابة الملاك الرئيسية</span>
-                    <ArrowLeft class="w-3.5 h-3.5" />
-                </Link>
+            <div class="flex items-center justify-center gap-1 p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-[10px] font-medium text-slate-300">
+                <Headphones class="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>وكيل دعم</span>
             </div>
         </div>
-    </div>
+
+        <div v-if="status" class="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400 text-center">
+            {{ status }}
+        </div>
+
+        <form @submit.prevent="submit" class="space-y-4">
+            <!-- Email -->
+            <div>
+                <label for="email" class="block text-xs font-semibold text-slate-300 mb-1.5 text-start">
+                    البريد الإلكتروني للعمل
+                </label>
+                <div class="relative">
+                    <Mail class="w-4 h-4 text-slate-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                        id="email"
+                        type="email"
+                        v-model="form.email"
+                        required
+                        autofocus
+                        autocomplete="username"
+                        placeholder="agent@company.com"
+                        class="w-full ps-10 pe-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-start"
+                    />
+                </div>
+                <InputError class="mt-1.5 text-xs text-rose-400" :message="form.errors.email" />
+            </div>
+
+            <!-- Password -->
+            <div>
+                <label for="password" class="block text-xs font-semibold text-slate-300 mb-1.5 text-start">
+                    كلمة المرور
+                </label>
+                <div class="relative">
+                    <Lock class="w-4 h-4 text-slate-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                        id="password"
+                        :type="showPassword ? 'text' : 'password'"
+                        v-model="form.password"
+                        required
+                        autocomplete="current-password"
+                        placeholder="••••••••"
+                        class="w-full ps-10 pe-10 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-start"
+                    />
+                    <button
+                        type="button"
+                        @click="showPassword = !showPassword"
+                        class="absolute end-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+                    >
+                        <EyeOff v-if="showPassword" class="w-4 h-4" />
+                        <Eye v-else class="w-4 h-4" />
+                    </button>
+                </div>
+                <InputError class="mt-1.5 text-xs text-rose-400" :message="form.errors.password" />
+            </div>
+
+            <!-- Remember Me -->
+            <div class="flex items-center justify-between text-xs">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <Checkbox name="remember" v-model:checked="form.remember" class="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0" />
+                    <span class="text-slate-400">تذكرني على هذا الجهاز</span>
+                </label>
+            </div>
+
+            <!-- Submit Button -->
+            <button
+                type="submit"
+                :disabled="form.processing"
+                class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/20 transition disabled:opacity-50"
+            >
+                <Loader2 v-if="form.processing" class="w-4 h-4 animate-spin" />
+                <LogIn v-else class="w-4 h-4" />
+                <span>تسجيل الدخول للمنصة</span>
+            </button>
+        </form>
+
+        <!-- Switch to Owner Login -->
+        <div class="mt-6 pt-5 border-t border-slate-800/80 text-center text-xs text-slate-400">
+            <span>أنت مالك المتجر؟ </span>
+            <Link
+                :href="route('login')"
+                class="font-bold text-blue-400 hover:text-blue-300 transition ms-1"
+            >
+                تسجيل الدخول كمالك متجر
+            </Link>
+        </div>
+    </GuestLayout>
 </template>

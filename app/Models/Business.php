@@ -66,4 +66,10 @@ class Business extends Model
     {
         return $this->hasOne(BusinessAiSetting::class);
     }
+
+    public function campaigns()
+    {
+        return $this->hasMany(Campaign::class);
+    }
 }
+

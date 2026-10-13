@@ -27,19 +27,23 @@ class SetCurrentBusiness
                 $businessId = $request->header('X-Business-Id');
             }
 
-            // التحقق من أن البيزنس يملكه المستخدم أو مسموح له كعضو فريق
+            // التحقق من أن البيزنس يملكه المستخدم أو مسموح له كعضو فريق (أو سوبر أدمن في وضع المعاينة)
             if ($businessId) {
-                $hasAccess = Business::where('id', $businessId)
-                    ->where(function ($q) use ($user, $isOwner) {
-                        if ($isOwner) {
-                            $q->where('user_id', $user->id);
-                        } else {
-                            $q->whereHas('teamMembers', function ($tmQ) use ($user) {
-                                $tmQ->where('team_members.id', $user->id)
-                                    ->where('is_active', true);
-                            });
-                        }
-                    })->exists();
+                $isSuperAdmin = $isOwner && (bool) $user->is_super_admin;
+
+                $hasAccess = $isSuperAdmin
+                    ? Business::where('id', $businessId)->exists()
+                    : Business::where('id', $businessId)
+                        ->where(function ($q) use ($user, $isOwner) {
+                            if ($isOwner) {
+                                $q->where('user_id', $user->id);
+                            } else {
+                                $q->whereHas('teamMembers', function ($tmQ) use ($user) {
+                                    $tmQ->where('team_members.id', $user->id)
+                                        ->where('is_active', true);
+                                });
+                            }
+                        })->exists();
 
                 if ($hasAccess) {
                     session(['current_business_id' => (int) $businessId]);

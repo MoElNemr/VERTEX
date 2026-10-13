@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->string('password');
+            $table->string('role')->default('agent'); // admin, supervisor, agent
+            $table->boolean('is_active')->default(true);
             $table->rememberToken();
             $table->timestamps();
         });

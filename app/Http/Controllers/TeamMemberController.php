@@ -23,6 +23,12 @@ class TeamMemberController extends Controller
         }
 
         if ($request->user('web')) {
+            if ((bool) $request->user('web')->is_super_admin && session('current_business_id')) {
+                $currentBiz = Business::find(session('current_business_id'));
+                if ($currentBiz) {
+                    return $currentBiz->user_id;
+                }
+            }
             return $user->id;
         }
 

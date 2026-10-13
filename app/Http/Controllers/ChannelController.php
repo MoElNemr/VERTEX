@@ -255,11 +255,74 @@ class ChannelController extends Controller
     }
 
     /**
+     * Update Comment-to-DM automation settings for Facebook or Instagram.
+     */
+    public function updateCommentSettings(Request $request, Business $business): RedirectResponse
+    {
+        $this->authorizeBusiness($request, $business);
+
+        $validated = $request->validate([
+            'platform' => ['required', 'in:facebook,instagram'],
+            'comment_reply_enabled' => ['required', 'boolean'],
+            'comment_reply_text' => ['nullable', 'string', 'max:1000'],
+            'dm_message_text' => ['nullable', 'string', 'max:2000'],
+            'comment_keywords' => ['nullable'],
+        ]);
+
+        $keywords = null;
+        if (!empty($validated['comment_keywords'])) {
+            if (is_string($validated['comment_keywords'])) {
+                $keywords = array_values(array_filter(array_map('trim', explode(',', $validated['comment_keywords']))));
+            } elseif (is_array($validated['comment_keywords'])) {
+                $keywords = array_values(array_filter(array_map('trim', $validated['comment_keywords'])));
+            }
+        }
+
+        if ($validated['platform'] === 'facebook') {
+            $account = $business->facebookAccount;
+            if (!$account) {
+                return back()->with('error', 'يرجى ربط صفحة فيسبوك أولاً قبل ضبط إعدادات الرد على التعليقات.');
+            }
+
+            $account->update([
+                'comment_reply_enabled' => $validated['comment_reply_enabled'],
+                'comment_reply_text' => $validated['comment_reply_text'],
+                'dm_message_text' => $validated['dm_message_text'],
+                'comment_keywords' => $keywords,
+            ]);
+
+            return back()->with('success', 'تم حفظ إعدادات الرد التلقائي على تعليقات فيسبوك بنجاح!');
+        }
+
+        if ($validated['platform'] === 'instagram') {
+            $account = $business->instagramAccount;
+            if (!$account) {
+                return back()->with('error', 'يرجى ربط حساب إنستجرام أولاً قبل ضبط إعدادات الرد على التعليقات.');
+            }
+
+            $account->update([
+                'comment_reply_enabled' => $validated['comment_reply_enabled'],
+                'comment_reply_text' => $validated['comment_reply_text'],
+                'dm_message_text' => $validated['dm_message_text'],
+                'comment_keywords' => $keywords,
+            ]);
+
+            return back()->with('success', 'تم حفظ إعدادات الرد التلقائي على تعليقات إنستجرام بنجاح!');
+        }
+
+        return back();
+    }
+
+    /**
      * Helper to verify user permissions.
      */
     protected function authorizeBusiness(Request $request, Business $business): void
     {
         $user = $request->user('web') ?: $request->user('team');
+
+        if ($request->user('web') && (bool) $request->user('web')->is_super_admin) {
+            return;
+        }
 
         $hasAccess = Business::where('id', $business->id)
             ->where(function ($q) use ($user, $request) {

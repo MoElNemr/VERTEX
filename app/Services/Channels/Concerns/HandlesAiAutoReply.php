@@ -41,7 +41,11 @@ trait HandlesAiAutoReply
                         Log::warning('AI auto-reply outbound send error: ' . $e->getMessage());
                     }
 
-                    broadcast(new MessageSent($conversation, $replyMsg));
+                    try {
+                        broadcast(new MessageSent($conversation, $replyMsg));
+                    } catch (\Throwable $e) {
+                        Log::warning('Broadcast failed in AI auto-reply: ' . $e->getMessage());
+                    }
                 }
             }
         }

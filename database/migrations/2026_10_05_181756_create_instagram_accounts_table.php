@@ -18,6 +18,10 @@ return new class extends Migration
             $table->string('username')->nullable();
             $table->text('access_token');
             $table->enum('status', ['connected', 'disconnected'])->default('connected');
+            $table->boolean('comment_reply_enabled')->default(false);
+            $table->text('comment_reply_text')->nullable();
+            $table->text('dm_message_text')->nullable();
+            $table->json('comment_keywords')->nullable();
             $table->timestamps();
         });
     }

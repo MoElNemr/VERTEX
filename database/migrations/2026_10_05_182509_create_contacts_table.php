@@ -20,9 +20,13 @@ return new class extends Migration
             $table->string('avatar')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
+            $table->text('notes')->nullable();
+            $table->json('tags')->nullable();
             $table->timestamps();
 
             $table->unique(['business_id', 'platform', 'platform_sender_id']);
+            $table->index('business_id', 'contacts_business_id_perf_index');
+            $table->index('platform_sender_id', 'contacts_platform_sender_id_perf_index');
         });
     }
 

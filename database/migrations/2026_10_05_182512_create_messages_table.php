@@ -22,6 +22,9 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->enum('status', ['sent', 'delivered', 'read', 'failed'])->default('sent');
             $table->timestamps();
+
+            $table->index('conversation_id', 'messages_conversation_id_perf_index');
+            $table->index('created_at', 'messages_created_at_perf_index');
         });
     }
 

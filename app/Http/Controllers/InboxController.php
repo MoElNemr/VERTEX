@@ -32,7 +32,7 @@ class InboxController extends Controller
             abort(404, 'المتجر غير موجود.');
         }
 
-        $isOwner = $user && $convBusiness->user_id === $user->id;
+        $isOwner = $user && ($convBusiness->user_id === $user->id || (bool) $user->is_super_admin);
         $isTeam = $teamMember && $convBusiness->teamMembers()->where('team_members.id', $teamMember->id)->exists();
 
         if (!$isOwner && !$isTeam) {

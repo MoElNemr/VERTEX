@@ -23,6 +23,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['business_id', 'contact_id']);
+            $table->index('business_id', 'conversations_business_id_perf_index');
+            $table->index('status', 'conversations_status_perf_index');
+            $table->index('last_message_at', 'conversations_last_message_at_perf_index');
         });
     }
 

@@ -137,6 +137,35 @@ const connectInstagram = () => {
     instagramForm.post(route('channels.instagram.connect', props.business.id));
 };
 
+// Comment to DM Forms
+const fbCommentForm = useForm({
+    platform: 'facebook',
+    comment_reply_enabled: Boolean(props.facebook?.comment_reply_enabled),
+    comment_reply_text: props.facebook?.comment_reply_text || 'تم الرد على الخاص بنجاح! راجع رسائلك 📩',
+    dm_message_text: props.facebook?.dm_message_text || 'أهلاً بك {name}! بخصوص استفسارك على المنشور، تفضل تفاصيل العرض...',
+    comment_keywords: Array.isArray(props.facebook?.comment_keywords) ? props.facebook.comment_keywords.join(', ') : (props.facebook?.comment_keywords || ''),
+});
+
+const igCommentForm = useForm({
+    platform: 'instagram',
+    comment_reply_enabled: Boolean(props.instagram?.comment_reply_enabled),
+    comment_reply_text: props.instagram?.comment_reply_text || 'تم الرد في الخاص بنجاح! راجع الدايركت 📩',
+    dm_message_text: props.instagram?.dm_message_text || 'مرحباً {name}! تفضل تفاصيل المنتج والعرض المتاح حالياً...',
+    comment_keywords: Array.isArray(props.instagram?.comment_keywords) ? props.instagram.comment_keywords.join(', ') : (props.instagram?.comment_keywords || ''),
+});
+
+const saveFbCommentSettings = () => {
+    fbCommentForm.post(route('channels.comment-settings.update', props.business.id), {
+        preserveScroll: true,
+    });
+};
+
+const saveIgCommentSettings = () => {
+    igCommentForm.post(route('channels.comment-settings.update', props.business.id), {
+        preserveScroll: true,
+    });
+};
+
 const connectMode = ref('phone'); // default to phone pairing code
 const isGeneratingQr = ref(false);
 const qrCodeData = ref(props.whatsapp?.qr_code || null);
@@ -634,6 +663,71 @@ const disconnect = (channel) => {
                                 </button>
                             </div>
 
+                            <!-- Facebook Comment-to-DM Automation -->
+                            <div v-if="facebook?.status === 'connected'" class="mt-4 p-4 rounded-xl bg-slate-950/90 border border-slate-800/80 space-y-4">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                                    <div class="flex items-center gap-2">
+                                        <MessageCircle class="w-4 h-4 text-blue-400" />
+                                        <h4 class="text-xs font-bold text-slate-200">الرد التلقائي على التعليقات (Comment-to-DM)</h4>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            v-model="fbCommentForm.comment_reply_enabled"
+                                            class="sr-only peer"
+                                        />
+                                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+
+                                <form @submit.prevent="saveFbCommentSettings" class="space-y-3">
+                                    <div>
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-[11px] font-bold text-slate-300">الرد العام على التعليق في البوست</label>
+                                            <span class="text-[10px] text-slate-500 font-mono">يدعم {name}</span>
+                                        </div>
+                                        <textarea
+                                            v-model="fbCommentForm.comment_reply_text"
+                                            rows="2"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-blue-500"
+                                            placeholder="تم الرد على الخاص بنجاح! راجع رسائلك 📩"
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-[11px] font-bold text-slate-300">الرسالة الخاصة المرسلة في الخاص (DM)</label>
+                                            <span class="text-[10px] text-slate-500 font-mono">يدعم {name}</span>
+                                        </div>
+                                        <textarea
+                                            v-model="fbCommentForm.dm_message_text"
+                                            rows="3"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-blue-500"
+                                            placeholder="أهلاً بك {name}! بخصوص استفسارك على المنشور، تفضل التفاصيل..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[11px] font-bold text-slate-300">فلتر الكلمات المفتاحية (اختياري - مفصول بفاصلة)</label>
+                                        <input
+                                            type="text"
+                                            v-model="fbCommentForm.comment_keywords"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-blue-500"
+                                            placeholder="سعر, بكام, تفاصيل, مقاس (اتركه فارغاً للرد على الكل)"
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        :disabled="fbCommentForm.processing"
+                                        class="cursor-pointer w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center justify-center gap-1.5 shadow-sm"
+                                    >
+                                        <Save class="w-3.5 h-3.5" />
+                                        <span>{{ fbCommentForm.processing ? 'جاري الحفظ...' : 'حفظ إعدادات الرد على التعليقات' }}</span>
+                                    </button>
+                                </form>
+                            </div>
+
                             <form v-else @submit.prevent="connectFacebook" class="space-y-4">
                                 <div>
                                     <label for="page_id" class="block text-xs font-bold text-slate-300">
@@ -715,6 +809,71 @@ const disconnect = (channel) => {
                                 >
                                     فصل الحساب
                                 </button>
+                            </div>
+
+                            <!-- Instagram Comment-to-DM Automation -->
+                            <div v-if="instagram?.status === 'connected'" class="mt-4 p-4 rounded-xl bg-slate-950/90 border border-slate-800/80 space-y-4">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                                    <div class="flex items-center gap-2">
+                                        <MessageCircle class="w-4 h-4 text-pink-400" />
+                                        <h4 class="text-xs font-bold text-slate-200">الرد التلقائي على تعليقات إنستجرام (Comment-to-DM)</h4>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            v-model="igCommentForm.comment_reply_enabled"
+                                            class="sr-only peer"
+                                        />
+                                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-600"></div>
+                                    </label>
+                                </div>
+
+                                <form @submit.prevent="saveIgCommentSettings" class="space-y-3">
+                                    <div>
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-[11px] font-bold text-slate-300">الرد العام على التعليق في المنشور</label>
+                                            <span class="text-[10px] text-slate-500 font-mono">يدعم {name} أو {username}</span>
+                                        </div>
+                                        <textarea
+                                            v-model="igCommentForm.comment_reply_text"
+                                            rows="2"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-pink-500"
+                                            placeholder="تم الرد في الخاص بنجاح! راجع الدايركت 📩"
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-[11px] font-bold text-slate-300">الرسالة الخاصة في الدايركت (Direct DM)</label>
+                                            <span class="text-[10px] text-slate-500 font-mono">يدعم {name} أو {username}</span>
+                                        </div>
+                                        <textarea
+                                            v-model="igCommentForm.dm_message_text"
+                                            rows="3"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-pink-500"
+                                            placeholder="مرحباً {name}! تفضل تفاصيل المنتج والعرض المتاح حالياً..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[11px] font-bold text-slate-300">فلتر الكلمات المفتاحية (اختياري - مفصول بفاصلة)</label>
+                                        <input
+                                            type="text"
+                                            v-model="igCommentForm.comment_keywords"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-pink-500"
+                                            placeholder="سعر, بكام, تفاصيل, مقاس (اتركه فارغاً للرد على الكل)"
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        :disabled="igCommentForm.processing"
+                                        class="cursor-pointer w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-pink-600 hover:bg-pink-500 text-white transition flex items-center justify-center gap-1.5 shadow-sm"
+                                    >
+                                        <Save class="w-3.5 h-3.5" />
+                                        <span>{{ igCommentForm.processing ? 'جاري الحفظ...' : 'حفظ إعدادات الرد على التعليقات' }}</span>
+                                    </button>
+                                </form>
                             </div>
 
                             <form v-else @submit.prevent="connectInstagram" class="space-y-4">

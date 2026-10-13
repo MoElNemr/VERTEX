@@ -80,6 +80,10 @@ class AiSettingController extends Controller
             abort(401);
         }
 
+        if (auth('web')->user() && (bool) auth('web')->user()->is_super_admin) {
+            return;
+        }
+
         $isOwner = (bool) auth('web')->user();
         $hasAccess = Business::where('id', $business->id)
             ->where(function ($q) use ($user, $isOwner) {

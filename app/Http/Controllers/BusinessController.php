@@ -71,6 +71,11 @@ class BusinessController extends Controller
             abort(401);
         }
 
+        if ($request->user('web') && (bool) $request->user('web')->is_super_admin) {
+            session(['current_business_id' => $business->id]);
+            return redirect()->route('dashboard')->with('success', "تم التحويل إلى متجر {$business->name}");
+        }
+
         $hasAccess = Business::where('id', $business->id)
             ->where(function ($q) use ($user, $request) {
                 if ($request->user('web')) {

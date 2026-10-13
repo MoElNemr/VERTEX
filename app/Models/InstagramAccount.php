@@ -16,9 +16,18 @@ class InstagramAccount extends Model
         'username',
         'access_token',
         'status',
+        'comment_reply_enabled',
+        'comment_reply_text',
+        'dm_message_text',
+        'comment_keywords',
     ];
 
     protected $hidden = [
         'access_token',
+    ];
+
+    protected $casts = [
+        'comment_reply_enabled' => 'boolean',
+        'comment_keywords' => 'array',
     ];
 }

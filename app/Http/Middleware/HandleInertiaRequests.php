@@ -43,6 +43,21 @@ class HandleInertiaRequests extends Middleware
 
             if ($currentBusinessId) {
                 $currentBusiness = $businesses->firstWhere('id', $currentBusinessId);
+
+                // Support Super Admin impersonation of any tenant business
+                if (!$currentBusiness && $request->user('web')?->is_super_admin) {
+                    $impersonated = \App\Models\Business::select(['id', 'name', 'logo'])->find($currentBusinessId);
+                    if ($impersonated) {
+                        $currentBusiness = $impersonated;
+                        $businesses->prepend($impersonated);
+                    }
+                }
+            }
+
+            // Auto-fallback: if no business is selected in session, default to the first business
+            if (!$currentBusiness && $businesses->isNotEmpty()) {
+                $currentBusiness = $businesses->first();
+                session(['current_business_id' => $currentBusiness->id]);
             }
         }
 
@@ -57,6 +72,7 @@ class HandleInertiaRequests extends Middleware
                 'is_owner' => $isOwner,
                 'is_team' => $isTeam,
                 'role' => $role,
+                'is_super_admin' => (bool) ($request->user('web')?->is_super_admin),
                 'can_manage_team' => $isOwner || $role === 'admin',
                 'can_manage_channels' => $isOwner || $role === 'admin',
                 'can_manage_businesses' => $isOwner,

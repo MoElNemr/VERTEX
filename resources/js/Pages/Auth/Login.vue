@@ -1,15 +1,15 @@
 <script setup>
+import { ref } from 'vue';
 import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Mail, Lock, Eye, EyeOff, LogIn, Store, Users, Loader2 } from 'lucide-vue-next';
 
 defineProps({
     canResetPassword: {
         type: Boolean,
+        default: true,
     },
     status: {
         type: String,
@@ -22,6 +22,8 @@ const form = useForm({
     remember: false,
 });
 
+const showPassword = ref(false);
+
 const submit = () => {
     form.post(route('login'), {
         onFinish: () => form.reset('password'),
@@ -31,79 +33,123 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Log in" />
+        <Head title="تسجيل الدخول - Vertex" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
+        <!-- Header -->
+        <div class="mb-6 text-center">
+            <h2 class="text-xl font-extrabold text-white tracking-tight">تسجيل دخول صاحب المتجر</h2>
+            <p class="text-xs text-slate-400 mt-1">مرحباً بك مجدداً! أدخل بياناتك للوصول إلى لوحة المتاجر</p>
+        </div>
+
+        <!-- Role Toggle Tabs -->
+        <div class="grid grid-cols-2 p-1 rounded-xl bg-slate-950/80 border border-slate-800 mb-6 text-xs font-semibold">
+            <button
+                type="button"
+                class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-blue-600 text-white shadow-sm transition cursor-default"
+            >
+                <Store class="w-3.5 h-3.5" />
+                <span>صاحب المتجر</span>
+            </button>
+            <Link
+                :href="route('team.login')"
+                class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition"
+            >
+                <Users class="w-3.5 h-3.5" />
+                <span>عضو الفريق</span>
+            </Link>
+        </div>
+
+        <div v-if="status" class="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400 text-center">
             {{ status }}
         </div>
 
-        <form @submit.prevent="submit">
+        <form @submit.prevent="submit" class="space-y-4">
+            <!-- Email -->
             <div>
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autofocus
-                    autocomplete="username"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
+                <label for="email" class="block text-xs font-semibold text-slate-300 mb-1.5 text-start">
+                    البريد الإلكتروني
+                </label>
+                <div class="relative">
+                    <Mail class="w-4 h-4 text-slate-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                        id="email"
+                        type="email"
+                        v-model="form.email"
+                        required
+                        autofocus
+                        autocomplete="username"
+                        placeholder="name@company.com"
+                        class="w-full ps-10 pe-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                    />
+                </div>
+                <InputError class="mt-1.5 text-xs text-rose-400" :message="form.errors.email" />
             </div>
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="current-password"
-                />
-
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4 block">
-                <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600 dark:text-gray-400"
-                        >Remember me</span
+            <!-- Password -->
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label for="password" class="block text-xs font-semibold text-slate-300">
+                        كلمة المرور
+                    </label>
+                    <Link
+                        v-if="canResetPassword"
+                        :href="route('password.request')"
+                        class="text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition"
                     >
+                        نسيت كلمة المرور؟
+                    </Link>
+                </div>
+                <div class="relative">
+                    <Lock class="w-4 h-4 text-slate-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                        id="password"
+                        :type="showPassword ? 'text' : 'password'"
+                        v-model="form.password"
+                        required
+                        autocomplete="current-password"
+                        placeholder="••••••••"
+                        class="w-full ps-10 pe-10 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                    />
+                    <button
+                        type="button"
+                        @click="showPassword = !showPassword"
+                        class="absolute end-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+                    >
+                        <EyeOff v-if="showPassword" class="w-4 h-4" />
+                        <Eye v-else class="w-4 h-4" />
+                    </button>
+                </div>
+                <InputError class="mt-1.5 text-xs text-rose-400" :message="form.errors.password" />
+            </div>
+
+            <!-- Remember Me -->
+            <div class="flex items-center justify-between text-xs">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <Checkbox name="remember" v-model:checked="form.remember" class="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0" />
+                    <span class="text-slate-400">تذكر تسجيل دخولي</span>
                 </label>
             </div>
 
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
-                >
-                    Forgot your password?
-                </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Log in
-                </PrimaryButton>
-            </div>
+            <!-- Submit Button -->
+            <button
+                type="submit"
+                :disabled="form.processing"
+                class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/20 transition disabled:opacity-50"
+            >
+                <Loader2 v-if="form.processing" class="w-4 h-4 animate-spin" />
+                <LogIn v-else class="w-4 h-4" />
+                <span>تسجيل الدخول</span>
+            </button>
         </form>
 
-        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 text-center">
+        <!-- Register Link -->
+        <div class="mt-6 pt-5 border-t border-slate-800/80 text-center text-xs text-slate-400">
+            <span>ليس لديك حساب بعد؟ </span>
             <Link
-                :href="route('team.login')"
-                class="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                :href="route('register')"
+                class="font-bold text-blue-400 hover:text-blue-300 transition ms-1"
             >
-                <span>دخول فريق العمل والوكلاء</span>
-                <span>←</span>
+                إنشاء حساب مجاني الآن
             </Link>
         </div>
     </GuestLayout>

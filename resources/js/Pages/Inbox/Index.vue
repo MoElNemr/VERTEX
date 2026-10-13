@@ -631,6 +631,7 @@ onUnmounted(() => {
                         <!-- Search Box -->
                         <div class="relative flex-1">
                             <input
+                                id="inbox-search-input"
                                 v-model="searchQuery"
                                 type="text"
                                 placeholder="بحث بالاسم أو نص الرسالة..."
@@ -956,6 +957,7 @@ onUnmounted(() => {
                         <!-- Textarea & Send Button -->
                         <form @submit.prevent="sendMessage" class="flex items-end gap-2 sm:gap-3">
                             <textarea
+                                id="chat-message-input"
                                 v-model="messageText"
                                 @keydown.enter.exact.prevent="sendMessage"
                                 rows="2"
@@ -963,6 +965,7 @@ onUnmounted(() => {
                                 class="flex-1 rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none transition"
                             ></textarea>
                             <button
+                                id="chat-send-button"
                                 type="submit"
                                 :disabled="!messageText.trim() || isSending"
                                 class="cursor-pointer h-10 sm:h-12 px-4 sm:px-6 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 sm:gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
