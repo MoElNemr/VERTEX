@@ -59,23 +59,6 @@ class TeamAuthenticatedSessionController extends Controller
 
         // تعيين أول متجر متاح للعضو كالبيزنس النشط
         $user = Auth::guard('team')->user();
-
-        // التحقق من تفعيل البريد الإلكتروني
-        if (!$user->hasVerifiedEmail()) {
-            // إرسال رابط التحقق إذا لم يُرسل من قبل
-            $user->sendEmailVerificationNotification();
-
-            // تسجيل الخروج ومطالبته بالتحقق أولاً
-            Auth::guard('team')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return redirect()->route('team.login')->with(
-                'status',
-                'تم إرسال رابط تفعيل البريد الإلكتروني إلى ' . $user->email . ' — يرجى التحقق منه قبل تسجيل الدخول.'
-            );
-        }
-
         $firstBusiness = $user->businesses()->first();
 
         if ($firstBusiness) {
