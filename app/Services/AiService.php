@@ -12,12 +12,10 @@ use Illuminate\Support\Facades\Log;
  */
 class AiService
 {
-    protected string $defaultApiKey;
     protected string $apiUrl;
 
     public function __construct()
     {
-        $this->defaultApiKey = (string) (config('services.groq.key') ?: env('GROQ_API_KEY', config('services.openai.key') ?: env('OPENAI_API_KEY', '')));
         $this->apiUrl = (string) (config('services.groq.url') ?: env('GROQ_API_URL', 'https://api.groq.com/openai/v1'));
     }
 
@@ -91,9 +89,9 @@ class AiService
      */
     public function callGroq(array $messages, string $model = 'llama-3.3-70b-versatile', ?string $apiKey = null): ?string
     {
-        $resolvedKey = trim((string) ($apiKey ?: $this->defaultApiKey));
+        $resolvedKey = trim((string) ($apiKey ?? ''));
         if (empty($resolvedKey)) {
-            Log::warning('GROQ_API_KEY not configured for business AI request.');
+            Log::warning('AI request blocked: business has no GROQ API key configured.');
             return null;
         }
 

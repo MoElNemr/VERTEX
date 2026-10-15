@@ -47,11 +47,11 @@ class BusinessAiSetting extends Model
 
     public function getEffectiveApiKeyAttribute(): ?string
     {
-        return $this->api_key ?: (config('services.groq.key') ?: env('GROQ_API_KEY'));
+        return $this->api_key ?: null;
     }
 
     public function getHasApiKeyAttribute(): bool
     {
-        return !empty($this->effective_api_key);
+        return !empty($this->api_key);
     }
 }

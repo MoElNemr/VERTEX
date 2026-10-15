@@ -65,6 +65,14 @@ class HandleInertiaRequests extends Middleware
         $isTeam = (bool) $request->user('team');
         $role = $isOwner ? 'owner' : ($user?->role ?? 'agent');
 
+        $hasAi = false;
+        if ($currentBusiness) {
+            $aiSetting = \App\Models\BusinessAiSetting::withoutGlobalScopes()
+                ->where('business_id', $currentBusiness->id)
+                ->first();
+            $hasAi = $aiSetting?->has_api_key ?? false;
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -80,6 +88,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'currentBusiness' => $currentBusiness,
             'businesses' => $businesses,
+            'has_ai' => $hasAi,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
