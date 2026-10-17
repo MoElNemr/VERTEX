@@ -89,6 +89,11 @@ class HandleInertiaRequests extends Middleware
             'currentBusiness' => $currentBusiness,
             'businesses' => $businesses,
             'has_ai' => $hasAi,
+            'bulk_wallet' => $user instanceof \App\Models\User ? [
+                'balance' => (float) ($user->bulkWallet?->balance ?? 0),
+                'credits' => (int) ($user->bulkWallet?->credits ?? 0),
+                'currency' => $user->bulkWallet?->currency ?? 'EGP',
+            ] : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

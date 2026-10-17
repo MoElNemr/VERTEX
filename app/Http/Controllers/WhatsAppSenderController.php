@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\Campaign;
 use App\Models\WhatsappAccount;
 use App\Services\CampaignService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,8 @@ use Inertia\Response;
 class WhatsAppSenderController extends Controller
 {
     public function __construct(
-        protected CampaignService $campaignService
+        protected CampaignService $campaignService,
+        protected WalletService $walletService
     ) {}
 
     /**
@@ -170,6 +172,19 @@ class WhatsAppSenderController extends Controller
 
             fclose($handle);
 
+            $validRecipients = array_values(array_filter($allRows, fn ($r) => $r['is_valid']));
+            $validRecipientsCount = count($validRecipients);
+
+            // Check business owner bulk wallet balance
+            $currentBusinessId = session('current_business_id');
+            $business = Business::find($currentBusinessId);
+            $user = $business?->user ?: ($request->user('web') ?: $request->user('team'));
+            $wallet = $user ? $user->getOrCreateWallet() : null;
+            $currentCredits = $wallet ? (int) $wallet->credits : 0;
+            $currentBalance = $wallet ? (float) $wallet->balance : 0.00;
+            $canAfford = $currentCredits >= $validRecipientsCount;
+            $missingCredits = max(0, $validRecipientsCount - $currentCredits);
+
             return response()->json([
                 'status' => 'success',
                 'filename' => $filename,
@@ -177,7 +192,14 @@ class WhatsAppSenderController extends Controller
                 'valid_count' => $validCount,
                 'invalid_count' => $invalidCount,
                 'preview_rows' => $previewRows,
-                'recipients' => array_values(array_filter($allRows, fn ($r) => $r['is_valid'])),
+                'recipients' => $validRecipients,
+                'wallet' => [
+                    'current_credits' => $currentCredits,
+                    'current_balance' => $currentBalance,
+                    'required_credits' => $validRecipientsCount,
+                    'can_afford' => $canAfford,
+                    'missing_credits' => $missingCredits,
+                ],
             ]);
         }
 
@@ -208,6 +230,7 @@ class WhatsAppSenderController extends Controller
     {
         $currentBusinessId = session('current_business_id');
         $business = Business::findOrFail($currentBusinessId);
+        $user = $business->user ?: ($request->user('web') ?: $request->user('team'));
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -221,6 +244,22 @@ class WhatsAppSenderController extends Controller
             'auto_start' => ['nullable', 'boolean'],
             'filename' => ['nullable', 'string'],
         ]);
+
+        $recipientCount = count($validated['recipients']);
+
+        // HARD BALANCE GATE: Do not start if user balance cannot afford campaign
+        if ($user && !$this->walletService->hasSufficientCredits($user, $recipientCount)) {
+            $wallet = $user->getOrCreateWallet();
+            $missing = $recipientCount - $wallet->credits;
+            return response()->json([
+                'error' => "رصيد المحفظة غير كافٍ لإرسال الحملة. رصيدك الحالي: {$wallet->credits} رسالة، والمطلوب: {$recipientCount} رسالة (ينقصك {$missing} رسالة). يرجى شحن المحفظة أولاً.",
+                'wallet' => [
+                    'current_credits' => $wallet->credits,
+                    'required_credits' => $recipientCount,
+                    'missing_credits' => $missing,
+                ],
+            ], 402);
+        }
 
         $campaign = $this->campaignService->createWhatsAppBulkCampaign($business, $validated);
 
