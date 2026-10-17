@@ -17,6 +17,11 @@ spl_autoload_register(function ($class) {
         if (file_exists($file)) {
             require_once $file;
         }
+    } elseif (str_starts_with($class, 'Database\\Factories\\')) {
+        $file = __DIR__ . '/../database/factories/' . str_replace('\\', '/', substr($class, 19)) . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+        }
     }
 }, prepend: true);
 
@@ -40,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+            'active_subscription' => \App\Http\Middleware\EnsureActiveSubscription::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

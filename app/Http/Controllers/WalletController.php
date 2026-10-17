@@ -73,6 +73,13 @@ class WalletController extends Controller
      */
     public function simulate(Request $request): JsonResponse
     {
+        if ($this->fawryService->getConfig()['mode'] !== 'sandbox') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'محاكاة الشحن غير متاحة في بيئة العمل الحية.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'reference_number' => ['required', 'exists:payment_transactions,reference_number'],
         ]);

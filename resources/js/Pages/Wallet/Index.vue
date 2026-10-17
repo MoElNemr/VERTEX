@@ -371,8 +371,8 @@ const simulatePayment = async () => {
                     </div>
                 </div>
 
-                <!-- Sandbox Simulation Button -->
-                <div v-if="activeChargeModal.fawry_mode === 'sandbox'" class="p-3 rounded-xl bg-blue-950/40 border border-blue-500/30 space-y-2">
+                <!-- Sandbox Simulation Button (strictly sandbox mode only) -->
+                <div v-if="activeChargeModal.fawry_mode === 'sandbox' && fawryConfig.mode === 'sandbox'" class="p-3 rounded-xl bg-blue-950/40 border border-blue-500/30 space-y-2">
                     <div class="flex items-center gap-1.5 text-[11px] font-bold text-blue-300">
                         <Zap class="w-3.5 h-3.5 text-amber-400" />
                         <span>وضع تجريبي (Sandbox Mode): يمكنك اختبار الشحن فوراً</span>
