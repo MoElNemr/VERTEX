@@ -61,6 +61,24 @@ class User extends Authenticatable
         return $this->hasMany(TeamMember::class);
     }
 
+    public function bulkWallet()
+    {
+        return $this->hasOne(BulkMessageWallet::class);
+    }
+
+    public function bulkTransactions()
+    {
+        return $this->hasMany(BulkMessageTransaction::class);
+    }
+
+    public function getOrCreateWallet(): BulkMessageWallet
+    {
+        return $this->bulkWallet()->firstOrCreate(
+            ['user_id' => $this->id],
+            ['balance' => 0.00, 'credits' => 0, 'currency' => 'EGP']
+        );
+    }
+
     public function canCreateBusiness(): bool
     {
         $activeSub = $this->activeSubscription;

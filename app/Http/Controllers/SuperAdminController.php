@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Models\BulkMessageTransaction;
+use App\Models\BulkMessageWallet;
 use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\FacebookAccount;
 use App\Models\InstagramAccount;
 use App\Models\Message;
+use App\Models\PaymentTransaction;
 use App\Models\Plan;
 use App\Models\Subscription;
+use App\Models\SystemSetting;
 use App\Models\TelegramAccount;
 use App\Models\User;
 use App\Models\WhatsappAccount;
@@ -108,6 +112,30 @@ class SuperAdminController extends Controller
             'broadcast_driver' => config('broadcasting.default'),
         ];
 
+        // 10. Fawry Payment Gateway Settings & Transactions
+        $fawrySettings = [
+            'merchant_code' => SystemSetting::get('fawry_merchant_code', env('FAWRY_MERCHANT_CODE', '1014316')),
+            'security_key' => SystemSetting::get('fawry_security_key', env('FAWRY_SECURITY_KEY', 'default_test_key')),
+            'merchant_wallet' => SystemSetting::get('fawry_merchant_wallet', env('FAWRY_MERCHANT_WALLET', '')),
+            'mode' => SystemSetting::get('fawry_mode', env('FAWRY_MODE', 'sandbox')),
+            'webhook_url' => url('/webhooks/fawry'),
+        ];
+
+        $paymentTransactions = PaymentTransaction::with(['user:id,name,email', 'plan:id,name'])
+            ->latest()
+            ->limit(15)
+            ->get();
+
+        // 11. Bulk Message Wallets & Transactions
+        $userWallets = User::with('bulkWallet')
+            ->latest()
+            ->paginate(15, ['*'], 'wallets_page');
+
+        $recentBulkTransactions = BulkMessageTransaction::with('user:id,name,email')
+            ->latest()
+            ->limit(20)
+            ->get();
+
         return Inertia::render('SuperAdmin/Index', [
             'metrics' => [
                 'total_users' => $totalUsers,
@@ -138,7 +166,57 @@ class SuperAdminController extends Controller
             'allUsersSimple' => $allUsersSimple,
             'recentCampaigns' => $recentCampaigns,
             'systemSpecs' => $systemSpecs,
+            'fawrySettings' => $fawrySettings,
+            'paymentTransactions' => $paymentTransactions,
+            'userWallets' => $userWallets,
+            'recentBulkTransactions' => $recentBulkTransactions,
         ]);
+    }
+
+    /**
+     * Adjust User Bulk Message Wallet balance from Super Admin.
+     */
+    public function adjustUserWallet(Request $request, User $user, \App\Services\WalletService $walletService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0'],
+            'credits' => ['required', 'integer', 'min:0'],
+            'type' => ['required', 'in:add,deduct'],
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        $admin = $request->user('web');
+        $multiplier = $validated['type'] === 'deduct' ? -1 : 1;
+
+        $walletService->adjustBalance(
+            $user,
+            (float) ($validated['amount'] * $multiplier),
+            (int) ($validated['credits'] * $multiplier),
+            $validated['reason'],
+            $admin ? $admin->name : 'Super Admin'
+        );
+
+        return back()->with('success', "تم تعديل رصيد محفظة المستخدم {$user->name} بنجاح.");
+    }
+
+    /**
+     * Update Fawry Payment Gateway settings.
+     */
+    public function updateFawrySettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'merchant_code' => ['required', 'string', 'max:255'],
+            'security_key' => ['required', 'string', 'max:255'],
+            'merchant_wallet' => ['nullable', 'string', 'max:255'],
+            'mode' => ['required', 'in:sandbox,live'],
+        ]);
+
+        SystemSetting::set('fawry_merchant_code', $validated['merchant_code'], 'fawry');
+        SystemSetting::set('fawry_security_key', $validated['security_key'], 'fawry');
+        SystemSetting::set('fawry_merchant_wallet', $validated['merchant_wallet'] ?? '', 'fawry');
+        SystemSetting::set('fawry_mode', $validated['mode'], 'fawry');
+
+        return back()->with('success', 'تم حفظ وتحديث إعدادات بوابة فوري بنجاح.');
     }
 
     /**
@@ -319,19 +397,23 @@ class SuperAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'in:standard,premium'],
+            'type' => ['required', 'string', 'max:50'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'max_businesses' => ['nullable', 'integer', 'min:1'],
             'price_monthly' => ['required', 'numeric', 'min:0'],
             'price_yearly' => ['required', 'numeric', 'min:0'],
+            'features' => ['nullable', 'array'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         $plan = Plan::create([
             'name' => $validated['name'],
             'type' => $validated['type'],
+            'description' => $validated['description'] ?? null,
             'max_businesses' => $validated['max_businesses'] ?: null,
             'price_monthly' => $validated['price_monthly'],
             'price_yearly' => $validated['price_yearly'],
+            'features' => $validated['features'] ?? [],
             'is_active' => (bool) ($validated['is_active'] ?? true),
         ]);
 
@@ -345,19 +427,23 @@ class SuperAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'in:standard,premium'],
+            'type' => ['required', 'string', 'max:50'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'max_businesses' => ['nullable', 'integer', 'min:1'],
             'price_monthly' => ['required', 'numeric', 'min:0'],
             'price_yearly' => ['required', 'numeric', 'min:0'],
+            'features' => ['nullable', 'array'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         $plan->update([
             'name' => $validated['name'],
             'type' => $validated['type'],
+            'description' => $validated['description'] ?? null,
             'max_businesses' => $validated['max_businesses'] ?: null,
             'price_monthly' => $validated['price_monthly'],
             'price_yearly' => $validated['price_yearly'],
+            'features' => $validated['features'] ?? [],
             'is_active' => (bool) ($validated['is_active'] ?? true),
         ]);
 

@@ -23,6 +23,7 @@ import {
     LogOut,
     User,
     Crown,
+    Wallet,
     PanelRightClose,
     PanelRightOpen,
 } from 'lucide-vue-next';
@@ -293,6 +294,18 @@ watch(
                                 <span class="text-[9px] font-mono px-1 rounded bg-pink-500/10 text-pink-400">CSV</span>
                             </div>
                         </Link>
+
+                        <Link
+                            :href="route('wallet.index')"
+                            class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg font-medium transition text-xs mt-1 border border-slate-800/80 bg-slate-950/40"
+                            :class="route().current('wallet.*') ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-emerald-300 hover:bg-slate-800/60'"
+                        >
+                            <Wallet class="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                            <div class="flex items-center justify-between flex-1">
+                                <span>محفظة رصيد الرسائل</span>
+                                <span class="text-[9px] font-mono px-1 rounded bg-amber-500/20 text-amber-300 font-bold">شحن</span>
+                            </div>
+                        </Link>
                     </div>
                 </div>
 
@@ -365,6 +378,16 @@ watch(
                     >
                         <Sparkles class="w-4 h-4 shrink-0 text-amber-400" />
                         <span>المساعد الذكي (AI)</span>
+                    </Link>
+
+                    <Link
+                        v-if="$page.props.auth.is_owner"
+                        :href="route('subscription.index')"
+                        class="flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium transition"
+                        :class="route().current('subscription.*') ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
+                    >
+                        <Crown class="w-4 h-4 shrink-0 text-amber-400" />
+                        <span>الباقة والاشتراك</span>
                     </Link>
                 </div>
             </div>

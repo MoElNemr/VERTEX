@@ -115,7 +115,15 @@ Route::middleware('auth:web,team')->group(function () {
     Route::post('/instagram-sender/{campaign}/process-step', [\App\Http\Controllers\InstagramSenderController::class, 'processStep'])->name('instagram-sender.step');
     Route::post('/instagram-sender/{campaign}/start', [\App\Http\Controllers\InstagramSenderController::class, 'start'])->name('instagram-sender.start');
     Route::post('/instagram-sender/{campaign}/pause', [\App\Http\Controllers\InstagramSenderController::class, 'pause'])->name('instagram-sender.pause');
-    Route::delete('/instagram-sender/{campaign}', [\App\Http\Controllers\InstagramSenderController::class, 'destroy'])->name('instagram-sender.destroy');
+    // Subscription & Plan Upgrade
+    Route::get('/subscription', [\App\Http\Controllers\SubscriptionController::class, 'index'])->name('subscription.index');
+    Route::post('/subscription/checkout', [\App\Http\Controllers\SubscriptionController::class, 'checkout'])->name('subscription.checkout');
+    Route::post('/subscription/simulate', [\App\Http\Controllers\SubscriptionController::class, 'simulatePayment'])->name('subscription.simulate');
+
+    // Bulk Message Wallet
+    Route::get('/wallet', [\App\Http\Controllers\WalletController::class, 'index'])->name('wallet.index');
+    Route::post('/wallet/topup', [\App\Http\Controllers\WalletController::class, 'topup'])->name('wallet.topup');
+    Route::post('/wallet/simulate', [\App\Http\Controllers\WalletController::class, 'simulate'])->name('wallet.simulate');
 });
 
 // Super Admin Dedicated Auth (Master Control)
@@ -137,6 +145,7 @@ Route::middleware(['super_admin'])->prefix('admin')->name('superadmin.')->group(
     Route::put('/users/{user}', [\App\Http\Controllers\SuperAdminController::class, 'updateUser'])->name('users.update');
     Route::delete('/users/{user}', [\App\Http\Controllers\SuperAdminController::class, 'destroyUser'])->name('users.destroy');
     Route::post('/users/{user}/assign-plan', [\App\Http\Controllers\SuperAdminController::class, 'assignUserPlan'])->name('users.assign-plan');
+    Route::post('/users/{user}/wallet-adjust', [\App\Http\Controllers\SuperAdminController::class, 'adjustUserWallet'])->name('users.wallet-adjust');
 
     // Super Admin Businesses Management
     Route::post('/businesses', [\App\Http\Controllers\SuperAdminController::class, 'storeBusiness'])->name('businesses.store');
@@ -149,11 +158,18 @@ Route::middleware(['super_admin'])->prefix('admin')->name('superadmin.')->group(
     Route::delete('/plans/{plan}', [\App\Http\Controllers\SuperAdminController::class, 'destroyPlan'])->name('plans.destroy');
     Route::patch('/plans/{plan}/toggle-active', [\App\Http\Controllers\SuperAdminController::class, 'togglePlanActive'])->name('plans.toggle-active');
 
+    // Super Admin Fawry Settings
+    Route::post('/fawry/settings', [\App\Http\Controllers\SuperAdminController::class, 'updateFawrySettings'])->name('fawry.settings');
+
     // System Cache & Optimizations
     Route::post('/system/optimize', [\App\Http\Controllers\SuperAdminController::class, 'clearSystemCache'])->name('system.optimize');
 });
 
+// Subscription Public Return Callback
+Route::get('/subscription/callback', [\App\Http\Controllers\Webhooks\FawryWebhookController::class, 'callback'])->name('subscription.callback');
+
 // Incoming Public Webhooks (Exempt from CSRF)
+Route::post('/webhooks/fawry', [\App\Http\Controllers\Webhooks\FawryWebhookController::class, 'handle'])->name('webhooks.fawry');
 Route::post('/webhooks/telegram/{business}', [\App\Http\Controllers\Webhooks\TelegramWebhookController::class, 'handle'])->name('webhooks.telegram');
 Route::get('/webhooks/meta/{business}', [\App\Http\Controllers\Webhooks\MetaWebhookController::class, 'verify'])->name('webhooks.meta.verify');
 Route::post('/webhooks/meta/{business}', [\App\Http\Controllers\Webhooks\MetaWebhookController::class, 'handle'])->name('webhooks.meta');

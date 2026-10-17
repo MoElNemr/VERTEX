@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use App\Models\User;
+use App\Services\FawryService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,12 +18,20 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
+    public function __construct(
+        protected FawryService $fawryService
+    ) {}
+
     /**
-     * Display the registration view.
+     * Display the registration view with selectable plans.
      */
     public function create(): Response
     {
-        return Inertia::render('Auth/Register');
+        $plans = Plan::where('is_active', true)->orderBy('price_monthly')->get();
+
+        return Inertia::render('Auth/Register', [
+            'plans' => $plans,
+        ]);
     }
 
     /**
@@ -35,6 +45,8 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'plan_id' => 'nullable|exists:plans,id',
+            'billing_cycle' => 'nullable|in:monthly,yearly',
         ]);
 
         $user = User::create([
@@ -43,27 +55,49 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // تفعيل اشتراك تجريبي في الباقة الأساسية
-        $defaultPlan = \App\Models\Plan::where('type', 'standard')->first();
-        if ($defaultPlan) {
-            $user->subscriptions()->create([
-                'plan_id' => $defaultPlan->id,
-                'status' => 'trial',
-                'starts_at' => now(),
-                'ends_at' => now()->addDays(14),
-            ]);
+        $planId = $request->plan_id ?: (Plan::where('type', 'standard')->value('id') ?: Plan::value('id'));
+        $selectedPlan = $planId ? Plan::find($planId) : null;
+        if (!$selectedPlan) {
+            $selectedPlan = Plan::firstOrCreate(
+                ['type' => 'standard'],
+                [
+                    'name' => 'Standard Unlimited',
+                    'price_monthly' => 0.00,
+                    'price_yearly' => 0.00,
+                    'is_active' => true,
+                ]
+            );
         }
+        $billingCycle = $request->billing_cycle ?: 'monthly';
+        $price = ($billingCycle === 'yearly' ? (float) $selectedPlan->price_yearly : (float) $selectedPlan->price_monthly);
 
-        // إنشاء بيزنس أولي افتراضي باسم المستخدم
+        // Create initial default business
         $business = $user->businesses()->create([
             'name' => $user->name . ' Store',
         ]);
         session(['current_business_id' => $business->id]);
 
         event(new Registered($user));
-
         Auth::login($user);
 
-        return redirect(route('businesses.index', absolute: false));
+        // If free or trial plan
+        if ($price <= 0 || $selectedPlan->type === 'standard') {
+            $user->subscriptions()->create([
+                'plan_id' => $selectedPlan->id,
+                'status' => 'trial',
+                'starts_at' => now(),
+                'ends_at' => now()->addDays(14),
+            ]);
+
+            return redirect()->route('businesses.index')->with('success', 'تم إنشاء حسابك وتفعيل الفترة التجريبية بنجاح!');
+        }
+
+        // Paid plan: create pending subscription and generate Fawry charge
+        $charge = $this->fawryService->createSubscriptionCharge($user, $selectedPlan, $billingCycle);
+
+        return redirect()->route('subscription.index')->with([
+            'success' => 'تم إنشاء حسابك بنجاح. يرجى إتمام السداد عبر فوري لتفعيل باقتك المختارة.',
+            'pendingCharge' => $charge,
+        ]);
     }
 }
