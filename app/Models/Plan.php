@@ -12,9 +12,11 @@ class Plan extends Model
     protected $fillable = [
         'name',
         'type',
+        'description',
         'max_businesses',
         'price_monthly',
         'price_yearly',
+        'features',
         'is_active',
     ];
 
@@ -22,6 +24,7 @@ class Plan extends Model
         'max_businesses' => 'integer',
         'price_monthly' => 'decimal:2',
         'price_yearly' => 'decimal:2',
+        'features' => 'array',
         'is_active' => 'boolean',
     ];
 

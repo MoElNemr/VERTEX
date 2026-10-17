@@ -71,13 +71,50 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    fawrySettings: {
+        type: Object,
+        default: () => ({
+            merchant_code: '',
+            security_key: '',
+            merchant_wallet: '',
+            mode: 'sandbox',
+            webhook_url: '',
+        }),
+    },
+    paymentTransactions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
-const activeTab = ref('overview'); // 'overview' | 'businesses' | 'users' | 'plans' | 'sessions' | 'campaigns'
+const activeTab = ref('overview'); // 'overview' | 'businesses' | 'users' | 'plans' | 'fawry' | 'sessions' | 'campaigns'
 const searchQuery = ref('');
 const restartingSession = ref(null);
 const actionMessage = ref(null);
 const optimizingSystem = ref(false);
+
+const fawryForm = useForm({
+    merchant_code: props.fawrySettings?.merchant_code || '',
+    security_key: props.fawrySettings?.security_key || '',
+    merchant_wallet: props.fawrySettings?.merchant_wallet || '',
+    mode: props.fawrySettings?.mode || 'sandbox',
+});
+
+const copiedWebhook = ref(false);
+const copyWebhookUrl = () => {
+    if (!props.fawrySettings?.webhook_url) return;
+    navigator.clipboard.writeText(props.fawrySettings.webhook_url);
+    copiedWebhook.value = true;
+    setTimeout(() => { copiedWebhook.value = false; }, 2000);
+};
+
+const submitFawryForm = () => {
+    fawryForm.post(route('superadmin.fawry.settings'), {
+        preserveScroll: true,
+        onSuccess: () => showNotice('تم حفظ وتحديث إعدادات بوابة فوري بنجاح'),
+        onError: () => showNotice('يرجى التأكد من صحة البيانات المدخلة', 'error'),
+    });
+};
 
 const filteredBusinesses = computed(() => {
     if (!searchQuery.value) return props.businesses.data;
@@ -589,6 +626,18 @@ const restartSession = async (sessionId) => {
                     :class="activeTab === 'campaigns' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'"
                 >
                     أحدث الحملات
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'fawry'"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 flex items-center gap-1.5"
+                    :class="activeTab === 'fawry' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'"
+                >
+                    <CreditCard class="w-3.5 h-3.5 text-amber-400" />
+                    <span>بوابة فوري (Fawry)</span>
+                    <span v-if="paymentTransactions.length > 0" class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300">
+                        {{ paymentTransactions.length }}
+                    </span>
                 </button>
             </div>
 
@@ -1243,6 +1292,181 @@ const restartSession = async (sessionId) => {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 9. TAB CONTENT: FAWRY PAYMENT GATEWAY      -->
+            <!-- ========================================== -->
+            <div v-if="activeTab === 'fawry'" class="space-y-6">
+                <!-- Gateway Config Form -->
+                <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-6 text-start">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                                <CreditCard class="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                    <span>إعدادات بوابة دفع فوري (Fawry Gateway)</span>
+                                    <span
+                                        class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
+                                        :class="fawryForm.mode === 'live' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'"
+                                    >
+                                        {{ fawryForm.mode === 'live' ? 'LIVE بيئة حية' : 'SANDBOX بيئة تجريبية' }}
+                                    </span>
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    تحكم في مفاتيح الربط ومحفظة فوري والبيئة لاستقبال مدفوعات الاشتراكات ورصيد الرسائل
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Webhook URL Quick Copy -->
+                        <div class="hidden md:flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                            <span class="text-slate-400 font-mono text-[10px]">Webhook IPN:</span>
+                            <span class="font-mono text-blue-400 text-[11px] truncate max-w-xs">{{ fawrySettings.webhook_url }}</span>
+                            <button
+                                type="button"
+                                @click="copyWebhookUrl"
+                                class="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-bold"
+                                title="نسخ رابط الإشعار"
+                            >
+                                <Check v-if="copiedWebhook" class="w-3.5 h-3.5 text-emerald-400" />
+                                <span v-else>نسخ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitFawryForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Merchant Code -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                    كود التاجر (Merchant Code)
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="fawryForm.merchant_code"
+                                    required
+                                    placeholder="e.g. 1014316"
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono"
+                                />
+                                <p class="text-[11px] text-slate-500 mt-1">كود حساب التاجر المعتمد في فوري باي.</p>
+                            </div>
+
+                            <!-- Merchant Wallet / Account -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                    محفظة التاجر / الحساب (Merchant Wallet Key)
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="fawryForm.merchant_wallet"
+                                    placeholder="e.g. 01012345678 or Fawry Wallet ID"
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono"
+                                />
+                                <p class="text-[11px] text-slate-500 mt-1">رقم محفظة فوري لتحويل وتسوية أرباح الاشتراكات.</p>
+                            </div>
+
+                            <!-- Security Key / Secret -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                    مفتاح الأمان السري (Security Key / Hash Key)
+                                </label>
+                                <input
+                                    type="password"
+                                    v-model="fawryForm.security_key"
+                                    required
+                                    placeholder="••••••••••••••••••••••••"
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono"
+                                />
+                                <p class="text-[11px] text-slate-500 mt-1">يستخدم لتوليد والتحقق من توقيع SHA-256 للمدفوعات.</p>
+                            </div>
+
+                            <!-- Mode Toggle -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                    بيئة التشغيل (Environment Mode)
+                                </label>
+                                <select
+                                    v-model="fawryForm.mode"
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                >
+                                    <option value="sandbox">تجريبي (Sandbox / Staging) - للاختبار والمحاكاة</option>
+                                    <option value="live">مباشر حقيقي (Production / Live) - مدفوعات حقيقية</option>
+                                </select>
+                                <p class="text-[11px] text-slate-500 mt-1">في وضع Sandbox يمكنك اختبار السداد والمحاكاة بنقرة واحدة.</p>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="pt-3 border-t border-slate-800 flex justify-end">
+                            <button
+                                type="submit"
+                                :disabled="fawryForm.processing"
+                                class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/20 transition disabled:opacity-50"
+                            >
+                                <Check class="w-4 h-4" />
+                                <span>حفظ وتحديث إعدادات فوري</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Recent Transactions Log -->
+                <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 text-start">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <Clock class="w-4 h-4 text-slate-400" />
+                        <span>سجل مدفوعات فوري الحديثة ({{ paymentTransactions.length }})</span>
+                    </h3>
+
+                    <div v-if="paymentTransactions.length === 0" class="p-8 text-center text-slate-500 text-xs bg-slate-950/60 rounded-xl border border-slate-800">
+                        لا توجد عمليات دفع فوري مسجلة حتى الآن.
+                    </div>
+
+                    <div v-else class="overflow-x-auto">
+                        <table class="w-full text-xs text-start">
+                            <thead>
+                                <tr class="text-slate-400 border-b border-slate-800 pb-2">
+                                    <th class="text-start py-2 font-mono">رقم المرجع (Fawry Ref)</th>
+                                    <th class="text-start py-2">المستخدم</th>
+                                    <th class="text-start py-2">النوع / الباقة</th>
+                                    <th class="text-start py-2">المبلغ</th>
+                                    <th class="text-start py-2">الحالة</th>
+                                    <th class="text-start py-2">التاريخ</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60">
+                                <tr v-for="t in paymentTransactions" :key="t.id" class="text-slate-300">
+                                    <td class="py-2.5 font-mono text-amber-400 font-bold">
+                                        {{ t.fawry_reference_number || t.reference_number }}
+                                    </td>
+                                    <td class="py-2.5">
+                                        <div class="font-bold text-white">{{ t.user?.name || 'مستخدم' }}</div>
+                                        <div class="text-[10px] text-slate-500 font-mono">{{ t.user?.email }}</div>
+                                    </td>
+                                    <td class="py-2.5">
+                                        <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 font-semibold">
+                                            {{ t.plan?.name || t.type }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 font-bold text-white">{{ t.amount }} {{ t.currency }}</td>
+                                    <td class="py-2.5">
+                                        <span
+                                            class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
+                                            :class="t.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'"
+                                        >
+                                            {{ t.status === 'paid' ? 'مكتمل' : 'قيد السداد' }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 font-mono text-slate-400 text-[11px]">
+                                        {{ new Date(t.created_at).toLocaleDateString('ar-EG') }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
