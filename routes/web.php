@@ -119,6 +119,11 @@ Route::middleware('auth:web,team')->group(function () {
     Route::get('/subscription', [\App\Http\Controllers\SubscriptionController::class, 'index'])->name('subscription.index');
     Route::post('/subscription/checkout', [\App\Http\Controllers\SubscriptionController::class, 'checkout'])->name('subscription.checkout');
     Route::post('/subscription/simulate', [\App\Http\Controllers\SubscriptionController::class, 'simulatePayment'])->name('subscription.simulate');
+
+    // Bulk Message Wallet
+    Route::get('/wallet', [\App\Http\Controllers\WalletController::class, 'index'])->name('wallet.index');
+    Route::post('/wallet/topup', [\App\Http\Controllers\WalletController::class, 'topup'])->name('wallet.topup');
+    Route::post('/wallet/simulate', [\App\Http\Controllers\WalletController::class, 'simulate'])->name('wallet.simulate');
 });
 
 // Super Admin Dedicated Auth (Master Control)
@@ -140,6 +145,7 @@ Route::middleware(['super_admin'])->prefix('admin')->name('superadmin.')->group(
     Route::put('/users/{user}', [\App\Http\Controllers\SuperAdminController::class, 'updateUser'])->name('users.update');
     Route::delete('/users/{user}', [\App\Http\Controllers\SuperAdminController::class, 'destroyUser'])->name('users.destroy');
     Route::post('/users/{user}/assign-plan', [\App\Http\Controllers\SuperAdminController::class, 'assignUserPlan'])->name('users.assign-plan');
+    Route::post('/users/{user}/wallet-adjust', [\App\Http\Controllers\SuperAdminController::class, 'adjustUserWallet'])->name('users.wallet-adjust');
 
     // Super Admin Businesses Management
     Route::post('/businesses', [\App\Http\Controllers\SuperAdminController::class, 'storeBusiness'])->name('businesses.store');

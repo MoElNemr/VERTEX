@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Models\BulkMessageTransaction;
+use App\Models\BulkMessageWallet;
 use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\FacebookAccount;
@@ -124,6 +126,16 @@ class SuperAdminController extends Controller
             ->limit(15)
             ->get();
 
+        // 11. Bulk Message Wallets & Transactions
+        $userWallets = User::with('bulkWallet')
+            ->latest()
+            ->paginate(15, ['*'], 'wallets_page');
+
+        $recentBulkTransactions = BulkMessageTransaction::with('user:id,name,email')
+            ->latest()
+            ->limit(20)
+            ->get();
+
         return Inertia::render('SuperAdmin/Index', [
             'metrics' => [
                 'total_users' => $totalUsers,
@@ -156,7 +168,35 @@ class SuperAdminController extends Controller
             'systemSpecs' => $systemSpecs,
             'fawrySettings' => $fawrySettings,
             'paymentTransactions' => $paymentTransactions,
+            'userWallets' => $userWallets,
+            'recentBulkTransactions' => $recentBulkTransactions,
         ]);
+    }
+
+    /**
+     * Adjust User Bulk Message Wallet balance from Super Admin.
+     */
+    public function adjustUserWallet(Request $request, User $user, \App\Services\WalletService $walletService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0'],
+            'credits' => ['required', 'integer', 'min:0'],
+            'type' => ['required', 'in:add,deduct'],
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        $admin = $request->user('web');
+        $multiplier = $validated['type'] === 'deduct' ? -1 : 1;
+
+        $walletService->adjustBalance(
+            $user,
+            (float) ($validated['amount'] * $multiplier),
+            (int) ($validated['credits'] * $multiplier),
+            $validated['reason'],
+            $admin ? $admin->name : 'Super Admin'
+        );
+
+        return back()->with('success', "تم تعديل رصيد محفظة المستخدم {$user->name} بنجاح.");
     }
 
     /**

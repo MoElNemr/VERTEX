@@ -85,6 +85,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    userWallets: {
+        type: Object,
+        default: () => ({ data: [] }),
+    },
+    recentBulkTransactions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const activeTab = ref('overview'); // 'overview' | 'businesses' | 'users' | 'plans' | 'fawry' | 'sessions' | 'campaigns'
@@ -106,6 +114,36 @@ const copyWebhookUrl = () => {
     navigator.clipboard.writeText(props.fawrySettings.webhook_url);
     copiedWebhook.value = true;
     setTimeout(() => { copiedWebhook.value = false; }, 2000);
+};
+
+const walletModalOpen = ref(false);
+const selectedUserForWallet = ref(null);
+const walletAdjustForm = useForm({
+    amount: 100,
+    credits: 500,
+    type: 'add',
+    reason: '',
+});
+
+const openWalletModal = (user) => {
+    selectedUserForWallet.value = user;
+    walletAdjustForm.clearErrors();
+    walletAdjustForm.amount = 100;
+    walletAdjustForm.credits = 500;
+    walletAdjustForm.type = 'add';
+    walletAdjustForm.reason = '';
+    walletModalOpen.value = true;
+};
+
+const submitWalletAdjust = () => {
+    if (!selectedUserForWallet.value) return;
+    walletAdjustForm.post(route('superadmin.users.wallet-adjust', selectedUserForWallet.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            walletModalOpen.value = false;
+            showNotice('تم تعديل رصيد محفظة المستخدم بنجاح');
+        },
+    });
 };
 
 const submitFawryForm = () => {
@@ -1414,6 +1452,68 @@ const restartSession = async (sessionId) => {
                     </form>
                 </div>
 
+                <!-- User Wallets Overview & Manual Balance Adjustments -->
+                <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 text-start">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <Wallet class="w-4 h-4 text-emerald-400" />
+                            <h3 class="text-sm font-bold text-white">محافظ رصيد الرسائل المجمعة للمستخدمين (Bulk Message Wallets)</h3>
+                        </div>
+                        <span class="text-xs text-slate-400">
+                            {{ userWallets.data?.length || 0 }} مستخدم مسجل
+                        </span>
+                    </div>
+
+                    <div v-if="!userWallets.data || userWallets.data.length === 0" class="p-8 text-center text-slate-500 text-xs bg-slate-950/60 rounded-xl border border-slate-800">
+                        لا يوجد مستخدمون حالياً.
+                    </div>
+
+                    <div v-else class="overflow-x-auto">
+                        <table class="w-full text-xs text-start">
+                            <thead>
+                                <tr class="text-slate-400 border-b border-slate-800 pb-2">
+                                    <th class="text-start py-2">المستخدم</th>
+                                    <th class="text-start py-2">الرصيد المالي (EGP)</th>
+                                    <th class="text-start py-2">الرسائل المتاحة (Credits)</th>
+                                    <th class="text-start py-2">العملة</th>
+                                    <th class="text-start py-2">آخر تحديث للمحفظة</th>
+                                    <th class="text-end py-2">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60">
+                                <tr v-for="u in userWallets.data" :key="u.id" class="text-slate-300 hover:bg-slate-850/40 transition">
+                                    <td class="py-2.5">
+                                        <div class="font-bold text-white">{{ u.name }}</div>
+                                        <div class="text-[10px] text-slate-500 font-mono">{{ u.email }}</div>
+                                    </td>
+                                    <td class="py-2.5 font-mono text-emerald-400 font-bold">
+                                        {{ Number(u.bulk_wallet?.balance || 0).toFixed(2) }} EGP
+                                    </td>
+                                    <td class="py-2.5 font-mono text-blue-400 font-bold">
+                                        {{ (u.bulk_wallet?.credits || 0).toLocaleString() }} رسالة
+                                    </td>
+                                    <td class="py-2.5 font-mono text-slate-400 text-[11px]">
+                                        {{ u.bulk_wallet?.currency || 'EGP' }}
+                                    </td>
+                                    <td class="py-2.5 font-mono text-slate-500 text-[11px]">
+                                        {{ u.bulk_wallet?.updated_at ? new Date(u.bulk_wallet.updated_at).toLocaleDateString('ar-EG') : 'لم تُشحن بعد' }}
+                                    </td>
+                                    <td class="py-2.5 text-end">
+                                        <button
+                                            type="button"
+                                            @click="openWalletModal(u)"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold transition"
+                                        >
+                                            <Coins class="w-3.5 h-3.5" />
+                                            <span>تعديل الرصيد</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Recent Transactions Log -->
                 <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 text-start">
                     <h3 class="text-sm font-bold text-white flex items-center gap-2">
@@ -1448,7 +1548,7 @@ const restartSession = async (sessionId) => {
                                     </td>
                                     <td class="py-2.5">
                                         <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 font-semibold">
-                                            {{ t.plan?.name || t.type }}
+                                            {{ t.plan?.name || (t.type === 'bulk_credit' ? 'شحن رصيد رسائل' : t.type) }}
                                         </span>
                                     </td>
                                     <td class="py-2.5 font-bold text-white">{{ t.amount }} {{ t.currency }}</td>
@@ -1793,6 +1893,122 @@ const restartSession = async (sessionId) => {
                             class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition shadow-md disabled:opacity-50"
                         >
                             {{ planModalMode === 'create' ? 'إضافة الباقة' : 'حفظ التعديلات' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL: WALLET ADJUSTMENT                   -->
+        <!-- ========================================== -->
+        <div v-if="walletModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div>
+                        <h3 class="font-bold text-white text-base flex items-center gap-2">
+                            <Coins class="w-4 h-4 text-emerald-400" />
+                            <span>تعديل رصيد محفظة الرسائل</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            {{ selectedUserForWallet?.name }} ({{ selectedUserForWallet?.email }})
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="walletModalOpen = false"
+                        class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                    >
+                        <X class="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex justify-between text-xs">
+                    <div>
+                        <span class="text-slate-400 block">الرصيد الحالي:</span>
+                        <span class="font-mono text-emerald-400 font-bold">
+                            {{ Number(selectedUserForWallet?.bulk_wallet?.balance || 0).toFixed(2) }} EGP
+                        </span>
+                    </div>
+                    <div class="text-end">
+                        <span class="text-slate-400 block">الرسائل المتاحة:</span>
+                        <span class="font-mono text-blue-400 font-bold">
+                            {{ (selectedUserForWallet?.bulk_wallet?.credits || 0).toLocaleString() }} رسالة
+                        </span>
+                    </div>
+                </div>
+
+                <form @submit.prevent="submitWalletAdjust" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">نوع العملية</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                @click="walletAdjustForm.type = 'add'"
+                                class="py-2 rounded-xl text-xs font-bold border transition text-center"
+                                :class="walletAdjustForm.type === 'add' ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500' : 'bg-slate-950 text-slate-400 border-slate-800'"
+                            >
+                                + إضافة رصيد
+                            </button>
+                            <button
+                                type="button"
+                                @click="walletAdjustForm.type = 'deduct'"
+                                class="py-2 rounded-xl text-xs font-bold border transition text-center"
+                                :class="walletAdjustForm.type === 'deduct' ? 'bg-rose-600/20 text-rose-300 border-rose-500' : 'bg-slate-950 text-slate-400 border-slate-800'"
+                            >
+                                - خصم رصيد
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">المبلغ المالي (EGP)</label>
+                            <input
+                                v-model="walletAdjustForm.amount"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                required
+                                class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-emerald-500 focus:ring-0 font-mono"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">عدد الرسائل (Credits)</label>
+                            <input
+                                v-model="walletAdjustForm.credits"
+                                type="number"
+                                min="0"
+                                required
+                                class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-emerald-500 focus:ring-0 font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">سبب أو ملاحظة التعديل</label>
+                        <input
+                            v-model="walletAdjustForm.reason"
+                            type="text"
+                            placeholder="e.g. تسوية رصيد يدوي، بونص إضافي، سداد بنكي مباشر"
+                            class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:border-emerald-500 focus:ring-0"
+                        />
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            @click="walletModalOpen = false"
+                            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                        >
+                            إلغاء
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="walletAdjustForm.processing"
+                            class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition shadow-md disabled:opacity-50"
+                        >
+                            تأكيد التعديل
                         </button>
                     </div>
                 </form>

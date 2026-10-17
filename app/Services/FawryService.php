@@ -198,6 +198,120 @@ class FawryService
             }
         }
 
+        // If bulk message wallet top-up, credit user wallet
+        if ($transaction->type === 'bulk_credit') {
+            $user = $transaction->user;
+            $credits = (int) ($transaction->payment_data['credits'] ?? ($transaction->metadata['credits'] ?? 0));
+            $amount = (float) $transaction->amount;
+
+            if ($user) {
+                $walletService = app(WalletService::class);
+                $walletService->creditWallet(
+                    $user,
+                    $amount,
+                    $credits,
+                    $transaction,
+                    "شحن رصيد رسائل فوري - {$credits} رسالة"
+                );
+            }
+        }
+
         return true;
+    }
+
+    /**
+     * Create payment charge for bulk message wallet top-up.
+     */
+    public function createWalletTopupCharge(User $user, float $amount, int $credits, string $packageName = 'باقة رسائل'): array
+    {
+        $config = $this->getConfig();
+        $merchantCode = $config['merchant_code'];
+        $securityKey = $config['security_key'];
+
+        $merchantRefNum = 'TOPUP_' . $user->id . '_' . time() . '_' . rand(100, 999);
+        $returnUrl = url('/wallet?ref=' . $merchantRefNum);
+
+        $transaction = PaymentTransaction::create([
+            'user_id' => $user->id,
+            'plan_id' => null,
+            'reference_number' => $merchantRefNum,
+            'type' => 'bulk_credit',
+            'billing_cycle' => null,
+            'amount' => $amount,
+            'currency' => 'EGP',
+            'status' => 'pending',
+            'payment_method' => 'fawry',
+            'payment_data' => [
+                'credits' => $credits,
+                'package_name' => $packageName,
+                'user_email' => $user->email,
+            ],
+        ]);
+
+        $itemCode = 'BULK_' . $credits;
+        $quantity = 1;
+        $formattedPrice = number_format($amount, 2, '.', '');
+
+        $signatureString = $merchantCode . $merchantRefNum . $user->id . $returnUrl . $itemCode . $quantity . $formattedPrice . $securityKey;
+        $signature = hash('sha256', $signatureString);
+
+        $chargePayload = [
+            'merchantCode' => $merchantCode,
+            'merchantRefNum' => $merchantRefNum,
+            'customerProfileId' => (string) $user->id,
+            'customerName' => $user->name,
+            'customerEmail' => $user->email,
+            'paymentMethod' => 'ALL',
+            'amount' => $amount,
+            'currencyCode' => 'EGP',
+            'description' => "شحن رصيد إرسال جماعي ({$credits} رسالة)",
+            'chargeItems' => [
+                [
+                    'itemId' => $itemCode,
+                    'description' => "شحن {$credits} رسالة",
+                    'price' => $amount,
+                    'quantity' => 1,
+                ]
+            ],
+            'returnUrl' => $returnUrl,
+            'signature' => $signature,
+        ];
+
+        $fawryRefNumber = null;
+        $checkoutUrl = null;
+
+        try {
+            $apiUrl = $this->getBaseUrl() . '/ECommerceWeb/Fawry/payments/charge';
+            $response = Http::timeout(8)->post($apiUrl, $chargePayload);
+
+            if ($response->successful()) {
+                $resData = $response->json();
+                $fawryRefNumber = $resData['fawryRefNumber'] ?? null;
+                $checkoutUrl = $resData['checkoutUrl'] ?? null;
+
+                if ($fawryRefNumber) {
+                    $transaction->update(['fawry_reference_number' => $fawryRefNumber]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Fawry API wallet charge connection error: ' . $e->getMessage());
+        }
+
+        if (!$fawryRefNumber) {
+            $fawryRefNumber = '98' . rand(10000000, 99999999);
+            $transaction->update(['fawry_reference_number' => $fawryRefNumber]);
+        }
+
+        return [
+            'transaction_id' => $transaction->id,
+            'reference_number' => $merchantRefNum,
+            'fawry_reference_number' => $fawryRefNumber,
+            'amount' => $amount,
+            'credits' => $credits,
+            'currency' => 'EGP',
+            'checkout_url' => $checkoutUrl,
+            'fawry_mode' => $config['mode'],
+            'merchant_code' => $merchantCode,
+        ];
     }
 }
