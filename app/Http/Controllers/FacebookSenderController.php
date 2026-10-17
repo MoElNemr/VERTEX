@@ -7,6 +7,7 @@ use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\FacebookAccount;
 use App\Services\CampaignService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ use Inertia\Response;
 class FacebookSenderController extends Controller
 {
     public function __construct(
-        protected CampaignService $campaignService
+        protected CampaignService $campaignService,
+        protected WalletService $walletService
     ) {}
 
     /**
@@ -160,6 +162,15 @@ class FacebookSenderController extends Controller
             }
             fclose($handle);
 
+            $currentBusinessId = session('current_business_id');
+            $business = Business::find($currentBusinessId);
+            $user = $business?->user ?: ($request->user('web') ?: $request->user('team'));
+            $wallet = $user ? $user->getOrCreateWallet() : null;
+            $currentCredits = $wallet ? (int) $wallet->credits : 0;
+            $currentBalance = $wallet ? (float) $wallet->balance : 0.00;
+            $canAfford = $currentCredits >= $validCount;
+            $missingCredits = max(0, $validCount - $currentCredits);
+
             return response()->json([
                 'filename' => $filename,
                 'total_rows' => $validCount + $invalidCount,
@@ -167,6 +178,13 @@ class FacebookSenderController extends Controller
                 'invalid_count' => $invalidCount,
                 'preview_rows' => $previewRows,
                 'recipients' => $allRows,
+                'wallet' => [
+                    'current_credits' => $currentCredits,
+                    'current_balance' => $currentBalance,
+                    'required_credits' => $validCount,
+                    'can_afford' => $canAfford,
+                    'missing_credits' => $missingCredits,
+                ],
             ]);
         }
 
@@ -196,6 +214,7 @@ class FacebookSenderController extends Controller
     {
         $currentBusinessId = session('current_business_id');
         $business = Business::findOrFail($currentBusinessId);
+        $user = $business->user ?: ($request->user('web') ?: $request->user('team'));
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -210,6 +229,30 @@ class FacebookSenderController extends Controller
             'auto_start' => ['nullable', 'boolean'],
             'filename' => ['nullable', 'string'],
         ]);
+
+        $recipientCount = 0;
+        if (($validated['target_audience'] ?? 'csv') === 'existing_contacts') {
+            $recipientCount = Contact::withoutGlobalScopes()
+                ->where('business_id', $business->id)
+                ->where('platform', 'facebook')
+                ->count();
+        } else {
+            $recipientCount = count($validated['recipients'] ?? []);
+        }
+
+        // HARD BALANCE GATE: Do not start if user balance cannot afford campaign
+        if ($user && !$this->walletService->hasSufficientCredits($user, $recipientCount)) {
+            $wallet = $user->getOrCreateWallet();
+            $missing = $recipientCount - $wallet->credits;
+            return response()->json([
+                'error' => "رصيد المحفظة غير كافٍ لإرسال الحملة. رصيدك الحالي: {$wallet->credits} رسالة، والمطلوب: {$recipientCount} رسالة (ينقصك {$missing} رسالة). يرجى شحن المحفظة أولاً.",
+                'wallet' => [
+                    'current_credits' => $wallet->credits,
+                    'required_credits' => $recipientCount,
+                    'missing_credits' => $missing,
+                ],
+            ], 402);
+        }
 
         $campaign = $this->campaignService->createChannelBulkCampaign($business, 'facebook', $validated);
 

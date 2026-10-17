@@ -147,4 +147,55 @@ class WalletService
             return $wallet;
         });
     }
+
+    /**
+     * Check if user has sufficient credits for an operation.
+     */
+    public function hasSufficientCredits(User $user, int $requiredCredits = 1): bool
+    {
+        $wallet = $user->getOrCreateWallet();
+        return $wallet->credits >= $requiredCredits;
+    }
+
+    /**
+     * Deduct credit for a sent message in a bulk campaign.
+     * Throws an exception if user has insufficient credits.
+     */
+    public function deductCredit(
+        User $user,
+        int $businessId,
+        string $platform,
+        string $description,
+        array $metadata = []
+    ): BulkMessageWallet {
+        return DB::transaction(function () use ($user, $businessId, $platform, $description, $metadata) {
+            $wallet = BulkMessageWallet::where('user_id', $user->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$wallet || $wallet->credits < 1) {
+                throw new \RuntimeException('رصيد الرسائل غير كافٍ لإتمام عملية الإرسال.');
+            }
+
+            $wallet->credits -= 1;
+            $wallet->save();
+
+            BulkMessageTransaction::create([
+                'user_id' => $user->id,
+                'business_id' => $businessId,
+                'payment_transaction_id' => null,
+                'type' => 'usage',
+                'amount' => 0.00,
+                'credits' => -1,
+                'balance_after' => $wallet->balance,
+                'credits_after' => $wallet->credits,
+                'platform' => $platform,
+                'description' => $description,
+                'metadata' => $metadata,
+            ]);
+
+            return $wallet;
+        });
+    }
 }
+

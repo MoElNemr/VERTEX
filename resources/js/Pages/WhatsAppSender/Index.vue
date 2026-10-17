@@ -21,6 +21,8 @@ import {
     ExternalLink,
     Zap,
     QrCode,
+    Wallet,
+    Coins,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -342,6 +344,37 @@ onUnmounted(() => {
                             </div>
                         </div>
 
+                        <!-- WALLET BALANCE CHECK CARD -->
+                        <div v-if="csvData.wallet" class="p-3 rounded-xl border transition" :class="csvData.wallet.can_afford ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-rose-950/50 border-rose-500/50'">
+                            <div class="flex items-center justify-between text-xs">
+                                <div class="flex items-center gap-2">
+                                    <Wallet class="w-4 h-4" :class="csvData.wallet.can_afford ? 'text-emerald-400' : 'text-rose-400'" />
+                                    <span class="font-bold text-white">فحص رصيد محفظة الرسائل:</span>
+                                </div>
+                                <div class="font-mono font-bold" :class="csvData.wallet.can_afford ? 'text-emerald-400' : 'text-rose-400'">
+                                    {{ csvData.wallet.current_credits }} رسالة متاحة
+                                </div>
+                            </div>
+
+                            <div v-if="!csvData.wallet.can_afford" class="mt-2 text-[11px] text-rose-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-rose-800/40">
+                                <div>
+                                    <span class="font-bold">⚠️ الرصيد لا يكفي لإطلاق الحملة!</span>
+                                    <span class="block text-slate-400 text-[10px]">مطلوب {{ csvData.wallet.required_credits }} رسالة، ينقصك {{ csvData.wallet.missing_credits }} رسالة.</span>
+                                </div>
+                                <Link
+                                    :href="route('wallet.index')"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition self-start sm:self-auto shadow"
+                                >
+                                    <Coins class="w-3.5 h-3.5" />
+                                    <span>شحن المحفظة الآن</span>
+                                </Link>
+                            </div>
+
+                            <div v-else class="mt-1 text-[11px] text-emerald-300">
+                                ✓ رصيدك كافٍ تماماً لإطلاق هذه الحملة (سيتم استهلاك {{ csvData.wallet.required_credits }} رسالة).
+                            </div>
+                        </div>
+
                         <!-- Preview Table -->
                         <div class="border border-slate-800 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
                             <table class="w-full text-start text-[11px]">
@@ -501,7 +534,18 @@ onUnmounted(() => {
                         </div>
                     </div>
 
+                    <div v-if="csvData && csvData.wallet && !csvData.wallet.can_afford" class="space-y-2">
+                        <Link
+                            :href="route('wallet.index')"
+                            class="w-full py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <Coins class="w-4 h-4" />
+                            <span>رصيدك غير كافٍ • اشحن محفظة الرسائل أولاً</span>
+                        </Link>
+                    </div>
+
                     <button
+                        v-else
                         type="button"
                         @click="submitBulkSend"
                         :disabled="!csvData || isSubmitting"
