@@ -525,7 +525,17 @@ class SuperAdminController extends Controller
     {
         try {
             $serviceUrl = config('services.whatsapp.service_url', 'http://127.0.0.1:3000');
-            $response = Http::timeout(8)->post("{$serviceUrl}/api/sessions/start", [
+            $apiKey = config('services.whatsapp.api_key');
+
+            $client = Http::timeout(8);
+            if (!empty($apiKey)) {
+                $client = $client->withHeaders([
+                    'x-api-key' => $apiKey,
+                    'Authorization' => 'Bearer ' . $apiKey,
+                ]);
+            }
+
+            $response = $client->post("{$serviceUrl}/api/sessions/start", [
                 'session_id' => $sessionId,
             ]);
 
