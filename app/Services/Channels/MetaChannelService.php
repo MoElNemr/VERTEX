@@ -53,18 +53,46 @@ class MetaChannelService implements ChannelServiceInterface
             ];
         }
 
-        $recipientId = $conversation->contact?->platform_sender_id;
+        $contact = $conversation->contact;
+        $recipientId = $contact?->platform_sender_id;
 
-        if (!$recipientId) {
-            return ['status' => 'failed', 'error' => 'No PSID found for contact.'];
+        if (!$recipientId && !$contact?->notification_token) {
+            return ['status' => 'failed', 'error' => 'No PSID or notification token found for contact.'];
         }
 
-        try {
-            $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", [
+        $isWithin24Hours = $conversation->last_message_at && $conversation->last_message_at->greaterThanOrEqualTo(now()->subHours(24));
+        $hasValidToken = $contact && !empty($contact->notification_token) && ($contact->token_expires_at === null || $contact->token_expires_at->isFuture());
+
+        if ($hasValidToken && !$isWithin24Hours) {
+            // Outside 24h: send legally via Meta Recurring Notification Token
+            $postData = [
+                'recipient' => ['notification_messages_token' => $contact->notification_token],
+                'message' => ['text' => $message->body],
+            ];
+        } elseif ($isWithin24Hours && $recipientId) {
+            // Within 24h: send via standard RESPONSE
+            $postData = [
                 'recipient' => ['id' => $recipientId],
                 'message' => ['text' => $message->body],
                 'messaging_type' => 'RESPONSE',
-            ]);
+            ];
+        } elseif ($hasValidToken) {
+            $postData = [
+                'recipient' => ['notification_messages_token' => $contact->notification_token],
+                'message' => ['text' => $message->body],
+            ];
+        } else {
+            // Outside 24h and no token: block outbound to protect page from Meta ban
+            $errorMsg = 'تعذر الإرسال: تجاوز العميل نافذة الـ 24 ساعة ولم يوافق على تلقي الإشعارات المتكررة (تم إيقاف الإرسال لحماية الصفحة من الحظر).';
+            $message->update(['status' => 'failed']);
+            return [
+                'status' => 'failed',
+                'error' => $errorMsg,
+            ];
+        }
+
+        try {
+            $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", $postData);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -117,17 +145,45 @@ class MetaChannelService implements ChannelServiceInterface
             ];
         }
 
-        $recipientId = $conversation->contact?->platform_sender_id;
+        $contact = $conversation->contact;
+        $recipientId = $contact?->platform_sender_id;
 
-        if (!$recipientId) {
-            return ['status' => 'failed', 'error' => 'No IGSID found for contact.'];
+        if (!$recipientId && !$contact?->notification_token) {
+            return ['status' => 'failed', 'error' => 'No IGSID or notification token found for contact.'];
+        }
+
+        $isWithin24Hours = $conversation->last_message_at && $conversation->last_message_at->greaterThanOrEqualTo(now()->subHours(24));
+        $hasValidToken = $contact && !empty($contact->notification_token) && ($contact->token_expires_at === null || $contact->token_expires_at->isFuture());
+
+        if ($hasValidToken && !$isWithin24Hours) {
+            // Outside 24h: send legally via Meta Recurring Notification Token
+            $postData = [
+                'recipient' => ['notification_messages_token' => $contact->notification_token],
+                'message' => ['text' => $message->body],
+            ];
+        } elseif ($isWithin24Hours && $recipientId) {
+            // Within 24h: standard send
+            $postData = [
+                'recipient' => ['id' => $recipientId],
+                'message' => ['text' => $message->body],
+            ];
+        } elseif ($hasValidToken) {
+            $postData = [
+                'recipient' => ['notification_messages_token' => $contact->notification_token],
+                'message' => ['text' => $message->body],
+            ];
+        } else {
+            // Outside 24h and no token: block outbound to protect account from Meta ban
+            $errorMsg = 'تعذر الإرسال: تجاوز العميل نافذة الـ 24 ساعة ولم يوافق على تلقي الإشعارات المتكررة على إنستجرام (تم إيقاف الإرسال لحماية الحساب من الحظر).';
+            $message->update(['status' => 'failed']);
+            return [
+                'status' => 'failed',
+                'error' => $errorMsg,
+            ];
         }
 
         try {
-            $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->access_token}", [
-                'recipient' => ['id' => $recipientId],
-                'message' => ['text' => $message->body],
-            ]);
+            $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->access_token}", $postData);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -159,6 +215,107 @@ class MetaChannelService implements ChannelServiceInterface
         } catch (\Throwable $e) {
             Log::error('Instagram sendInstagramMessage exception: ' . $e->getMessage());
             $message->update(['status' => 'failed']);
+            return ['status' => 'failed', 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Send a Recurring Notification Opt-in request template to a user via Graph API.
+     */
+    public function sendRecurringNotificationOptIn(
+        Conversation $conversation,
+        string $title = 'اشترك لتصلك أحدث العروض والخصومات الحصرية',
+        string $frequency = 'WEEKLY',
+        ?string $imageUrl = null
+    ): array {
+        $businessId = $conversation->business_id;
+        $platform = $conversation->platform;
+        $recipientId = $conversation->contact?->platform_sender_id;
+
+        if (!$recipientId) {
+            return ['status' => 'failed', 'error' => 'No recipient ID found for contact.'];
+        }
+
+        $accessToken = null;
+        if ($platform === 'facebook') {
+            $account = FacebookAccount::withoutGlobalScopes()
+                ->where('business_id', $businessId)
+                ->first();
+            if ($account && $account->status === 'connected') {
+                $accessToken = $account->page_access_token;
+            }
+        } elseif ($platform === 'instagram') {
+            $account = InstagramAccount::withoutGlobalScopes()
+                ->where('business_id', $businessId)
+                ->first();
+            if ($account && $account->status === 'connected') {
+                $accessToken = $account->access_token;
+            }
+        }
+
+        if (!$accessToken) {
+            return ['status' => 'failed', 'error' => "{$platform} account not connected or missing token."];
+        }
+
+        $payload = [
+            'recipient' => ['id' => $recipientId],
+            'message' => [
+                'attachment' => [
+                    'type' => 'template',
+                    'payload' => array_filter([
+                        'template_type' => 'notification_messages',
+                        'title' => $title,
+                        'image_url' => $imageUrl,
+                        'notification_messages_frequency' => strtoupper($frequency),
+                        'notification_messages_reoptin' => 'ENABLED',
+                    ]),
+                ],
+            ],
+        ];
+
+        try {
+            $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$accessToken}", $payload);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $metaMsgId = $data['message_id'] ?? null;
+
+                $message = Message::create([
+                    'conversation_id' => $conversation->id,
+                    'sender_type' => 'bot',
+                    'platform_message_id' => (string) $metaMsgId,
+                    'type' => 'text',
+                    'body' => '📩 تم إرسال طلب اشتراك في العروض المتكررة (' . ($frequency === 'MONTHLY' ? 'شهرياً' : 'أسبوعياً') . '): ' . $title,
+                    'status' => 'delivered',
+                    'metadata' => [
+                        'optin_request' => true,
+                        'meta_response' => $data,
+                    ],
+                ]);
+
+                $conversation->update(['last_message_at' => now()]);
+
+                try {
+                    broadcast(new \App\Events\MessageSent($conversation, $message));
+                } catch (\Throwable $e) {}
+
+                return [
+                    'status' => 'delivered',
+                    'platform_message_id' => $metaMsgId,
+                ];
+            }
+
+            Log::error("{$platform} sendRecurringNotificationOptIn error", [
+                'business_id' => $businessId,
+                'response' => $response->json(),
+            ]);
+
+            return [
+                'status' => 'failed',
+                'error' => $response->json('error.message', 'Meta Graph API error'),
+            ];
+        } catch (\Throwable $e) {
+            Log::error("{$platform} sendRecurringNotificationOptIn exception: " . $e->getMessage());
             return ['status' => 'failed', 'error' => $e->getMessage()];
         }
     }
@@ -214,6 +371,66 @@ class MetaChannelService implements ChannelServiceInterface
                 }
 
                 $senderId = (string) ($event['sender']['id'] ?? null);
+                $platform = ($object === 'instagram') ? 'instagram' : 'facebook';
+
+                // A. Check for Recurring Notification Opt-in Event
+                if (!empty($event['optin']) && ($event['optin']['type'] ?? '') === 'notification_messages') {
+                    $optin = $event['optin'];
+                    $token = $optin['notification_messages_token'] ?? null;
+                    $frequency = $optin['notification_messages_frequency'] ?? 'WEEKLY';
+                    $topic = $optin['topic'] ?? null;
+                    $expiryMs = $optin['token_expiry_timestamp'] ?? null;
+                    $expiresAt = $expiryMs ? \Carbon\Carbon::createFromTimestampMs($expiryMs) : now()->addMonths(9);
+
+                    if ($senderId && $token) {
+                        $contact = Contact::withoutGlobalScopes()->firstOrCreate([
+                            'business_id' => $business->id,
+                            'platform' => $platform,
+                            'platform_sender_id' => $senderId,
+                        ], [
+                            'name' => ($platform === 'instagram' ? 'عميل إنستجرام ' : 'عميل فيسبوك ') . substr($senderId, -4),
+                        ]);
+
+                        $contact->update([
+                            'notification_token' => $token,
+                            'token_frequency' => $frequency,
+                            'token_expires_at' => $expiresAt,
+                            'optin_topic' => $topic,
+                        ]);
+
+                        $conversation = Conversation::withoutGlobalScopes()->firstOrCreate([
+                            'business_id' => $business->id,
+                            'contact_id' => $contact->id,
+                            'platform' => $platform,
+                        ], [
+                            'status' => 'open',
+                            'unread_count' => 0,
+                            'last_message_at' => now(),
+                        ]);
+
+                        $optinMsg = Message::create([
+                            'conversation_id' => $conversation->id,
+                            'sender_type' => 'contact',
+                            'platform_message_id' => 'optin_' . time(),
+                            'type' => 'text',
+                            'body' => '✅ وافق العميل على استلام الإشعارات والعروض (' . ($frequency === 'MONTHLY' ? 'شهرياً' : 'أسبوعياً') . ')',
+                            'status' => 'delivered',
+                            'metadata' => [
+                                'optin' => $optin,
+                            ],
+                        ]);
+
+                        $conversation->update(['last_message_at' => now()]);
+
+                        try {
+                            broadcast(new \App\Events\MessageSent($conversation, $optinMsg));
+                        } catch (\Throwable $e) {}
+
+                        $processedMessages[] = $optinMsg->id;
+                    }
+                    continue;
+                }
+
                 $messageData = $event['message'] ?? null;
 
                 if (!$senderId || !$messageData) {
@@ -222,7 +439,6 @@ class MetaChannelService implements ChannelServiceInterface
 
                 $text = $messageData['text'] ?? '[مرفق وسائط]';
                 $mid = (string) ($messageData['mid'] ?? '');
-                $platform = ($object === 'instagram') ? 'instagram' : 'facebook';
 
                 $contactName = ($platform === 'instagram')
                     ? 'عميل إنستجرام ' . substr($senderId, -4)
@@ -272,6 +488,15 @@ class MetaChannelService implements ChannelServiceInterface
                 }
 
                 $this->handleAiAutoReply($conversation, $text);
+
+                // Auto-invite customer to opt in for recurring offers if not already opted in
+                if (empty($contact->notification_token) || ($contact->token_expires_at && $contact->token_expires_at->isPast())) {
+                    try {
+                        $this->sendRecurringNotificationOptIn($conversation);
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed auto-sending Recurring Notification OptIn: ' . $e->getMessage());
+                    }
+                }
 
                 $processedMessages[] = $message->id;
             }
@@ -472,6 +697,14 @@ class MetaChannelService implements ChannelServiceInterface
                                 'api_response' => $dmRes->json(),
                             ],
                         ]);
+
+                        if ($dmSent && empty($contact->notification_token)) {
+                            try {
+                                $this->sendRecurringNotificationOptIn($conversation);
+                            } catch (\Throwable $e) {
+                                Log::warning('Facebook Comment-to-DM OptIn trigger error: ' . $e->getMessage());
+                            }
+                        }
                     } catch (\Throwable $e) {
                         Log::error('Facebook comment private DM failed: ' . $e->getMessage());
                     }
@@ -623,6 +856,14 @@ class MetaChannelService implements ChannelServiceInterface
                                 'api_response' => $dmRes->json(),
                             ],
                         ]);
+
+                        if ($dmSent && empty($contact->notification_token)) {
+                            try {
+                                $this->sendRecurringNotificationOptIn($conversation);
+                            } catch (\Throwable $e) {
+                                Log::warning('Instagram Comment-to-DM OptIn trigger error: ' . $e->getMessage());
+                            }
+                        }
                     } catch (\Throwable $e) {
                         Log::error('Instagram comment private DM failed: ' . $e->getMessage());
                     }

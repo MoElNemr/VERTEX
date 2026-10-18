@@ -53,6 +53,25 @@ class CampaignService
                 ->where('business_id', $business->id)
                 ->whereIn('platform', $platforms);
 
+            // Enforce Meta 24-hour window & recurring notification opt-in gate
+            $contactsQuery->where(function ($q) {
+                $q->whereNotIn('platform', ['facebook', 'instagram'])
+                    ->orWhere(function ($metaQ) {
+                        $metaQ->whereIn('platform', ['facebook', 'instagram'])
+                            ->where(function ($eligibilityQ) {
+                                $eligibilityQ->whereHas('conversations', function ($convQ) {
+                                    $convQ->where('last_message_at', '>=', now()->subHours(24));
+                                })->orWhere(function ($tokenQ) {
+                                    $tokenQ->whereNotNull('notification_token')
+                                        ->where(function ($expQ) {
+                                            $expQ->whereNull('token_expires_at')
+                                                ->orWhere('token_expires_at', '>', now());
+                                        });
+                                });
+                            });
+                    });
+            });
+
             if (!empty($data['tags']) && is_array($data['tags'])) {
                 $contactsQuery->where(function ($q) use ($data) {
                     foreach ($data['tags'] as $tag) {
@@ -225,10 +244,25 @@ class CampaignService
             $now = now();
 
             if ($targetAudience === 'existing_contacts') {
-                $contacts = Contact::withoutGlobalScopes()
+                $contactsQ = Contact::withoutGlobalScopes()
                     ->where('business_id', $business->id)
-                    ->where('platform', $platform)
-                    ->get();
+                    ->where('platform', $platform);
+
+                if (in_array($platform, ['facebook', 'instagram'])) {
+                    $contactsQ->where(function ($eligibilityQ) {
+                        $eligibilityQ->whereHas('conversations', function ($convQ) {
+                            $convQ->where('last_message_at', '>=', now()->subHours(24));
+                        })->orWhere(function ($tokenQ) {
+                            $tokenQ->whereNotNull('notification_token')
+                                ->where(function ($expQ) {
+                                    $expQ->whereNull('token_expires_at')
+                                        ->orWhere('token_expires_at', '>', now());
+                                });
+                        });
+                    });
+                }
+
+                $contacts = $contactsQ->get();
 
                 foreach ($contacts as $contact) {
                     $body = $this->interpolateMessage($data['message'] ?? '', [

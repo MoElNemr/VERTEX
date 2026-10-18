@@ -71,6 +71,17 @@ class FacebookSenderController extends Controller
         $existingContactsCount = Contact::withoutGlobalScopes()
             ->where('business_id', $business->id)
             ->where('platform', 'facebook')
+            ->where(function ($eligibilityQ) {
+                $eligibilityQ->whereHas('conversations', function ($convQ) {
+                    $convQ->where('last_message_at', '>=', now()->subHours(24));
+                })->orWhere(function ($tokenQ) {
+                    $tokenQ->whereNotNull('notification_token')
+                        ->where(function ($expQ) {
+                            $expQ->whereNull('token_expires_at')
+                                ->orWhere('token_expires_at', '>', now());
+                        });
+                });
+            })
             ->count();
 
         return Inertia::render('FacebookSender/Index', [

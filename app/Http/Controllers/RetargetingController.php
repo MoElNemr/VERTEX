@@ -39,13 +39,60 @@ class RetargetingController extends Controller
 
         $business = Business::findOrFail($currentBusinessId);
 
-        // Platform audience counts
-        $platformAudience = Contact::withoutGlobalScopes()
+        // Platform audience counts (100% compliant with Meta rules & isolated by business)
+        $whatsappCount = Contact::withoutGlobalScopes()
             ->where('business_id', $business->id)
-            ->selectRaw('platform, count(*) as count')
-            ->groupBy('platform')
-            ->pluck('count', 'platform')
-            ->toArray();
+            ->where('platform', 'whatsapp')
+            ->count();
+
+        $telegramCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->where('platform', 'telegram')
+            ->count();
+
+        $metaEligibilityFilter = function ($eligibilityQ) {
+            $eligibilityQ->whereHas('conversations', function ($convQ) {
+                $convQ->where('last_message_at', '>=', now()->subHours(24));
+            })->orWhere(function ($tokenQ) {
+                $tokenQ->whereNotNull('notification_token')
+                    ->where(function ($expQ) {
+                        $expQ->whereNull('token_expires_at')
+                            ->orWhere('token_expires_at', '>', now());
+                    });
+            });
+        };
+
+        $facebookCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->where('platform', 'facebook')
+            ->where($metaEligibilityFilter)
+            ->count();
+
+        $instagramCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->where('platform', 'instagram')
+            ->where($metaEligibilityFilter)
+            ->count();
+
+        $platformAudience = [
+            'whatsapp' => $whatsappCount,
+            'facebook' => $facebookCount,
+            'instagram' => $instagramCount,
+            'telegram' => $telegramCount,
+        ];
+
+        $metaOptedInCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->whereIn('platform', ['facebook', 'instagram'])
+            ->whereNotNull('notification_token')
+            ->where(fn($expQ) => $expQ->whereNull('token_expires_at')->orWhere('token_expires_at', '>', now()))
+            ->count();
+
+        $metaActive24hCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->whereIn('platform', ['facebook', 'instagram'])
+            ->whereHas('conversations', fn($convQ) => $convQ->where('last_message_at', '>=', now()->subHours(24)))
+            ->count();
 
         // Available contact tags
         $allTags = Contact::withoutGlobalScopes()
@@ -101,6 +148,8 @@ class RetargetingController extends Controller
                     'telegram' => $platformAudience['telegram'] ?? 0,
                 ],
                 'available_tags' => $allTags,
+                'meta_opted_in' => $metaOptedInCount,
+                'meta_active_24h' => $metaActive24hCount,
             ],
             'stats' => [
                 'total_campaigns' => $totalCampaigns,

@@ -316,7 +316,7 @@ onUnmounted(() => {
                 <!-- Stat 3: Meta Messenger & Instagram -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400">فيسبوك وإنستجرام</span>
+                        <span class="text-xs font-medium text-slate-400">فيسبوك وإنستجرام (المؤهلون شرعياً)</span>
                         <div class="p-1 rounded bg-slate-800 text-pink-400 border border-slate-700/60">
                             <Layers class="w-3.5 h-3.5" />
                         </div>
@@ -325,12 +325,18 @@ onUnmounted(() => {
                         <span class="text-2xl font-bold font-mono text-white tracking-tight">
                             {{ (audience.by_platform.facebook || 0) + (audience.by_platform.instagram || 0) }}
                         </span>
-                        <span class="text-[11px] text-slate-500">عميل ميتا</span>
+                        <span class="text-[11px] text-slate-500">عميل متاح مراسلته</span>
                     </div>
-                    <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
-                        <span class="text-blue-400 font-mono">{{ audience.by_platform.facebook || 0 }} فيسبوك</span>
-                        <span class="text-slate-600">•</span>
-                        <span class="text-pink-400 font-mono">{{ audience.by_platform.instagram || 0 }} إنستجرام</span>
+                    <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-col gap-1 text-[10px]">
+                        <div class="flex items-center justify-between">
+                            <span class="text-blue-400 font-mono">{{ audience.by_platform.facebook || 0 }} فيسبوك</span>
+                            <span class="text-slate-600">•</span>
+                            <span class="text-pink-400 font-mono">{{ audience.by_platform.instagram || 0 }} إنستجرام</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-400 pt-1 border-t border-slate-800/50">
+                            <span class="text-emerald-400 font-mono font-medium">⚡ {{ audience.meta_active_24h || 0 }} نشط (24 ساعة)</span>
+                            <span class="text-amber-400 font-mono font-medium">📩 {{ audience.meta_opted_in || 0 }} وافق على الإشعارات</span>
+                        </div>
                     </div>
                 </div>
 

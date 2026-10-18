@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\BulkMessageWallet;
 use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
@@ -50,7 +51,18 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Mohamed Nemr',
                 'password' => Hash::make('password123'),
+                'is_super_admin' => true,
                 'email_verified_at' => now(),
+            ]
+        );
+
+        // محفظة رصيد رسائل تجريبية
+        BulkMessageWallet::firstOrCreate(
+            ['user_id' => $admin->id],
+            [
+                'balance' => 500.00,
+                'credits' => 1000,
+                'currency' => 'EGP',
             ]
         );
 

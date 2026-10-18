@@ -20,10 +20,15 @@ class Contact extends Model
         'email',
         'notes',
         'tags',
+        'notification_token',
+        'token_frequency',
+        'token_expires_at',
+        'optin_topic',
     ];
 
     protected $casts = [
         'tags' => 'array',
+        'token_expires_at' => 'datetime',
     ];
 
     public function conversations()
