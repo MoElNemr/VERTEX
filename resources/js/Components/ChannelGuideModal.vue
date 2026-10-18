@@ -18,6 +18,7 @@ import {
     Layers,
     AlertTriangle,
     Zap,
+    Globe,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -74,9 +75,32 @@ const metaWebhookUrl = computed(() => `${baseUrl.value}/webhooks/meta/${props.bu
 const telegramWebhookUrl = computed(() => `${baseUrl.value}/webhooks/telegram/${props.business.id}`);
 const metaVerifyToken = 'vertex_secret_token';
 
-const fbPermissions = 'pages_show_list, pages_read_engagement, pages_manage_metadata, pages_messaging, pages_manage_posts';
-const igPermissions = 'instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_manage_metadata';
-const igQuery = 'me?fields=instagram_business_account{id,username}';
+// Facebook Permissions list for badges
+const fbPermissionsList = [
+    { key: 'pages_messaging', desc: 'لإرسال واستقبال رسائل الماسنجر' },
+    { key: 'pages_read_engagement', desc: 'لقراءة التعليقات والتفاعلات على المنشورات' },
+    { key: 'pages_manage_engagement', desc: 'للرد على التعليقات برسائل أو تعليقات' },
+    { key: 'pages_manage_metadata', desc: 'لربط الصفحة بالـ Webhooks' },
+    { key: 'pages_show_list', desc: 'لعرض قائمة الصفحات' },
+];
+
+// Instagram Permissions list for badges
+const igPermissionsList = [
+    { key: 'instagram_basic', desc: 'لقراءة بيانات حساب إنستجرام الأساسي' },
+    { key: 'instagram_manage_messages', desc: 'لإرسال واستقبال رسائل الدايركت DM' },
+    { key: 'instagram_manage_comments', desc: 'لقراءة التعليقات على منشورات وريلز إنستجرام والرد عليها' },
+    { key: 'pages_show_list', desc: 'لعرض صفحة الفيسبوك المرتبطة' },
+    { key: 'pages_read_engagement', desc: 'لقراءة التفاعلات' },
+    { key: 'pages_manage_metadata', desc: 'لربط الصفحة بالـ Webhooks' },
+];
+
+const fbPermissions = fbPermissionsList.map(p => p.key).join(', ');
+const igPermissions = igPermissionsList.map(p => p.key).join(', ');
+
+const fbQuery = 'me/accounts?fields=name,id,access_token';
+const igQuery = 'me/accounts?fields=name,access_token,instagram_business_account';
+const fbWebhookFields = 'feed, messages';
+const igWebhookFields = 'messages, comments, live_comments';
 
 const closeModal = () => {
     emit('close');
@@ -186,166 +210,176 @@ const closeModal = () => {
                     <div class="p-4 rounded-xl bg-blue-950/30 border border-blue-800/40 text-blue-200 flex items-start gap-3">
                         <Info class="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                         <div class="text-xs space-y-1">
-                            <p class="font-bold">ما تحتاجه لربط صفحة فيسبوك في فيرتكس:</p>
+                            <p class="font-bold">دليل ربط صفحة فيسبوك الكامل:</p>
                             <p class="text-blue-300/90 leading-relaxed">
-                                تحتاج إلى معلومتين أساسيتين: <span class="text-white font-mono font-bold">Page ID</span> (معرف الصفحة) و <span class="text-white font-mono font-bold">Page Access Token</span> (رمز وصول الصفحة مع صلاحيات الرسائل والمحادثات).
+                                تحتاج إلى استخراج رمز وصول دائم (<span class="text-white font-mono font-bold">Page Access Token</span>) مع الصلاحيات المطلوبة، وتفعيل الـ <span class="text-white font-mono font-bold">Webhooks</span> لاستقبال الرسائل والتعليقات لحظياً.
                             </p>
                         </div>
                     </div>
 
-                    <!-- Step 1: Page ID -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">1</span>
-                            <h3 class="font-bold text-white text-sm">الحصول على معرف الصفحة (Page ID)</h3>
-                        </div>
-                        <p class="text-xs text-slate-400 leading-relaxed">
-                            افتح صفحة فيسبوك الخاصة بك &gt; ادخل قسم <span class="text-slate-200 font-bold">حول (About)</span> &gt; <span class="text-slate-200 font-bold">شفافية الصفحة (Page Transparency)</span>، أو من خلال إعدادات الأعمال، ستجد معرّف الصفحة المكون من أرقام (مثال: <code class="text-blue-400 font-mono">104523984578</code>).
-                        </p>
-                        <a
-                            href="https://business.facebook.com/latest/settings/pages"
-                            target="_blank"
-                            class="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-bold"
-                        >
-                            <span>فتح صفحات Meta Business Suite</span>
-                            <ExternalLink class="w-3.5 h-3.5" />
-                        </a>
-                    </div>
-
-                    <!-- Step 2: Access Token -->
+                    <!-- Step 1: Permanent Token via Graph API Explorer -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">2</span>
-                            <h3 class="font-bold text-white text-sm">إنشاء رمز وصول الصفحة (Page Access Token)</h3>
+                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">1</span>
+                            <h3 class="font-bold text-white text-sm">استخراج التوكن الدائم (Page Access Token) عبر Graph API Explorer</h3>
                         </div>
 
-                        <!-- System User Add Button Disabled Diagnostic Notice -->
-                        <div class="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs space-y-2">
-                            <div class="flex items-start gap-2 font-bold text-amber-300">
-                                <AlertTriangle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                                <span>تنبيه هام بخصوص زر (+ Add) في مستخدمو النظام (System Users):</span>
+                        <!-- Prerequisite Alert -->
+                        <div class="p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-blue-200 text-xs space-y-1.5">
+                            <div class="flex items-center gap-2 font-bold text-blue-300">
+                                <ShieldCheck class="w-4 h-4 text-blue-400 shrink-0" />
+                                <span>شرط أساسي مسبق في Meta for Developers:</span>
                             </div>
-                            <p class="text-amber-200/90 leading-relaxed text-[11px]">
-                                إذا دخلت إلى صفحة مستخدمو النظام ووجدت زر <span class="font-bold text-white bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">+ Add</span> باللون الرمادي غير مفعل وتظهر رسالة:
-                                <br />
-                                <span class="font-mono text-amber-300">"In order to add a system user, an app must be part of this business portfolio"</span>
-                                <br />
-                                فهذا يعني أن محفظة أعمالك في ميتا لا تحتوي على تطبيق (App) مربوط بعد. وفرنا لك خيارين بالأسفل: <strong class="text-white">الطريقة الأولى (أسرع في دقيقة واحدة وبدون إنشاء تطبيق)</strong>، أو <strong class="text-white">الطريقة الثانية (طريقة فك قفل زر Add وإنشاء مستخدم نظام)</strong>.
+                            <p class="text-slate-300 leading-relaxed text-[11px] ps-6">
+                                يجب أن يكون لديك تطبيق من نوع <strong class="text-white font-bold">Business</strong> على منصة
+                                <a href="https://developers.facebook.com/apps" target="_blank" class="text-blue-400 underline font-bold inline-flex items-center gap-1 mx-1">
+                                    <span>Meta for Developers</span>
+                                    <ExternalLink class="w-3 h-3" />
+                                </a>
+                                ومضاف بداخله منتجات <strong class="text-white font-mono">Messenger</strong> و <strong class="text-white font-mono">Webhooks</strong>.
                             </p>
                         </div>
 
-                        <!-- METHOD 1: Graph API Explorer -->
-                        <div class="p-4 rounded-xl bg-blue-950/20 border border-blue-800/40 space-y-3">
+                        <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
+                            <li>
+                                افتح أداة
+                                <a href="https://developers.facebook.com/tools/explorer" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
+                                    <span>Meta Graph API Explorer</span>
+                                    <ExternalLink class="w-3 h-3" />
+                                </a>
+                            </li>
+                            <li>
+                                من القائمة العلوية اليمنى <span class="text-white font-bold font-mono">Meta App</span>، اختر التطبيق الخاص بك.
+                            </li>
+                            <li>
+                                من قائمة <span class="text-white font-bold font-mono">User or Page</span>، اختر صفحة الفيسبوك التي تريد ربطها (تأكد من اختيار الصفحة تحت قسم <span class="text-blue-300 font-bold">Page Access Tokens</span>).
+                            </li>
+                            <li>
+                                في قسم <span class="text-white font-bold">Permissions</span>، أضف الصلاحيات التالية:
+                            </li>
+                        </ol>
+
+                        <!-- Facebook Permissions Badges Grid -->
+                        <div class="space-y-2">
                             <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2 text-xs font-bold text-blue-300">
-                                    <Zap class="w-4 h-4 text-amber-400" />
-                                    <span>الطريقة الأولى (الأسهل والأسرع - دقيقة واحدة بدون تطبيق): عبر Graph API Explorer</span>
-                                </div>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">موصى به للمتاجر</span>
-                            </div>
-                            <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
-                                <li>
-                                    افتح أداة
-                                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
-                                        <span>Meta Graph API Explorer</span>
-                                        <ExternalLink class="w-3 h-3" />
-                                    </a>
-                                    (تأكد أن تطبيقك <code class="text-blue-300">vertex</code> محدد في خانة Meta App).
-                                </li>
-                                <li>
-                                    في القائمة اليمين تحت <span class="text-white font-bold">User or Page</span>، اضغط على زر <span class="text-amber-300 font-bold bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">Get Token</span>، ثم اختر من القائمة <span class="text-white font-bold">Get Page Access Token</span>.
-                                </li>
-                                <li>
-                                    ستفتح لك نافذة منبثقة من فيسبوك: اضغط "متابعة" ثم اختر صفحة فيسبوك الخاصة بك وضع عليها علامة صح واضغط "تم".
-                                </li>
-                                <li>
-                                    سيظهر الآن اسم صفحتك مكان Get Token، وستمتلئ خانة <span class="text-white font-bold">Access Token</span> بكود التوكن فوراً! اضغط على أيقونة النسخ 📋 لنسخه.
-                                </li>
-                                <li>
-                                    <span class="text-white font-bold">للحصول على معرف الصفحة (Page ID):</span> في نفس الشاشة، اضغط على زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Submit</span> الأزرق في شريط الـ GET، وسيظهر لك في الصندوق على اليسار كود JSON يحتوي على <code class="text-blue-300">"id": "1045..."</code> انسخ هذا الرقم.
-                                </li>
-                                <li>
-                                    <span class="text-white font-bold">إضافة الصلاحيات للتوكن:</span> تحت قسم Permissions، اضغط <span class="text-slate-200 font-bold">Add a Permission</span> وأضف:
-                                    <code class="text-blue-400 font-mono">pages_messaging</code> و <code class="text-blue-400 font-mono">pages_show_list</code> و <code class="text-blue-400 font-mono">pages_read_engagement</code>، ثم اضغط على زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span> ووافق عليها.
-                                </li>
-                                <li>
-                                    <span class="text-amber-300 font-bold">تمديد التوكن ليصبح دائماً (Never Expires):</span>
-                                    افتح
-                                    <a href="https://developers.facebook.com/tools/debug/accesstoken/" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
-                                        <span>أداة Access Token Debugger</span>
-                                        <ExternalLink class="w-3 h-3" />
-                                    </a>
-                                    ثم الصق التوكن واضغط <span class="text-white font-bold">Debug</span>، وانزل لأسفل واضغط <span class="text-emerald-400 font-bold">Extend Access Token</span> للحصول على توكن دائم لا ينتهي.
-                                </li>
-                            </ol>
-                        </div>
-
-                        <!-- METHOD 2: System User -->
-                        <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
-                            <div class="flex items-center gap-2 text-xs font-bold text-slate-200">
-                                <ShieldCheck class="w-4 h-4 text-emerald-400" />
-                                <span>الطريقة الثانية: مستخدم النظام الدائم (System User Token)</span>
-                            </div>
-
-                            <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
-                                <p class="font-bold text-emerald-400">خطوة فك قفل زر (+ Add) المعطل:</p>
-                                <ol class="list-decimal list-inside space-y-1 text-slate-400">
-                                    <li>افتح <a href="https://business.facebook.com/latest/settings/apps" target="_blank" class="text-blue-400 underline font-bold">إعدادات الأعمال &gt; الحسابات &gt; التطبيقات (Apps)</a>.</li>
-                                    <li>اضغط على <span class="text-white font-bold">إضافة (Add)</span> &gt; <span class="text-white font-bold">ربط معرّف تطبيق (Connect an App ID)</span>، واكتب معرّف تطبيقك (إذا لم يكن لديك تطبيق، يمكنك إنشاء تطبيق مجاني بنوع Business خلال دقيقة عبر <a href="https://developers.facebook.com/apps" target="_blank" class="text-blue-400 underline font-bold">Meta Developers</a>).</li>
-                                    <li>بمجرد ربط التطبيق، سيتفعل زر <span class="text-white font-bold">+ Add</span> في صفحة مستخدمو النظام فوراً.</li>
-                                </ol>
-                            </div>
-
-                            <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                                <li>افتح <a href="https://business.facebook.com/settings/system-users" target="_blank" class="text-emerald-400 underline font-bold">مستخدمو النظام (System Users)</a> واضغط <span class="text-white font-bold">+ Add</span>.</li>
-                                <li>اكتب اسماً للمستخدم (مثال: <code class="text-slate-300">vertex_bot</code>) واختر الدور <span class="text-white font-bold">مسؤول (Admin)</span>.</li>
-                                <li>اضغط على <span class="text-white font-bold">إضافة أصول (Add Assets)</span>، اختر صفحة الفيسبوك، وفعّل خيار <span class="text-white font-bold">التحكم الكامل (Full Control)</span>.</li>
-                                <li>اضغط على <span class="text-white font-bold">إنشاء رمز جديد (Generate New Token)</span>، اختر تطبيقك وحدد الصلاحية <span class="text-emerald-400 font-bold">Never (دائم بدون انتهاء)</span>، واختر الصلاحيات وانسخ التوكن.</li>
-                            </ol>
-                        </div>
-
-                        <!-- Permissions Box -->
-                        <div class="space-y-1.5">
-                            <div class="flex items-center justify-between">
-                                <label class="text-[11px] font-bold text-slate-300">الصلاحيات المطلوبة للتوكن (Permissions):</label>
+                                <label class="text-[11px] font-bold text-slate-300">الصلاحيات المطلوبة (Permissions):</label>
                                 <button
                                     type="button"
-                                    @click="copyToClipboard(fbPermissions, 'fb_perm')"
+                                    @click="copyToClipboard(fbPermissions, 'fb_all_perms')"
                                     class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-300 transition"
                                 >
-                                    <Check v-if="copiedKey === 'fb_perm'" class="w-3.5 h-3.5 text-emerald-400" />
+                                    <Check v-if="copiedKey === 'fb_all_perms'" class="w-3.5 h-3.5 text-emerald-400" />
                                     <Copy v-else class="w-3.5 h-3.5" />
-                                    <span>{{ copiedKey === 'fb_perm' ? 'تم نسخ الصلاحيات' : 'نسخ الصلاحيات' }}</span>
+                                    <span>{{ copiedKey === 'fb_all_perms' ? 'تم نسخ جميع الصلاحيات' : 'نسخ جميع الصلاحيات دفعة واحدة' }}</span>
                                 </button>
                             </div>
-                            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300 break-all select-all">
-                                {{ fbPermissions }}
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div
+                                    v-for="perm in fbPermissionsList"
+                                    :key="perm.key"
+                                    class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs hover:border-slate-700 transition"
+                                >
+                                    <div class="min-w-0 pr-1">
+                                        <span class="font-mono font-bold text-blue-400 block truncate">{{ perm.key }}</span>
+                                        <span class="text-[11px] text-slate-400 block truncate">{{ perm.desc }}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="copyToClipboard(perm.key, 'fb_perm_' + perm.key)"
+                                        class="cursor-pointer shrink-0 p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition ms-2"
+                                        :title="'نسخ ' + perm.key"
+                                    >
+                                        <Check v-if="copiedKey === 'fb_perm_' + perm.key" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Copy v-else class="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
+                        </div>
+
+                        <p class="text-xs text-slate-300 pt-1">
+                            اضغط على زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span> ووافق على منح الصلاحيات لصفحتك.
+                        </p>
+                    </div>
+
+                    <!-- Step 2: Convert to Permanent (Never Expires) -->
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">2</span>
+                            <h3 class="font-bold text-white text-sm">تحويل التوكن إلى دائم (Never Expires)</h3>
+                        </div>
+
+                        <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
+                            <li>
+                                انسخ التوكن الذي ظهر لك، ثم افتح أداة
+                                <a href="https://developers.facebook.com/tools/debug/accesstoken" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
+                                    <span>Access Token Debugger</span>
+                                    <ExternalLink class="w-3 h-3" />
+                                </a>
+                            </li>
+                            <li>
+                                الصق التوكن واضغط <span class="text-white font-bold">Debug</span>، ثم انزل لأسفل الصفحة واضغط زر <span class="text-emerald-400 font-bold">Extend Access Token</span>.
+                            </li>
+                            <li>
+                                انسخ التوكن الجديد الممدد من الأسفل، أو استخرجه عبر طلب <code class="text-blue-400 font-mono font-bold">GET</code> للمسار التالي في الـ Explorer لضمان عدم انتهائه أبداً:
+                            </li>
+                        </ol>
+
+                        <!-- Query Path Badge with Copy -->
+                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+                            <div class="flex items-center justify-between text-[11px] text-slate-400">
+                                <span>مسار الاستعلام لجلب التوكن الدائم ومعرف الصفحة:</span>
+                                <button
+                                    type="button"
+                                    @click="copyToClipboard(fbQuery, 'fb_query_btn')"
+                                    class="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-bold"
+                                >
+                                    <Check v-if="copiedKey === 'fb_query_btn'" class="w-3.5 h-3.5 text-emerald-400" />
+                                    <Copy v-else class="w-3.5 h-3.5" />
+                                    <span>{{ copiedKey === 'fb_query_btn' ? 'تم النسخ' : 'نسخ المسار' }}</span>
+                                </button>
+                            </div>
+                            <div class="p-2 rounded bg-slate-950 font-mono text-xs text-blue-300 select-all break-all">
+                                {{ fbQuery }}
+                            </div>
+                            <p class="text-[11px] text-slate-500">
+                                سيعطيك هذا الطلب الـ <code class="text-slate-300">id</code> الخاص بالصفحة، والـ <code class="text-slate-300">access_token</code> الدائم الخاص بها.
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Step 3: Webhook info -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <!-- Step 3: Webhooks Setup -->
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">3</span>
-                            <h3 class="font-bold text-white text-sm">بيانات الـ Webhook (لاستقبال الرسائل والتعليقات فورياً)</h3>
+                            <h3 class="font-bold text-white text-sm">تفعيل استقبال الرسائل والتعليقات (Webhooks)</h3>
                         </div>
-                        <p class="text-xs text-slate-400 leading-relaxed">
-                            يقوم نظام فيرتكس بالاشتراك في الـ Webhook تلقائياً عند حفظ التوكن. إذا أردت التحقق أو ضبط تطبيقك المخصص في Meta Developers:
-                        </p>
 
-                        <div class="space-y-2">
+                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                            <p class="text-slate-300 font-medium">
+                                💡 <strong class="text-white">ملاحظة هامة:</strong> التوكن وحده يُستخدم للإرسال فقط؛ لاستقبال الرسائل والتعليقات لحظياً يجب ضبط الـ Webhooks في لوحة تحكم تطبيقك في Meta:
+                            </p>
+                            <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px] pt-1">
+                                <li>ادخل إلى تطبيقك في <a href="https://developers.facebook.com/apps" target="_blank" class="text-blue-400 underline font-bold">Meta for Developers</a> &gt; قسم <span class="text-white font-bold">Webhooks</span>.</li>
+                                <li>اضبط الـ <span class="text-white font-bold">Callback URL</span> و الـ <span class="text-white font-bold">Verify Token</span> بالبيانات الموضحة أدناه.</li>
+                                <li>اشترك في أحداث الصفحة (<span class="text-white font-bold font-mono">Page</span>): فعّل الحقل <code class="text-blue-300 font-mono font-bold">feed</code> (لاستقبال الكومنتات) والحقل <code class="text-blue-300 font-mono font-bold">messages</code> (لاستقبال الرسائل).</li>
+                                <li>من إعدادات <span class="text-white font-bold">Messenger &gt; Settings</span> داخل التطبيق، تأكد من عمل <span class="text-white font-bold">Subscribe</span> للصفحة.</li>
+                            </ol>
+                        </div>
+
+                        <!-- Webhook Credentials Box -->
+                        <div class="space-y-2.5">
                             <div>
                                 <div class="flex items-center justify-between text-[11px] mb-1 font-bold text-slate-300">
                                     <span>عنوان الويب هوك (Callback URL):</span>
                                     <button
                                         type="button"
-                                        @click="copyToClipboard(metaWebhookUrl, 'meta_url')"
+                                        @click="copyToClipboard(metaWebhookUrl, 'fb_meta_url')"
                                         class="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300"
                                     >
-                                        <Check v-if="copiedKey === 'meta_url'" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Check v-if="copiedKey === 'fb_meta_url'" class="w-3.5 h-3.5 text-emerald-400" />
                                         <Copy v-else class="w-3.5 h-3.5" />
-                                        <span>{{ copiedKey === 'meta_url' ? 'تم النسخ' : 'نسخ الرابط' }}</span>
+                                        <span>{{ copiedKey === 'fb_meta_url' ? 'تم النسخ' : 'نسخ الرابط' }}</span>
                                     </button>
                                 </div>
                                 <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-blue-300 select-all break-all">
@@ -358,12 +392,12 @@ const closeModal = () => {
                                     <span>رمز التحقق (Verify Token):</span>
                                     <button
                                         type="button"
-                                        @click="copyToClipboard(metaVerifyToken, 'meta_token')"
+                                        @click="copyToClipboard(metaVerifyToken, 'fb_meta_token')"
                                         class="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300"
                                     >
-                                        <Check v-if="copiedKey === 'meta_token'" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Check v-if="copiedKey === 'fb_meta_token'" class="w-3.5 h-3.5 text-emerald-400" />
                                         <Copy v-else class="w-3.5 h-3.5" />
-                                        <span>{{ copiedKey === 'meta_token' ? 'تم النسخ' : 'نسخ الرمز' }}</span>
+                                        <span>{{ copiedKey === 'fb_meta_token' ? 'تم النسخ' : 'نسخ الرمز' }}</span>
                                     </button>
                                 </div>
                                 <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-emerald-400 select-all">
@@ -371,7 +405,37 @@ const closeModal = () => {
                                 </div>
                             </div>
 
-                            <p class="text-[11px] text-slate-500">الحقول المشترك بها في Meta Webhook: <code class="text-slate-300">messages, messaging_postbacks, message_reads, feed</code></p>
+                            <div>
+                                <div class="flex items-center justify-between text-[11px] mb-1 font-bold text-slate-300">
+                                    <span>الحقول المشترك بها في Meta Page Webhook:</span>
+                                    <button
+                                        type="button"
+                                        @click="copyToClipboard(fbWebhookFields, 'fb_webhook_fields')"
+                                        class="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                                    >
+                                        <Check v-if="copiedKey === 'fb_webhook_fields'" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Copy v-else class="w-3.5 h-3.5" />
+                                        <span>{{ copiedKey === 'fb_webhook_fields' ? 'تم النسخ' : 'نسخ الحقول' }}</span>
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-blue-300">feed</span>
+                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-blue-300">messages</span>
+                                    <span class="text-[11px] text-slate-400">(feed للكومنتات، messages للرسائل)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- HTTPS & Ngrok Notice -->
+                        <div class="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs space-y-1.5">
+                            <div class="flex items-start gap-2 font-bold text-amber-300">
+                                <AlertTriangle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                <span>تنبيه هام بخصوص الـ Webhooks وبيئة التشغيل (HTTPS Required):</span>
+                            </div>
+                            <p class="text-amber-200/90 leading-relaxed text-[11px] ps-6">
+                                تشترط منصة Meta أن يكون عنوان الـ Callback URL يعمل ببروتوكول <strong class="text-white font-mono">HTTPS</strong> صالح ومتاح على الإنترنت بشكل عام (Public Domain).
+                                إذا كنت تشغل النظام محلياً في بيئة التطوير (Localhost)، لن تقبل Meta رابطاً محلياً؛ يجب استخدام أداة نفق مثل <strong class="text-white font-mono">Ngrok</strong> (<code class="bg-slate-900 px-1 py-0.5 rounded text-amber-300 font-mono">ngrok http 8000</code>) أو <strong class="text-white font-mono">Cloudflare Tunnel</strong> لتوليد رابط HTTPS حقيقي ووضعه في خانة الـ Callback URL.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -382,123 +446,213 @@ const closeModal = () => {
                     <div class="p-4 rounded-xl bg-pink-950/30 border border-pink-800/40 text-pink-200 flex items-start gap-3">
                         <Info class="w-5 h-5 text-pink-400 shrink-0 mt-0.5" />
                         <div class="text-xs space-y-1">
-                            <p class="font-bold">شروط ربط إنستجرام بنجاح:</p>
+                            <p class="font-bold">دليل ربط إنستجرام للأعمال الكامل:</p>
                             <p class="text-pink-300/90 leading-relaxed">
-                                يتطلب إنستجرام أن يكون الحساب <span class="text-white font-bold">حساب أعمال (Business Account)</span> ومرتبطاً بنفس صفحة الفيسبوك داخل Meta Business Suite، بالإضافة إلى تفعيل ميزة السماح بالوصول للرسائل من تطبيق إنستجرام على الهاتف.
+                                يشترط إنستجرام حساباً احترافياً مربوطاً بصفحة فيسبوك، وتوليد التوكن بصلاحيات إنستجرام، وتفعيل ويب هوك إنستجرام لاستقبال الرسائل والتعليقات والريلز.
                             </p>
                         </div>
                     </div>
 
-                    <!-- Step 1: Pre-requisites in Instagram App -->
+                    <!-- Step 1: Prerequisites -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">1</span>
-                            <h3 class="font-bold text-white text-sm">إعداد الحساب في تطبيق إنستجرام على الهاتف (إلزامي)</h3>
+                            <h3 class="font-bold text-white text-sm">الشروط المسبقة لربط إنستجرام</h3>
                         </div>
-                        <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                            <li>افتح تطبيق إنستجرام &gt; الإعدادات والخصوصية &gt; نوع الحساب والأدوات &gt; قم بالتبديل إلى <span class="text-white font-bold">حساب احترافي / تجاري (Professional/Business)</span>.</li>
-                            <li>ادخل إلى <span class="text-white font-bold">الرسائل والردود على القصص (Messages and story replies)</span>.</li>
-                            <li>اختر <span class="text-white font-bold">أدوات التحكم في الرسائل (Message controls)</span>.</li>
-                            <li>تأكد من تفعيل زر <span class="text-pink-400 font-bold">السماح بالوصول إلى الرسائل (Allow access to messages)</span> تحت الأدوات المتصلة، حتى يستطيع فيرتكس استقبال والرد على الرسائل.</li>
+                        <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
+                            <li>
+                                يجب أن يكون حساب إنستجرام حساباً احترافياً (<span class="text-white font-bold font-mono">Business</span> أو <span class="text-white font-bold font-mono">Creator</span>).
+                            </li>
+                            <li>
+                                يجب أن يكون حساب إنستجرام <strong class="text-white">مربوطاً بصفحة فيسبوك</strong> (من إعدادات تطبيق إنستجرام &gt; الحسابات المرتبطة Linked Accounts، أو من إعدادات صفحة الفيسبوك &gt; Linked Accounts).
+                            </li>
+                            <li>
+                                في تطبيق إنستجرام على الهاتف: ادخل إلى الإعدادات والخصوصية &gt; الرسائل والردود على القصص &gt; أدوات التحكم في الرسائل &gt; تأكد من تفعيل <span class="text-pink-400 font-bold">السماح بالوصول إلى الرسائل (Allow access to messages)</span>.
+                            </li>
                         </ol>
                     </div>
 
-                    <!-- Step 2: Link IG with FB Page in Meta Business Suite -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <!-- Step 2: Permissions in Graph API Explorer -->
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">2</span>
-                            <h3 class="font-bold text-white text-sm">ربط حساب إنستجرام بصفحة فيسبوك</h3>
+                            <h3 class="font-bold text-white text-sm">الصلاحيات المطلوبة في Graph API Explorer</h3>
                         </div>
-                        <p class="text-xs text-slate-400 leading-relaxed">
-                            يجب أن يكون حساب إنستجرام مربوطاً بصفحة الفيسبوك داخل Meta Business Suite حتى تمنح Meta الصلاحيات للتطبيقات:
+
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            اتبع نفس خطوات فيسبوك في أداة
+                            <a href="https://developers.facebook.com/tools/explorer" target="_blank" class="text-pink-400 hover:text-pink-300 underline font-bold inline-flex items-center gap-1 mx-1">
+                                <span>Meta Graph API Explorer</span>
+                                <ExternalLink class="w-3 h-3" />
+                            </a>
+                            وأضف الصلاحيات التالية إلى جانب صلاحيات الصفحة:
                         </p>
-                        <a
-                            href="https://business.facebook.com/latest/settings/instagram_account"
-                            target="_blank"
-                            class="inline-flex items-center gap-1.5 text-xs text-pink-400 hover:text-pink-300 font-bold"
-                        >
-                            <span>فتح حسابات إنستجرام في Meta Business Suite</span>
-                            <ExternalLink class="w-3.5 h-3.5" />
-                        </a>
-                        <p class="text-[11px] text-slate-500">إذا لم تجد الحساب مربوطاً، اضغط "إضافة (Add)" وسجل دخول بحساب إنستجرام لربطه بصفحتك.</p>
+
+                        <!-- Instagram Permissions Badges Grid -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-bold text-slate-300">صلاحيات إنستجرام والصفحة المطلوبة:</label>
+                                <button
+                                    type="button"
+                                    @click="copyToClipboard(igPermissions, 'ig_all_perms')"
+                                    class="inline-flex items-center gap-1 text-[11px] font-bold text-pink-400 hover:text-pink-300 transition"
+                                >
+                                    <Check v-if="copiedKey === 'ig_all_perms'" class="w-3.5 h-3.5 text-emerald-400" />
+                                    <Copy v-else class="w-3.5 h-3.5" />
+                                    <span>{{ copiedKey === 'ig_all_perms' ? 'تم نسخ جميع الصلاحيات' : 'نسخ جميع الصلاحيات دفعة واحدة' }}</span>
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div
+                                    v-for="perm in igPermissionsList"
+                                    :key="perm.key"
+                                    class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs hover:border-slate-700 transition"
+                                >
+                                    <div class="min-w-0 pr-1">
+                                        <span class="font-mono font-bold text-pink-400 block truncate">{{ perm.key }}</span>
+                                        <span class="text-[11px] text-slate-400 block truncate">{{ perm.desc }}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="copyToClipboard(perm.key, 'ig_perm_' + perm.key)"
+                                        class="cursor-pointer shrink-0 p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition ms-2"
+                                        :title="'نسخ ' + perm.key"
+                                    >
+                                        <Check v-if="copiedKey === 'ig_perm_' + perm.key" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Copy v-else class="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <ul class="list-disc list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed pt-1">
+                            <li>اضغط <span class="text-white font-bold bg-pink-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span>، وتأكد في نافذة الموافقة من <strong class="text-white">تحديد صفحة الفيسبوك وحساب إنستجرام المرتبط بها معاً</strong>.</li>
+                            <li>قم بتمديد التوكن بنفس الطريقة عبر <a href="https://developers.facebook.com/tools/debug/accesstoken" target="_blank" class="text-pink-400 underline font-bold">Access Token Debugger</a> للحصول على التوكن الممتد الدائم.</li>
+                        </ul>
                     </div>
 
-                    <!-- Step 3: Instagram Business Account ID -->
+                    <!-- Step 3: Extract Instagram Business Account ID -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">3</span>
-                            <h3 class="font-bold text-white text-sm">الحصول على معرف حساب إنستجرام للأعمال (Account ID)</h3>
+                            <h3 class="font-bold text-white text-sm">استخراج معرف حساب إنستجرام للأعمال (Instagram Business Account ID)</h3>
                         </div>
-                        <p class="text-xs text-slate-400 leading-relaxed">
-                            معرف حساب إنستجرام للأعمال هو رقم مكون من 15 إلى 17 خانة. يمكنك الحصول عليه بإحدى طريقتين:
+
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            في أداة Graph API Explorer، نفّذ طلب <code class="text-pink-400 font-mono font-bold">GET</code> على المسار التالي:
                         </p>
 
-                        <div class="space-y-3">
-                            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-1">
-                                <span class="font-bold text-white">الطريقة الأولى (مباشرة من Meta Business Suite):</span>
-                                <p class="text-slate-400 text-[11px]">
-                                    افتح رابط
-                                    <a href="https://business.facebook.com/latest/settings/instagram_account" target="_blank" class="text-pink-400 underline font-bold">حسابات إنستجرام</a>،
-                                    واضغط على اسم حسابك، ستجد رقم المعرّف (ID) مكتوباً أسفل اسم الحساب مباشرة (مثال: <code class="text-pink-400 font-mono">17841400123456789</code>).
-                                </p>
+                        <!-- Path Badge with Copy -->
+                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+                            <div class="flex items-center justify-between text-[11px] text-slate-400">
+                                <span>مسار الاستعلام لجلب معرف إنستجرام والتوكن:</span>
+                                <button
+                                    type="button"
+                                    @click="copyToClipboard(igQuery, 'ig_query_btn')"
+                                    class="inline-flex items-center gap-1 text-pink-400 hover:text-pink-300 font-bold"
+                                >
+                                    <Check v-if="copiedKey === 'ig_query_btn'" class="w-3.5 h-3.5 text-emerald-400" />
+                                    <Copy v-else class="w-3.5 h-3.5" />
+                                    <span>{{ copiedKey === 'ig_query_btn' ? 'تم النسخ' : 'نسخ المسار' }}</span>
+                                </button>
                             </div>
-
-                            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-2">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-bold text-white">الطريقة الثانية (عبر أداة Graph API Explorer):</span>
-                                    <button
-                                        type="button"
-                                        @click="copyToClipboard(igQuery, 'ig_query')"
-                                        class="inline-flex items-center gap-1 text-[11px] font-bold text-pink-400 hover:text-pink-300 transition"
-                                    >
-                                        <Check v-if="copiedKey === 'ig_query'" class="w-3.5 h-3.5 text-emerald-400" />
-                                        <Copy v-else class="w-3.5 h-3.5" />
-                                        <span>{{ copiedKey === 'ig_query' ? 'تم النسخ' : 'نسخ الاستعلام' }}</span>
-                                    </button>
-                                </div>
-                                <p class="text-slate-400 text-[11px]">
-                                    افتح أداة <a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-pink-400 underline font-bold">Graph API Explorer</a>، اختر صفحتك، واكتب هذا الاستعلام ثم اضغط Submit:
-                                </p>
-                                <div class="p-2 rounded bg-slate-950 font-mono text-[11px] text-pink-300 select-all">
-                                    {{ igQuery }}
-                                </div>
-                                <p class="text-[11px] text-slate-500">سيظهر لك الـ id التابع لحساب إنستجرام للأعمال داخل استجابة الـ API فوراً.</p>
+                            <div class="p-2 rounded bg-slate-950 font-mono text-xs text-pink-300 select-all break-all">
+                                {{ igQuery }}
                             </div>
+                            <p class="text-[11px] text-slate-400">
+                                سيظهر لك الـ <code class="text-pink-300 font-mono">id</code> الخاص بحساب إنستجرام تحت حقل <code class="text-slate-200 font-mono">instagram_business_account</code>، بالإضافة إلى التوكن الخاص بالصفحة الذي يُستخدم لإدارة الحسابين.
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Step 4: Access Token -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <!-- Step 4: Instagram Webhooks -->
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">4</span>
-                            <h3 class="font-bold text-white text-sm">رمز وصول إنستجرام (Instagram Access Token)</h3>
-                        </div>
-                        <p class="text-xs text-slate-400 leading-relaxed">
-                            رمز وصول إنستجرام هو <span class="text-white font-bold">نفس رمز وصول صفحة الفيسبوك (Page Access Token)</span> المربوطة بحساب إنستجرام (الذي تم استخراجه في خطوة فيسبوك أعلاه سواء عبر Graph API Explorer أو System User)، مع التأكد من تضمين صلاحيات إنستجرام التالية:
-                        </p>
-
-                        <!-- Required Permissions Box -->
-                        <div class="space-y-1.5 pt-1">
-                            <div class="flex items-center justify-between">
-                                <label class="text-[11px] font-bold text-slate-300">صلاحيات إنستجرام المطلوبة للتوكن:</label>
-                                <button
-                                    type="button"
-                                    @click="copyToClipboard(igPermissions, 'ig_perm')"
-                                    class="inline-flex items-center gap-1 text-[11px] font-bold text-pink-400 hover:text-pink-300 transition"
-                                >
-                                    <Check v-if="copiedKey === 'ig_perm'" class="w-3.5 h-3.5 text-emerald-400" />
-                                    <Copy v-else class="w-3.5 h-3.5" />
-                                    <span>{{ copiedKey === 'ig_perm' ? 'تم نسخ الصلاحيات' : 'نسخ الصلاحيات' }}</span>
-                                </button>
-                            </div>
-                            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300 break-all select-all">
-                                {{ igPermissions }}
-                            </div>
+                            <h3 class="font-bold text-white text-sm">تفعيل الـ Webhooks لإنستجرام</h3>
                         </div>
 
-                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
-                            <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                            <span>بعد وضع المعرف والتوكن في بطاقة إنستجرام والضغط على زر الربط، سيقوم فيرتكس بفحص المعرف وجلب اسم الحساب وتفعيل المحادثات والرد الآلي فوراً.</span>
+                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                            <p class="text-slate-300 font-medium">
+                                💡 <strong class="text-white">خطوات ضبط ويب هوك إنستجرام في تطبيق Meta:</strong>
+                            </p>
+                            <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px] pt-1">
+                                <li>من لوحة تحكم تطبيق Meta &gt; قسم <span class="text-white font-bold">Webhooks</span>، اختر من القائمة المنسدلة <strong class="text-pink-400 font-bold font-mono">Instagram</strong> (وليس Page).</li>
+                                <li>ضع نفس رابط الـ <span class="text-white font-bold">Callback URL</span> والـ <span class="text-white font-bold">Verify Token</span>.</li>
+                                <li>فعّل الاشتراك (Subscribe) في الحقول الموضحة أدناه: <code class="text-pink-300 font-mono">messages</code> و <code class="text-pink-300 font-mono">comments</code> و <code class="text-pink-300 font-mono">live_comments</code>.</li>
+                            </ol>
+                        </div>
+
+                        <!-- Webhook Credentials Box -->
+                        <div class="space-y-2.5">
+                            <div>
+                                <div class="flex items-center justify-between text-[11px] mb-1 font-bold text-slate-300">
+                                    <span>عنوان الويب هوك (Callback URL):</span>
+                                    <button
+                                        type="button"
+                                        @click="copyToClipboard(metaWebhookUrl, 'ig_meta_url')"
+                                        class="inline-flex items-center gap-1 text-pink-400 hover:text-pink-300"
+                                    >
+                                        <Check v-if="copiedKey === 'ig_meta_url'" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Copy v-else class="w-3.5 h-3.5" />
+                                        <span>{{ copiedKey === 'ig_meta_url' ? 'تم النسخ' : 'نسخ الرابط' }}</span>
+                                    </button>
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-pink-300 select-all break-all">
+                                    {{ metaWebhookUrl }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between text-[11px] mb-1 font-bold text-slate-300">
+                                    <span>رمز التحقق (Verify Token):</span>
+                                    <button
+                                        type="button"
+                                        @click="copyToClipboard(metaVerifyToken, 'ig_meta_token')"
+                                        class="inline-flex items-center gap-1 text-pink-400 hover:text-pink-300"
+                                    >
+                                        <Check v-if="copiedKey === 'ig_meta_token'" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Copy v-else class="w-3.5 h-3.5" />
+                                        <span>{{ copiedKey === 'ig_meta_token' ? 'تم النسخ' : 'نسخ الرمز' }}</span>
+                                    </button>
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-emerald-400 select-all">
+                                    {{ metaVerifyToken }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between text-[11px] mb-1 font-bold text-slate-300">
+                                    <span>الحقول المشترك بها في Instagram Webhooks:</span>
+                                    <button
+                                        type="button"
+                                        @click="copyToClipboard(igWebhookFields, 'ig_webhook_fields')"
+                                        class="inline-flex items-center gap-1 text-pink-400 hover:text-pink-300"
+                                    >
+                                        <Check v-if="copiedKey === 'ig_webhook_fields'" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Copy v-else class="w-3.5 h-3.5" />
+                                        <span>{{ copiedKey === 'ig_webhook_fields' ? 'تم النسخ' : 'نسخ الحقول' }}</span>
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-pink-300">messages</span>
+                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-pink-300">comments</span>
+                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-pink-300">live_comments</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- HTTPS & Ngrok Notice -->
+                        <div class="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs space-y-1.5">
+                            <div class="flex items-start gap-2 font-bold text-amber-300">
+                                <AlertTriangle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                <span>تنبيه هام بخصوص الـ Webhooks وبيئة التشغيل (HTTPS Required):</span>
+                            </div>
+                            <p class="text-amber-200/90 leading-relaxed text-[11px] ps-6">
+                                تشترط منصة Meta أن يكون عنوان الـ Callback URL يعمل ببروتوكول <strong class="text-white font-mono">HTTPS</strong> صالح ومتاح على الإنترنت بشكل عام (Public Domain).
+                                إذا كنت تشغل النظام محلياً في بيئة التطوير (Localhost)، يجب استخدام أداة نفق مثل <strong class="text-white font-mono">Ngrok</strong> أو <strong class="text-white font-mono">Cloudflare Tunnel</strong> لتوليد رابط HTTPS صالح للـ Webhooks.
+                            </p>
                         </div>
                     </div>
                 </div>
