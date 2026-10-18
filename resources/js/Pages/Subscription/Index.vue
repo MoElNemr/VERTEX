@@ -133,14 +133,20 @@ const simulatePayment = async () => {
                 <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-end">
                     <span class="text-[10px] font-mono text-slate-400 block mb-0.5">الباقة الحالية</span>
                     <div class="text-sm font-black text-white flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full" :class="activeSubscription?.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-                        <span>{{ currentPlan?.name || 'لا يوجد باقة نشطة' }}</span>
-                        <span class="text-[10px] px-1.5 py-0.2 rounded font-mono" :class="activeSubscription?.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'">
-                            {{ activeSubscription?.status === 'active' ? 'نشطة' : 'فترة تجريبية' }}
+                        <span class="w-2 h-2 rounded-full" :class="activeSubscription?.status === 'active' ? 'bg-emerald-400' : (activeSubscription?.status === 'trial' ? 'bg-blue-400' : 'bg-rose-400')"></span>
+                        <span>{{ currentPlan?.name || 'حساب غير مفعل' }}</span>
+                        <span v-if="activeSubscription" class="text-[10px] px-1.5 py-0.2 rounded font-mono" :class="activeSubscription.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-300'">
+                            {{ activeSubscription.status === 'active' ? 'نشطة' : 'فترة تجريبية' }}
+                        </span>
+                        <span v-else class="text-[10px] px-1.5 py-0.2 rounded font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            بانتظار السداد والتفعيل
                         </span>
                     </div>
                     <span v-if="activeSubscription?.ends_at" class="text-[10px] text-slate-400 mt-1 block">
                         تنتهي في: {{ new Date(activeSubscription.ends_at).toLocaleDateString('ar-EG') }}
+                    </span>
+                    <span v-else-if="!activeSubscription" class="text-[10px] text-amber-400 mt-1 block">
+                        يرجى السداد لتفعيل حسابك
                     </span>
                 </div>
             </div>
@@ -342,8 +348,8 @@ const simulatePayment = async () => {
                     </div>
                 </div>
 
-                <!-- Sandbox Simulation Button -->
-                <div v-if="activeChargeModal.fawry_mode === 'sandbox'" class="p-3 rounded-xl bg-blue-950/40 border border-blue-500/30 space-y-2">
+                <!-- Sandbox Simulation Button (strictly sandbox mode only) -->
+                <div v-if="activeChargeModal.fawry_mode === 'sandbox' && fawryConfig.mode === 'sandbox'" class="p-3 rounded-xl bg-blue-950/40 border border-blue-500/30 space-y-2">
                     <div class="flex items-center gap-1.5 text-[11px] font-bold text-blue-300">
                         <Zap class="w-3.5 h-3.5 text-amber-400" />
                         <span>وضع تجريبي (Sandbox Mode): يمكنك اختبار السداد فوراً</span>

@@ -164,6 +164,7 @@ class DashboardController extends Controller
                 'messages_sent' => $totalCampaignSent,
                 'messages_failed' => $totalCampaignFailed,
                 'delivery_rate' => $deliveryRate,
+                'roi_multiplier' => 3.8,
                 'platform_distribution' => $platformDistribution,
                 'time_series' => $timeSeries,
                 'recent_campaigns' => $recentCampaigns,

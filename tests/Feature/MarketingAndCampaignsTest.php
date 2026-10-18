@@ -185,6 +185,9 @@ class MarketingAndCampaignsTest extends TestCase
             'auto_start' => true,
         ];
 
+        $walletService = app(\App\Services\WalletService::class);
+        $walletService->creditWallet($this->user, 50.00, 20, null, 'Test top-up for bulk send');
+
         $response = $this->actingAs($this->user)
             ->withSession(['current_business_id' => $this->business->id])
             ->postJson(route('whatsapp-sender.send'), $payload);

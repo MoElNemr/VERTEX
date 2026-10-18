@@ -12,15 +12,27 @@ use Illuminate\Support\Facades\Log;
 class FawryService
 {
     /**
-     * Get Fawry configuration from SystemSetting.
+     * Get Fawry configuration from SystemSetting or .env.
      */
     public function getConfig(): array
     {
+        $envMode = config('services.fawry.mode', env('FAWRY_MODE'));
+        $settingMode = SystemSetting::get('fawry_mode');
+        $defaultMode = app()->environment('production') ? 'live' : 'sandbox';
+
+        // Link strictly to env variable if set, otherwise DB setting or environment default
+        $mode = $envMode ?: ($settingMode ?: $defaultMode);
+
+        // In production, force live unless explicitly overridden by FAWRY_MODE in .env
+        if (app()->environment('production') && $envMode !== 'sandbox') {
+            $mode = 'live';
+        }
+
         return [
-            'merchant_code' => SystemSetting::get('fawry_merchant_code', env('FAWRY_MERCHANT_CODE', '1014316')),
-            'security_key' => SystemSetting::get('fawry_security_key', env('FAWRY_SECURITY_KEY', 'default_test_key')),
-            'merchant_wallet' => SystemSetting::get('fawry_merchant_wallet', env('FAWRY_MERCHANT_WALLET', '')),
-            'mode' => SystemSetting::get('fawry_mode', env('FAWRY_MODE', 'sandbox')),
+            'merchant_code' => SystemSetting::get('fawry_merchant_code', config('services.fawry.merchant_code', env('FAWRY_MERCHANT_CODE', '1014316'))),
+            'security_key' => SystemSetting::get('fawry_security_key', config('services.fawry.security_key', env('FAWRY_SECURITY_KEY', 'default_test_key'))),
+            'merchant_wallet' => SystemSetting::get('fawry_merchant_wallet', config('services.fawry.merchant_wallet', env('FAWRY_MERCHANT_WALLET', ''))),
+            'mode' => $mode,
         ];
     }
 

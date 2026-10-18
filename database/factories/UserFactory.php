@@ -34,6 +34,41 @@ class UserFactory extends Factory
     }
 
     /**
+     * Configure the model factory.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            if (!$user->subscriptions()->exists()) {
+                $plan = \App\Models\Plan::first() ?? \App\Models\Plan::create([
+                    'name' => 'Standard Unlimited',
+                    'type' => 'standard',
+                    'price_monthly' => 29.00,
+                    'price_yearly' => 290.00,
+                    'is_active' => true,
+                ]);
+
+                $user->subscriptions()->create([
+                    'plan_id' => $plan->id,
+                    'status' => 'active',
+                    'starts_at' => now(),
+                    'ends_at' => now()->addMonth(),
+                ]);
+            }
+        });
+    }
+
+    /**
+     * Indicate that the user has no active subscription.
+     */
+    public function unpaid(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            $user->subscriptions()->delete();
+        });
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

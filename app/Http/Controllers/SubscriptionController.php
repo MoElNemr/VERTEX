@@ -72,6 +72,13 @@ class SubscriptionController extends Controller
      */
     public function simulatePayment(Request $request): JsonResponse
     {
+        if ($this->fawryService->getConfig()['mode'] !== 'sandbox') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'محاكاة السداد غير متاحة في بيئة العمل الحية.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'reference_number' => ['required', 'exists:payment_transactions,reference_number'],
         ]);

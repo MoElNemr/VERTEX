@@ -33,6 +33,8 @@ import {
     ExternalLink,
 } from 'lucide-vue-next';
 
+import ChannelGuideModal from '@/Components/ChannelGuideModal.vue';
+
 const props = defineProps({
     business: Object,
     whatsapp: Object,
@@ -49,6 +51,13 @@ const props = defineProps({
 
 const activeTab = ref(props.initialTab || 'channels');
 const showApiKey = ref(false);
+const showGuideModal = ref(false);
+const activeGuideChannel = ref('facebook');
+
+const openGuideModal = (channel) => {
+    activeGuideChannel.value = channel;
+    showGuideModal.value = true;
+};
 
 // AI Settings Form (Direct to GROQ)
 const aiForm = useForm({
@@ -358,13 +367,24 @@ const disconnect = (channel) => {
                         </p>
                     </div>
 
-                    <Link
-                        :href="route('businesses.index')"
-                        class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition"
-                    >
-                        <span>العودة للمتاجر</span>
-                        <ArrowRight class="w-4 h-4" />
-                    </Link>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            @click="openGuideModal('facebook')"
+                            class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition"
+                        >
+                            <HelpCircle class="w-4 h-4" />
+                            <span>دليل وخطوات ربط القنوات</span>
+                        </button>
+
+                        <Link
+                            :href="route('businesses.index')"
+                            class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition"
+                        >
+                            <span>العودة للمتاجر</span>
+                            <ArrowRight class="w-4 h-4" />
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Navigation Tabs -->
@@ -403,6 +423,32 @@ const disconnect = (channel) => {
         </div>
 
         <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Global Help & Quick Setup Guide Banner -->
+            <div v-if="activeTab === 'channels'" class="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-950/70 via-slate-900 to-indigo-950/70 border border-blue-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-11 h-11 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+                        <HelpCircle class="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span>دليل وخطوات ربط القنوات والمنصات (شرح خطوة بخطوة)</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30">دليل مصور</span>
+                        </h4>
+                        <p class="text-xs text-slate-300 mt-0.5">
+                            هل تبحث عن روابط الويب هوك، رمز التحقق (Verify Token)، أو كيفية توليد مفاتيح الربط لفيسبوك، واتساب، إنستجرام وتيليجرام؟
+                        </p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    @click="openGuideModal('facebook')"
+                    class="shrink-0 cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 transition"
+                >
+                    <HelpCircle class="w-4 h-4" />
+                    <span>فتح دليل الربط التفصيلي</span>
+                </button>
+            </div>
+
             <!-- Channels 2-column Grid -->
             <div v-if="activeTab === 'channels'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -419,13 +465,24 @@ const disconnect = (channel) => {
                                     <p class="text-xs text-slate-400">ربط مباشر برمز QR عبر مكتبة Baileys</p>
                                 </div>
                             </div>
-                            <span
-                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                                :class="whatsapp?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
-                            >
-                                <span class="w-1.5 h-1.5 rounded-full" :class="whatsapp?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
-                                <span>{{ whatsapp?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    @click="openGuideModal('whatsapp')"
+                                    class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition"
+                                    title="شرح وخطوات ربط واتساب"
+                                >
+                                    <HelpCircle class="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>طريقة الربط</span>
+                                </button>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                                    :class="whatsapp?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
+                                >
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="whatsapp?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
+                                    <span>{{ whatsapp?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
+                                </span>
+                            </div>
                         </div>
 
                         <!-- Mode Switcher (If not connected) -->
@@ -585,13 +642,24 @@ const disconnect = (channel) => {
                                     <p class="text-xs text-slate-400">ربط فوري وتلقائي عبر Webhook</p>
                                 </div>
                             </div>
-                            <span
-                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                                :class="telegram?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
-                            >
-                                <span class="w-1.5 h-1.5 rounded-full" :class="telegram?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
-                                <span>{{ telegram?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    @click="openGuideModal('telegram')"
+                                    class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition"
+                                    title="شرح وخطوات ربط تيليجرام"
+                                >
+                                    <HelpCircle class="w-3.5 h-3.5 text-sky-400" />
+                                    <span>طريقة الربط</span>
+                                </button>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                                    :class="telegram?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
+                                >
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="telegram?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
+                                    <span>{{ telegram?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
+                                </span>
+                            </div>
                         </div>
 
                         <!-- Telegram Form -->
@@ -654,13 +722,24 @@ const disconnect = (channel) => {
                                     <p class="text-xs text-slate-400">استقبال الرسائل والـ Comment-to-DM</p>
                                 </div>
                             </div>
-                            <span
-                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                                :class="facebook?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
-                            >
-                                <span class="w-1.5 h-1.5 rounded-full" :class="facebook?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
-                                <span>{{ facebook?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    @click="openGuideModal('facebook')"
+                                    class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition"
+                                    title="شرح وخطوات ربط فيسبوك"
+                                >
+                                    <HelpCircle class="w-3.5 h-3.5 text-blue-400" />
+                                    <span>طريقة الربط</span>
+                                </button>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                                    :class="facebook?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
+                                >
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="facebook?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
+                                    <span>{{ facebook?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
+                                </span>
+                            </div>
                         </div>
 
                         <!-- Facebook Form -->
@@ -745,6 +824,17 @@ const disconnect = (channel) => {
                             </div>
 
                             <form v-else @submit.prevent="connectFacebook" class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] text-slate-400">تحتاج مساعدة في استخراج المعرف والتوكن؟</span>
+                                    <button
+                                        type="button"
+                                        @click="openGuideModal('facebook')"
+                                        class="cursor-pointer inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 font-bold"
+                                    >
+                                        <HelpCircle class="w-3.5 h-3.5" />
+                                        <span>عرض الخطوات بالتفصيل</span>
+                                    </button>
+                                </div>
                                 <div>
                                     <label for="page_id" class="block text-xs font-bold text-slate-300">
                                         معرف الصفحة (Page ID)
@@ -803,13 +893,24 @@ const disconnect = (channel) => {
                                     <p class="text-xs text-slate-400">إدارة رسائل الخاص Direct Messages</p>
                                 </div>
                             </div>
-                            <span
-                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                                :class="instagram?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
-                            >
-                                <span class="w-1.5 h-1.5 rounded-full" :class="instagram?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
-                                <span>{{ instagram?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    @click="openGuideModal('instagram')"
+                                    class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition"
+                                    title="شرح وخطوات ربط إنستجرام"
+                                >
+                                    <HelpCircle class="w-3.5 h-3.5 text-pink-400" />
+                                    <span>طريقة الربط</span>
+                                </button>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                                    :class="instagram?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
+                                >
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="instagram?.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
+                                    <span>{{ instagram?.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}</span>
+                                </span>
+                            </div>
                         </div>
 
                         <!-- Instagram Form -->
@@ -893,6 +994,17 @@ const disconnect = (channel) => {
                             </div>
 
                             <form v-else @submit.prevent="connectInstagram" class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] text-slate-400">تحتاج مساعدة في استخراج معرف وتوكن إنستجرام؟</span>
+                                    <button
+                                        type="button"
+                                        @click="openGuideModal('instagram')"
+                                        class="cursor-pointer inline-flex items-center gap-1 text-[11px] text-pink-400 hover:text-pink-300 font-bold"
+                                    >
+                                        <HelpCircle class="w-3.5 h-3.5" />
+                                        <span>عرض الخطوات بالتفصيل</span>
+                                    </button>
+                                </div>
                                 <div>
                                     <label for="instagram_business_id" class="block text-xs font-bold text-slate-300">
                                         Instagram Business Account ID
@@ -1321,5 +1433,13 @@ const disconnect = (channel) => {
                 </form>
             </div>
         </div>
+
+        <!-- Channel Guide Modal -->
+        <ChannelGuideModal
+            :show="showGuideModal"
+            :initial-channel="activeGuideChannel"
+            :business="business"
+            @close="showGuideModal = false"
+        />
     </AuthenticatedLayout>
 </template>

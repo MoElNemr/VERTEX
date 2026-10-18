@@ -45,31 +45,19 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'plan_id' => 'nullable|exists:plans,id',
-            'billing_cycle' => 'nullable|in:monthly,yearly',
+            'plan_id' => 'required|exists:plans,id',
+            'billing_cycle' => 'required|in:monthly,yearly',
         ]);
+
+        $selectedPlan = Plan::findOrFail($request->plan_id);
+        $billingCycle = $request->billing_cycle;
+        $price = ($billingCycle === 'yearly' ? (float) $selectedPlan->price_yearly : (float) $selectedPlan->price_monthly);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
-
-        $planId = $request->plan_id ?: (Plan::where('type', 'standard')->value('id') ?: Plan::value('id'));
-        $selectedPlan = $planId ? Plan::find($planId) : null;
-        if (!$selectedPlan) {
-            $selectedPlan = Plan::firstOrCreate(
-                ['type' => 'standard'],
-                [
-                    'name' => 'Standard Unlimited',
-                    'price_monthly' => 0.00,
-                    'price_yearly' => 0.00,
-                    'is_active' => true,
-                ]
-            );
-        }
-        $billingCycle = $request->billing_cycle ?: 'monthly';
-        $price = ($billingCycle === 'yearly' ? (float) $selectedPlan->price_yearly : (float) $selectedPlan->price_monthly);
 
         // Create initial default business
         $business = $user->businesses()->create([
@@ -80,8 +68,8 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
         Auth::login($user);
 
-        // If free or trial plan
-        if ($price <= 0 || $selectedPlan->type === 'standard') {
+        // If completely free plan (0.00 EGP)
+        if ($price <= 0) {
             $user->subscriptions()->create([
                 'plan_id' => $selectedPlan->id,
                 'status' => 'trial',
@@ -89,14 +77,14 @@ class RegisteredUserController extends Controller
                 'ends_at' => now()->addDays(14),
             ]);
 
-            return redirect()->route('businesses.index')->with('success', 'تم إنشاء حسابك وتفعيل الفترة التجريبية بنجاح!');
+            return redirect()->route('businesses.index')->with('success', 'تم إنشاء حسابك وتفعيل باقتك المجانية بنجاح!');
         }
 
-        // Paid plan: create pending subscription and generate Fawry charge
+        // Paid plan: generate Fawry charge and redirect to payment
         $charge = $this->fawryService->createSubscriptionCharge($user, $selectedPlan, $billingCycle);
 
         return redirect()->route('subscription.index')->with([
-            'success' => 'تم إنشاء حسابك بنجاح. يرجى إتمام السداد عبر فوري لتفعيل باقتك المختارة.',
+            'success' => 'تم إنشاء حسابك بنجاح! يرجى إتمام السداد عبر فوري لتفعيل باقتك والبدء في استخدام كافة خدمات المنصة.',
             'pendingCharge' => $charge,
         ]);
     }

@@ -190,4 +190,50 @@ class FawryPaymentAndRegistrationTest extends TestCase
             ],
         ]);
     }
+
+    public function test_registration_requires_plan_id_and_billing_cycle(): void
+    {
+        $response = $this->post('/register', [
+            'name' => 'Adel Mahmoud',
+            'email' => 'adel@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertSessionHasErrors(['plan_id', 'billing_cycle']);
+    }
+
+    public function test_unpaid_user_cannot_access_businesses_and_is_redirected_to_subscription(): void
+    {
+        $user = User::factory()->unpaid()->create();
+        // User has no active subscription
+
+        $response = $this->actingAs($user)->get('/businesses');
+
+        $response->assertRedirect(route('subscription.index'));
+        $response->assertSessionHas('error');
+    }
+
+    public function test_simulation_is_forbidden_in_live_mode(): void
+    {
+        $user = User::factory()->create();
+        SystemSetting::set('fawry_mode', 'live');
+        config(['services.fawry.mode' => 'live']);
+
+        $transaction = PaymentTransaction::create([
+            'user_id' => $user->id,
+            'reference_number' => 'SIM_TEST_REF',
+            'amount' => 100.00,
+            'currency' => 'EGP',
+            'status' => 'pending',
+            'payment_method' => 'fawry',
+        ]);
+
+        $response = $this->actingAs($user)->postJson('/subscription/simulate', [
+            'reference_number' => 'SIM_TEST_REF',
+        ]);
+
+        $response->assertStatus(403);
+        $response->assertJson(['status' => 'error']);
+    }
 }

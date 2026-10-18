@@ -50,4 +50,11 @@ return [
         'url' => env('GROQ_API_URL', 'https://api.groq.com/openai/v1'),
     ],
 
+    'fawry' => [
+        'mode' => env('FAWRY_MODE', 'sandbox'),
+        'merchant_code' => env('FAWRY_MERCHANT_CODE', '1014316'),
+        'security_key' => env('FAWRY_SECURITY_KEY', 'default_test_key'),
+        'merchant_wallet' => env('FAWRY_MERCHANT_WALLET', ''),
+    ],
+
 ];
