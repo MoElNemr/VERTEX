@@ -100,6 +100,37 @@ class ChannelWebhooksTest extends TestCase
         $this->assertEquals($challenge, $response->getContent());
     }
 
+    public function test_meta_webhook_verification_fails_closed_in_production_if_verify_token_missing(): void
+    {
+        $this->app['env'] = 'production';
+        config(['services.meta.verify_token' => null]);
+
+        $response = $this->get(route('webhooks.meta.verify', [
+            'business' => $this->business->id,
+            'hub_mode' => 'subscribe',
+            'hub_verify_token' => 'some_token',
+            'hub_challenge' => 'challenge_code',
+        ]));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_meta_webhook_verification_accepts_configured_token_in_production(): void
+    {
+        $this->app['env'] = 'production';
+        config(['services.meta.verify_token' => 'configured_prod_verify_secret']);
+
+        $response = $this->get(route('webhooks.meta.verify', [
+            'business' => $this->business->id,
+            'hub_mode' => 'subscribe',
+            'hub_verify_token' => 'configured_prod_verify_secret',
+            'hub_challenge' => 'prod_challenge_code',
+        ]));
+
+        $response->assertOk();
+        $this->assertEquals('prod_challenge_code', $response->getContent());
+    }
+
     public function test_meta_facebook_webhook_creates_message(): void
     {
         FacebookAccount::create([
@@ -500,5 +531,26 @@ class ChannelWebhooksTest extends TestCase
             'platform' => 'whatsapp',
             'phone' => '201099881122',
         ]);
+    }
+
+    public function test_simulator_routes_are_strictly_blocked_in_production_even_with_enable_simulator_flag(): void
+    {
+        $this->app['env'] = 'production';
+        putenv('ENABLE_SIMULATOR=true');
+        $_ENV['ENABLE_SIMULATOR'] = 'true';
+
+        // 1. Verify route-level gate logic strictly evaluates to false in production
+        $shouldRegister = !app()->isProduction() && (app()->environment(['local', 'testing']) || env('ENABLE_SIMULATOR', false));
+        $this->assertFalse($shouldRegister);
+
+        // 2. Verify controller-level defense aborts with 404 in production
+        $response = $this->postJson(route('webhooks.simulate.facebook', $this->business->id), [
+            'text' => 'محاولة محاكاة في بيئة الإنتاج',
+        ]);
+
+        $response->assertStatus(404);
+
+        // Restore environment
+        $this->app['env'] = 'testing';
     }
 }

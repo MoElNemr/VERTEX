@@ -12,7 +12,11 @@ class WebhookSimulatorController extends Controller
 {
     public function __construct(
         protected ChannelManager $channelManager
-    ) {}
+    ) {
+        if (app()->isProduction()) {
+            abort(404, 'Webhook simulator is not available in production.');
+        }
+    }
 
     /**
      * Simulate an incoming Telegram message.

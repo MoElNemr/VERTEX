@@ -329,8 +329,15 @@ class MetaChannelService implements ChannelServiceInterface
         $mode = $request->query('hub_mode');
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
+        $expectedToken = config('services.meta.verify_token');
 
-        $expectedToken = config('services.meta.verify_token') ?: ('vertex_meta_token_' . $business->id);
+        if (empty($expectedToken)) {
+            if (app()->isProduction()) {
+                Log::error("Meta webhook verification rejected: META_VERIFY_TOKEN is not configured in production.");
+                return null;
+            }
+            $expectedToken = 'vertex_meta_token_' . $business->id;
+        }
 
         if ($mode === 'subscribe' && !empty($token) && hash_equals((string) $expectedToken, (string) $token)) {
             Log::info("Meta webhook verified successfully for business {$business->id}");
