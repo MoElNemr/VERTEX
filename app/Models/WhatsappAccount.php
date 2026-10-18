@@ -22,4 +22,17 @@ class WhatsappAccount extends Model
     protected $casts = [
         'last_connected_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $account) {
+            \Illuminate\Support\Facades\Cache::forget("whatsapp_account_biz_{$account->business_id}");
+            \Illuminate\Support\Facades\Cache::forget("whatsapp_account_session_{$account->session_id}");
+        });
+
+        static::deleted(function (self $account) {
+            \Illuminate\Support\Facades\Cache::forget("whatsapp_account_biz_{$account->business_id}");
+            \Illuminate\Support\Facades\Cache::forget("whatsapp_account_session_{$account->session_id}");
+        });
+    }
 }

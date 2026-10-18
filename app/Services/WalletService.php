@@ -7,16 +7,18 @@ use App\Models\BulkMessageWallet;
 use App\Models\PaymentTransaction;
 use App\Models\SystemSetting;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class WalletService
 {
     /**
-     * Get predefined top-up packages.
+     * Get predefined top-up packages with caching.
      */
     public function getPackages(): array
     {
-        return [
+        return Cache::remember('wallet_topup_packages', 3600, function () {
+            return [
             [
                 'id' => 'starter',
                 'name' => 'باقة البداية (Starter)',
@@ -54,6 +56,7 @@ class WalletService
                 'badge' => 'أفضل قيمة',
             ],
         ];
+        });
     }
 
     /**
@@ -181,24 +184,26 @@ class WalletService
     }
 
     /**
-     * Get consolidated message pricing settings.
+     * Get consolidated message pricing settings with caching.
      */
     public function getMessagePricing(): array
     {
-        return [
-            'bulk' => [
-                'price' => $this->getBulkMessagePrice(),
-                'credit_cost' => $this->getBulkMessageCreditCost(),
-                'currency' => 'EGP',
-                'label' => 'رسائل الإرسال الجماعي (Bulk Sender)',
-            ],
-            'retargeting' => [
-                'price' => $this->getRetargetingMessagePrice(),
-                'credit_cost' => $this->getRetargetingMessageCreditCost(),
-                'currency' => 'EGP',
-                'label' => 'رسائل إعادة الاستهداف (Retargeting)',
-            ],
-        ];
+        return Cache::remember('system_message_pricing', 3600, function () {
+            return [
+                'bulk' => [
+                    'price' => $this->getBulkMessagePrice(),
+                    'credit_cost' => $this->getBulkMessageCreditCost(),
+                    'currency' => 'EGP',
+                    'label' => 'رسائل الإرسال الجماعي (Bulk Sender)',
+                ],
+                'retargeting' => [
+                    'price' => $this->getRetargetingMessagePrice(),
+                    'credit_cost' => $this->getRetargetingMessageCreditCost(),
+                    'currency' => 'EGP',
+                    'label' => 'رسائل إعادة الاستهداف (Retargeting)',
+                ],
+            ];
+        });
     }
 
     /**
