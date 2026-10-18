@@ -52,10 +52,12 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $targetTo = str_contains($recipient, '@') ? trim($recipient) : preg_replace('/[^0-9]/', '', $recipient);
 
         try {
-            $response = Http::timeout(8)->post("{$this->serviceUrl}/api/sessions/{$account->session_id}/messages", [
-                'to' => $targetTo,
-                'text' => $message->body,
-            ]);
+            $response = Http::timeout(8)
+                ->withHeaders(WhatsAppTokenService::getRequestHeaders())
+                ->post("{$this->serviceUrl}/api/sessions/{$account->session_id}/messages", [
+                    'to' => $targetTo,
+                    'text' => $message->body,
+                ]);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -291,7 +293,9 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $sessionId = 'session_' . $business->id;
 
         try {
-            $response = Http::timeout(8)->post("{$this->serviceUrl}/api/sessions/start", [
+            $response = Http::timeout(8)
+                ->withHeaders(WhatsAppTokenService::getRequestHeaders())
+                ->post("{$this->serviceUrl}/api/sessions/start", [
                 'business_id' => $business->id,
                 'session_id' => $sessionId,
                 'webhook_url' => route('webhooks.whatsapp', $business->id),
@@ -348,7 +352,9 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $cleanPhone = preg_replace('/[^0-9]/', '', $phoneNumber);
 
         try {
-            $response = Http::timeout(10)->post("{$this->serviceUrl}/api/sessions/pairing-code", [
+            $response = Http::timeout(10)
+                ->withHeaders(WhatsAppTokenService::getRequestHeaders())
+                ->post("{$this->serviceUrl}/api/sessions/pairing-code", [
                 'business_id' => $business->id,
                 'session_id' => $sessionId,
                 'phone_number' => $cleanPhone,
@@ -381,7 +387,9 @@ class WhatsAppChannelService implements ChannelServiceInterface
         if ($account) {
             $sessionId = $account->session_id ?: ('session_' . $business->id);
             try {
-                Http::timeout(5)->delete("{$this->serviceUrl}/api/sessions/{$sessionId}");
+                Http::timeout(5)
+                    ->withHeaders(WhatsAppTokenService::getRequestHeaders())
+                    ->delete("{$this->serviceUrl}/api/sessions/{$sessionId}");
             } catch (\Throwable $e) {
                 Log::warning("Failed to notify WhatsApp microservice of disconnect: {$e->getMessage()}");
             }

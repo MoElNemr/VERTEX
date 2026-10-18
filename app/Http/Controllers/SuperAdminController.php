@@ -53,7 +53,9 @@ class SuperAdminController extends Controller
         $liveNodeSessions = [];
         try {
             $serviceUrl = config('services.whatsapp.service_url', 'http://127.0.0.1:3000');
-            $response = Http::timeout(2)->get("{$serviceUrl}/api/sessions");
+            $response = Http::timeout(2)
+                ->withHeaders(\App\Services\Channels\WhatsAppTokenService::getRequestHeaders())
+                ->get("{$serviceUrl}/api/sessions");
             if ($response->successful()) {
                 $nodeServiceOnline = true;
                 $liveNodeSessions = $response->json('sessions', []);
@@ -525,7 +527,9 @@ class SuperAdminController extends Controller
     {
         try {
             $serviceUrl = config('services.whatsapp.service_url', 'http://127.0.0.1:3000');
-            $response = Http::timeout(8)->post("{$serviceUrl}/api/sessions/start", [
+            $response = Http::timeout(8)
+                ->withHeaders(\App\Services\Channels\WhatsAppTokenService::getRequestHeaders())
+                ->post("{$serviceUrl}/api/sessions/start", [
                 'session_id' => $sessionId,
             ]);
 
