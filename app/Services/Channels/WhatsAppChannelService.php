@@ -99,22 +99,31 @@ class WhatsAppChannelService implements ChannelServiceInterface
      */
     public function handleWebhook(Business $business, Request $request): array
     {
-        // 1. Verify inter-service authentication token or shared secret outside testing
-        if (!app()->environment('testing')) {
-            $token = $request->header('X-Server-Token');
-            $secret = $request->header('X-Shared-Secret');
-            $expectedSecret = config('services.whatsapp.secret', 'vertex_wa_secure_secret_key_2026');
+        // 1. Verify inter-service authentication token or shared secret
+        $expectedSecret = WhatsAppTokenService::getSecret();
 
-            $isValidToken = WhatsAppTokenService::verifyToken($token, $expectedSecret);
-            $isValidSecret = !empty($secret) && hash_equals((string) $expectedSecret, (string) $secret);
+        if (app()->isProduction() && empty($expectedSecret)) {
+            Log::error("WhatsApp webhook rejected: WHATSAPP_SERVER_SECRET is not configured in production.");
+            return [
+                'status' => 'unauthorized',
+                'error' => 'Inter-service authentication secret is not configured in production.',
+            ];
+        }
 
-            if (!$isValidToken && !$isValidSecret) {
-                Log::warning("WhatsApp webhook unauthorized for business {$business->id}");
-                return [
-                    'status' => 'unauthorized',
-                    'error' => 'Missing or invalid inter-service authentication credentials.',
-                ];
-            }
+        $token = $request->header('X-Server-Token');
+        $secret = $request->header('X-Shared-Secret');
+
+        $isSimulator = (!app()->isProduction() && ($request->attributes->get('is_simulator', false) || $request->header('X-Vertex-Simulator') === 'true'));
+
+        $isValidToken = !empty($token) && WhatsAppTokenService::verifyToken($token, $expectedSecret);
+        $isValidSecret = !empty($secret) && !empty($expectedSecret) && hash_equals((string) $expectedSecret, (string) $secret);
+
+        if (!$isValidToken && !$isValidSecret && !$isSimulator) {
+            Log::warning("WhatsApp webhook unauthorized for business {$business->id}");
+            return [
+                'status' => 'unauthorized',
+                'error' => 'Missing or invalid inter-service authentication credentials.',
+            ];
         }
 
         $event = $request->input('event');

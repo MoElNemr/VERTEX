@@ -21,6 +21,10 @@ class WhatsAppWebhookController extends Controller
     {
         $result = $this->whatsappService->handleWebhook($business, $request);
 
+        if (isset($result['status']) && $result['status'] === 'unauthorized') {
+            return response()->json($result, 401);
+        }
+
         return response()->json($result);
     }
 }

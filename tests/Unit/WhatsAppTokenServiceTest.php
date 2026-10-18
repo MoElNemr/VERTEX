@@ -36,4 +36,24 @@ class WhatsAppTokenServiceTest extends TestCase
         $token = WhatsAppTokenService::generateToken('correct_secret');
         $this->assertFalse(WhatsAppTokenService::verifyToken($token, 'wrong_secret'));
     }
+
+    public function test_throws_exception_in_production_when_secret_not_configured(): void
+    {
+        $this->app['env'] = 'production';
+        config(['services.whatsapp.secret' => null]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('WHATSAPP_SERVER_SECRET is required but not configured.');
+
+        WhatsAppTokenService::generateToken();
+    }
+
+    public function test_verify_token_fails_closed_in_production_when_secret_not_configured(): void
+    {
+        $this->app['env'] = 'production';
+        config(['services.whatsapp.secret' => null]);
+
+        $token = '1700000000.somevalidsignature';
+        $this->assertFalse(WhatsAppTokenService::verifyToken($token));
+    }
 }

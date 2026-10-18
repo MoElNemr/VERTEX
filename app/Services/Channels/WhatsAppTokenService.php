@@ -10,14 +10,41 @@ class WhatsAppTokenService
     public const CACHE_TTL_SECONDS = 270; // Refresh 30 seconds before expiry
 
     /**
+     * Resolve configured WhatsApp inter-service secret.
+     * In testing, fall back to a test-scoped key only if not explicitly set.
+     * In production, fail closed if unconfigured.
+     */
+    public static function getSecret(?string $overrideSecret = null): ?string
+    {
+        if ($overrideSecret !== null && $overrideSecret !== '') {
+            return $overrideSecret;
+        }
+
+        $secret = config('services.whatsapp.secret');
+        if (!empty($secret)) {
+            return $secret;
+        }
+
+        if (app()->environment('testing')) {
+            return 'test_scoped_wa_secret_key';
+        }
+
+        return null;
+    }
+
+    /**
      * Get or generate a valid 5-minute rotating token for inter-server communication.
      */
-    public static function getToken(): string
+    public static function getToken(?string $secret = null): string
     {
-        $secret = config('services.whatsapp.secret', 'vertex_wa_secure_secret_key_2026');
+        $resolvedSecret = self::getSecret($secret);
 
-        return Cache::remember('wa_server_token', self::CACHE_TTL_SECONDS, function () use ($secret) {
-            return self::generateToken($secret);
+        if (empty($resolvedSecret)) {
+            throw new \RuntimeException('WHATSAPP_SERVER_SECRET is required but not configured.');
+        }
+
+        return Cache::remember('wa_server_token', self::CACHE_TTL_SECONDS, function () use ($resolvedSecret) {
+            return self::generateToken($resolvedSecret);
         });
     }
 
@@ -26,9 +53,14 @@ class WhatsAppTokenService
      */
     public static function generateToken(?string $secret = null): string
     {
-        $secret = $secret ?: config('services.whatsapp.secret', 'vertex_wa_secure_secret_key_2026');
+        $resolvedSecret = self::getSecret($secret);
+
+        if (empty($resolvedSecret)) {
+            throw new \RuntimeException('WHATSAPP_SERVER_SECRET is required but not configured.');
+        }
+
         $timestamp = time();
-        $signature = hash_hmac('sha256', "{$timestamp}:{$secret}", $secret);
+        $signature = hash_hmac('sha256', "{$timestamp}:{$resolvedSecret}", $resolvedSecret);
 
         return "{$timestamp}.{$signature}";
     }
@@ -42,7 +74,11 @@ class WhatsAppTokenService
             return false;
         }
 
-        $secret = $secret ?: config('services.whatsapp.secret', 'vertex_wa_secure_secret_key_2026');
+        $resolvedSecret = self::getSecret($secret);
+        if (empty($resolvedSecret)) {
+            return false;
+        }
+
         [$timestampStr, $providedSignature] = explode('.', $token, 2);
 
         $timestamp = (int) $timestampStr;
@@ -55,7 +91,7 @@ class WhatsAppTokenService
             return false;
         }
 
-        $expectedSignature = hash_hmac('sha256', "{$timestamp}:{$secret}", $secret);
+        $expectedSignature = hash_hmac('sha256', "{$timestamp}:{$resolvedSecret}", $resolvedSecret);
 
         return hash_equals($expectedSignature, $providedSignature);
     }
@@ -66,13 +102,13 @@ class WhatsAppTokenService
     public static function getRequestHeaders(): array
     {
         $token = self::getToken();
-        $secret = config('services.whatsapp.secret', 'vertex_wa_secure_secret_key_2026');
+        $secret = self::getSecret();
 
         return [
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
             'X-Server-Token' => $token,
-            'X-Shared-Secret' => $secret,
+            'X-Shared-Secret' => $secret ?? '',
             'Authorization' => "Bearer {$token}",
         ];
     }

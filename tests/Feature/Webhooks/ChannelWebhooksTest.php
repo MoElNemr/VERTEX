@@ -11,6 +11,7 @@ use App\Models\Message;
 use App\Models\TelegramAccount;
 use App\Models\User;
 use App\Models\WhatsappAccount;
+use App\Services\Channels\WhatsAppTokenService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -195,6 +196,8 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_whatsapp_webhook_handles_connection_and_incoming_message(): void
     {
+        $headers = ['X-Server-Token' => WhatsAppTokenService::getToken()];
+
         // 1. Connection update
         $connPayload = [
             'event' => 'connection.update',
@@ -205,7 +208,7 @@ class ChannelWebhooksTest extends TestCase
             ],
         ];
 
-        $connResponse = $this->postJson(route('webhooks.whatsapp', $this->business->id), $connPayload);
+        $connResponse = $this->postJson(route('webhooks.whatsapp', $this->business->id), $connPayload, $headers);
         $connResponse->assertOk();
 
         $this->assertDatabaseHas('whatsapp_accounts', [
@@ -225,7 +228,7 @@ class ChannelWebhooksTest extends TestCase
             ],
         ];
 
-        $msgResponse = $this->postJson(route('webhooks.whatsapp', $this->business->id), $msgPayload);
+        $msgResponse = $this->postJson(route('webhooks.whatsapp', $this->business->id), $msgPayload, $headers);
         $msgResponse->assertOk();
 
         $this->assertDatabaseHas('contacts', [
@@ -240,6 +243,153 @@ class ChannelWebhooksTest extends TestCase
             'body' => 'عاوز أطلب أوردر جديد',
             'platform_message_id' => 'BAE5_MSG_12345',
         ]);
+    }
+
+    public function test_whatsapp_webhook_rejects_unauthenticated_requests(): void
+    {
+        $payload = [
+            'event' => 'connection.update',
+            'data' => [
+                'session_id' => 'session_' . $this->business->id,
+                'status' => 'connecting',
+            ],
+        ];
+
+        // Without X-Server-Token or X-Shared-Secret
+        $response = $this->postJson(route('webhooks.whatsapp', $this->business->id), $payload);
+        $response->assertStatus(401);
+        $response->assertJson(['status' => 'unauthorized']);
+    }
+
+    public function test_whatsapp_webhook_accepts_valid_shared_secret(): void
+    {
+        $payload = [
+            'event' => 'connection.update',
+            'data' => [
+                'session_id' => 'session_' . $this->business->id,
+                'status' => 'connected',
+                'phone_number' => '201011223344',
+            ],
+        ];
+
+        $secret = WhatsAppTokenService::getSecret();
+        $response = $this->postJson(route('webhooks.whatsapp', $this->business->id), $payload, [
+            'X-Shared-Secret' => $secret,
+        ]);
+
+        $response->assertOk();
+    }
+
+    public function test_whatsapp_webhook_fails_closed_in_production_if_secret_missing(): void
+    {
+        $this->app['env'] = 'production';
+        config(['services.whatsapp.secret' => null]);
+
+        $payload = ['event' => 'connection.update', 'data' => []];
+        $response = $this->postJson(route('webhooks.whatsapp', $this->business->id), $payload);
+
+        $response->assertStatus(401);
+    }
+
+    public function test_meta_webhook_rejects_missing_signature_when_app_secret_is_configured(): void
+    {
+        config(['services.meta.app_secret' => 'meta_test_secret_key_123']);
+
+        FacebookAccount::create([
+            'business_id' => $this->business->id,
+            'page_id' => '100200301',
+            'page_name' => 'Test Page',
+            'page_access_token' => 'EAATestToken',
+            'status' => 'connected',
+        ]);
+
+        $payload = [
+            'object' => 'page',
+            'entry' => [],
+        ];
+
+        // Post without X-Hub-Signature-256 header
+        $response = $this->postJson(route('webhooks.meta', $this->business->id), $payload);
+        $response->assertStatus(401);
+    }
+
+    public function test_meta_webhook_rejects_invalid_signature_when_app_secret_is_configured(): void
+    {
+        config(['services.meta.app_secret' => 'meta_test_secret_key_123']);
+
+        $payload = ['object' => 'page', 'entry' => []];
+
+        $response = $this->postJson(route('webhooks.meta', $this->business->id), $payload, [
+            'X-Hub-Signature-256' => 'sha256=invalid_hash_value',
+        ]);
+        $response->assertStatus(401);
+    }
+
+    public function test_meta_webhook_accepts_valid_signature_when_app_secret_is_configured(): void
+    {
+        $secret = 'meta_test_secret_key_123';
+        config(['services.meta.app_secret' => $secret]);
+
+        FacebookAccount::create([
+            'business_id' => $this->business->id,
+            'page_id' => '100200302',
+            'page_name' => 'Signed Page',
+            'page_access_token' => 'EAATestToken',
+            'status' => 'connected',
+        ]);
+
+        $payload = [
+            'object' => 'page',
+            'entry' => [
+                [
+                    'id' => '100200302',
+                    'time' => 1728000000000,
+                    'messaging' => [
+                        [
+                            'sender' => ['id' => 'psid_user_sig'],
+                            'recipient' => ['id' => '100200302'],
+                            'message' => [
+                                'mid' => 'mid.fb_signed_message',
+                                'text' => 'رسالة مؤكدة بالتوقيع الرقمي',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $jsonPayload = json_encode($payload);
+        $signature = 'sha256=' . hash_hmac('sha256', $jsonPayload, $secret);
+
+        $response = $this->call(
+            'POST',
+            route('webhooks.meta', $this->business->id),
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_HUB_SIGNATURE_256' => $signature,
+            ],
+            $jsonPayload
+        );
+
+        $response->assertOk();
+        $this->assertDatabaseHas('messages', [
+            'body' => 'رسالة مؤكدة بالتوقيع الرقمي',
+            'platform_message_id' => 'mid.fb_signed_message',
+        ]);
+    }
+
+    public function test_meta_webhook_fails_closed_in_production_if_app_secret_missing(): void
+    {
+        $this->app['env'] = 'production';
+        config(['services.meta.app_secret' => null]);
+
+        $payload = ['object' => 'page', 'entry' => []];
+        $response = $this->postJson(route('webhooks.meta', $this->business->id), $payload);
+
+        $response->assertStatus(401);
     }
 
     public function test_inbox_send_message_dispatches_outbound(): void

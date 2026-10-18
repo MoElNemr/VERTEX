@@ -330,7 +330,7 @@ class MetaChannelService implements ChannelServiceInterface
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
 
-        $expectedToken = config('services.meta.verify_token', 'vertex_meta_token_' . $business->id);
+        $expectedToken = config('services.meta.verify_token') ?: ('vertex_meta_token_' . $business->id);
 
         if ($mode === 'subscribe' && !empty($token) && hash_equals((string) $expectedToken, (string) $token)) {
             Log::info("Meta webhook verified successfully for business {$business->id}");
@@ -349,11 +349,29 @@ class MetaChannelService implements ChannelServiceInterface
      */
     public function handleWebhook(Business $business, Request $request): array
     {
-        // 1. Verify X-Hub-Signature-256 if Meta App Secret is configured
+        // 1. Verify X-Hub-Signature-256
         $appSecret = config('services.meta.app_secret');
-        $hubSignature = $request->header('X-Hub-Signature-256');
+        $isSimulator = (!app()->isProduction() && ($request->attributes->get('is_simulator', false) || $request->header('X-Vertex-Simulator') === 'true'));
 
-        if ($appSecret && $hubSignature) {
+        if (app()->isProduction() && empty($appSecret)) {
+            Log::error("Meta webhook rejected: META_APP_SECRET is not configured in production.");
+            return [
+                'status' => 'rejected',
+                'error' => 'Webhook security not configured in production.',
+            ];
+        }
+
+        if (!empty($appSecret) && !$isSimulator) {
+            $hubSignature = $request->header('X-Hub-Signature-256');
+
+            if (empty($hubSignature)) {
+                Log::warning("Meta webhook rejected: Missing X-Hub-Signature-256 header for business {$business->id}");
+                return [
+                    'status' => 'rejected',
+                    'error' => 'Missing webhook signature.',
+                ];
+            }
+
             $expectedSignature = 'sha256=' . hash_hmac('sha256', $request->getContent(), $appSecret);
             if (!hash_equals($expectedSignature, $hubSignature)) {
                 Log::warning("Meta webhook signature mismatch for business {$business->id}");

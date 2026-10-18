@@ -37,7 +37,13 @@ return [
 
     'whatsapp' => [
         'service_url' => env('WHATSAPP_SERVICE_URL', 'http://127.0.0.1:3000'),
-        'secret' => env('WHATSAPP_SERVER_SECRET', env('WHATSAPP_SECRET', 'vertex_wa_secure_secret_key_2026')),
+        'secret' => env('WHATSAPP_SERVER_SECRET', env('WHATSAPP_SECRET')),
+    ],
+
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'verify_token' => env('META_VERIFY_TOKEN'),
     ],
 
     'openai' => [

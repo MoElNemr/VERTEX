@@ -46,6 +46,7 @@ class WebhookSimulatorController extends Controller
             ],
         ]);
 
+        $fakeRequest->attributes->set('is_simulator', true);
         $result = $this->channelManager->telegram()->handleWebhook($business, $fakeRequest);
 
         return response()->json([
@@ -87,6 +88,7 @@ class WebhookSimulatorController extends Controller
             ],
         ]);
 
+        $fakeRequest->attributes->set('is_simulator', true);
         $result = $this->channelManager->meta()->handleWebhook($business, $fakeRequest);
 
         return response()->json([
@@ -137,6 +139,7 @@ class WebhookSimulatorController extends Controller
             ],
         ]);
 
+        $fakeRequest->attributes->set('is_simulator', true);
         $result = $this->channelManager->meta()->handleWebhook($business, $fakeRequest);
 
         return response()->json([
@@ -177,6 +180,7 @@ class WebhookSimulatorController extends Controller
             ],
         ]);
 
+        $fakeRequest->attributes->set('is_simulator', true);
         $result = $this->channelManager->meta()->handleWebhook($business, $fakeRequest);
 
         return response()->json([
@@ -226,6 +230,7 @@ class WebhookSimulatorController extends Controller
             ],
         ]);
 
+        $fakeRequest->attributes->set('is_simulator', true);
         $result = $this->channelManager->meta()->handleWebhook($business, $fakeRequest);
 
         return response()->json([
@@ -259,6 +264,7 @@ class WebhookSimulatorController extends Controller
             ],
         ]);
 
+        $fakeRequest->attributes->set('is_simulator', true);
         $result = $this->channelManager->whatsapp()->handleWebhook($business, $fakeRequest);
 
         return response()->json([

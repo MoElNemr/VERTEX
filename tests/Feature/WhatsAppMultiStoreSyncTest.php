@@ -8,6 +8,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use App\Models\WhatsappAccount;
+use App\Services\Channels\WhatsAppTokenService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -68,7 +69,9 @@ class WhatsAppMultiStoreSyncTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload);
+        $response = $this->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload, [
+            'X-Server-Token' => WhatsAppTokenService::getToken(),
+        ]);
         $response->assertStatus(200);
 
         // Assert message recorded in Store Alpha
@@ -132,7 +135,9 @@ class WhatsAppMultiStoreSyncTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload);
+        $response = $this->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload, [
+            'X-Server-Token' => WhatsAppTokenService::getToken(),
+        ]);
         $response->assertStatus(200);
 
         // Store Alpha

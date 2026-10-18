@@ -36,6 +36,10 @@ class MetaWebhookController extends Controller
     {
         $result = $this->metaService->handleWebhook($business, $request);
 
+        if (isset($result['status']) && $result['status'] === 'rejected') {
+            return response($result['error'] ?? 'Unauthorized', 401);
+        }
+
         if ($request->expectsJson()) {
             return response()->json($result);
         }
