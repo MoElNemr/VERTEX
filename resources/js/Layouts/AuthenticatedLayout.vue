@@ -279,7 +279,7 @@ watch(
                             <Send class="w-3.5 h-3.5 shrink-0 text-blue-400" />
                             <div class="flex items-center justify-between flex-1">
                                 <span>فيسبوك (Facebook)</span>
-                                <span class="text-[9px] font-mono px-1 rounded bg-blue-500/10 text-blue-400">CSV</span>
+                                <span class="text-[9px] font-mono px-1 rounded bg-blue-500/10 text-blue-400">ميتا</span>
                             </div>
                         </Link>
 
@@ -291,7 +291,7 @@ watch(
                             <Send class="w-3.5 h-3.5 shrink-0 text-pink-400" />
                             <div class="flex items-center justify-between flex-1">
                                 <span>إنستجرام (Instagram)</span>
-                                <span class="text-[9px] font-mono px-1 rounded bg-pink-500/10 text-pink-400">CSV</span>
+                                <span class="text-[9px] font-mono px-1 rounded bg-pink-500/10 text-pink-400">ميتا</span>
                             </div>
                         </Link>
 

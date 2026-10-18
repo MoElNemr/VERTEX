@@ -15,6 +15,7 @@ import {
     Trash2,
     RefreshCw,
     ShieldCheck,
+    ShieldAlert,
     Users,
     Clock,
     X,
@@ -41,6 +42,18 @@ const props = defineProps({
         type: Number,
         default: 0,
     },
+    active24hCount: {
+        type: Number,
+        default: 0,
+    },
+    optedInCount: {
+        type: Number,
+        default: 0,
+    },
+    totalContactsCount: {
+        type: Number,
+        default: 0,
+    },
     stats: {
         type: Object,
         default: () => ({
@@ -55,7 +68,7 @@ const fileInput = ref(null);
 const selectedFile = ref(null);
 const isUploading = ref(false);
 const csvData = ref(null);
-const audienceMode = ref('csv');
+const audienceMode = ref('existing_contacts');
 
 const campaignName = ref('');
 const messageText = ref('مرحباً {name}! تفضل أحدث العروض الحصرية لمتجرنا على إنستجرام.');
@@ -201,18 +214,24 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="مرسل إنستجرام الجماعي (Instagram Bulk Sender)" />
+    <Head title="مرسل إنستجرام المعتمد (Instagram Meta Sender)" />
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <Send class="w-5 h-5 text-pink-500" />
-                        <span>مرسل إنستجرام الجماعي (Instagram Bulk Sender)</span>
-                    </h2>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <Send class="w-5 h-5 text-pink-500" />
+                            <span>مرسل إنستجرام المعتمد (Instagram Meta Sender)</span>
+                        </h2>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <ShieldCheck class="w-3 h-3" />
+                            <span>نظام آمن 100% ضد الحظر</span>
+                        </span>
+                    </div>
                     <p class="text-xs text-slate-400 mt-1">
-                        إرسال رسائل خاصة جماعية لعملاء ومتابعي إنستجرام عبر المعرفات (IG Scoped IDs)
+                        إرسال رسائل خاصة آمنة للعملاء المؤهلين وفق سياسات ميتا الرسمية (نافذة الـ 24 ساعة + المشتركون في الإشعارات المتكررة) لمنع حظر الحساب نهائياً
                     </p>
                 </div>
 
@@ -273,7 +292,7 @@ onUnmounted(() => {
 
             <!-- 2. CAMPAIGN CREATOR -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- LEFT BOX: Target Audience & CSV Upload (6 cols) -->
+                <!-- LEFT BOX: Target Audience & Compliant Contacts (6 cols) -->
                 <div class="lg:col-span-6 bg-slate-900/85 border border-slate-800/90 rounded-xl p-5 space-y-4">
                     <div class="border-b border-slate-800/80 pb-3 flex items-center justify-between">
                         <div>
@@ -282,11 +301,12 @@ onUnmounted(() => {
                                 <span>1. تحديد الجمهور المستهدف</span>
                             </h3>
                             <p class="text-[11px] text-slate-400 mt-0.5">
-                                رفع ملف CSV بمعرفات حسابات إنستجرام (IGSIDs)
+                                إرسال شرعي معتمد من ميتا لحماية حسابك من الحظر نهائياً
                             </p>
                         </div>
 
                         <a
+                            v-if="audienceMode === 'csv'"
                             :href="route('instagram-sender.template')"
                             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
                         >
@@ -299,24 +319,94 @@ onUnmounted(() => {
                     <div class="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
                         <button
                             type="button"
-                            @click="audienceMode = 'csv'"
-                            class="flex-1 py-1.5 px-3 rounded font-bold transition text-center"
-                            :class="audienceMode === 'csv' ? 'bg-pink-600 text-white' : 'text-slate-400 hover:text-white'"
+                            @click="audienceMode = 'existing_contacts'"
+                            class="flex-1 py-2 px-3 rounded font-bold transition text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                            :class="audienceMode === 'existing_contacts' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'"
                         >
-                            رفع ملف CSV
+                            <ShieldCheck class="w-3.5 h-3.5 text-emerald-400" />
+                            <span>العملاء المؤهلون بالمتجر ({{ existingContactsCount }})</span>
                         </button>
                         <button
                             type="button"
-                            @click="audienceMode = 'existing_contacts'"
-                            class="flex-1 py-1.5 px-3 rounded font-bold transition text-center"
-                            :class="audienceMode === 'existing_contacts' ? 'bg-pink-600 text-white' : 'text-slate-400 hover:text-white'"
+                            @click="audienceMode = 'csv'"
+                            class="flex-1 py-2 px-3 rounded font-bold transition text-center text-slate-400 hover:text-white cursor-pointer"
+                            :class="audienceMode === 'csv' ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-white'"
                         >
-                            عملاء إنستجرام بالمتجر ({{ existingContactsCount }})
+                            <span>رفع ملف CSV خارجي</span>
                         </button>
                     </div>
 
-                    <!-- CSV Input Mode -->
-                    <div v-if="audienceMode === 'csv'" class="space-y-3">
+                    <!-- Mode A: Meta Compliant Existing Contacts (PRIMARY) -->
+                    <div v-if="audienceMode === 'existing_contacts'" class="space-y-3">
+                        <div class="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        <ShieldCheck class="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h4 class="text-xs font-bold text-white">الجمهور المؤهل للإرسال المباشر</h4>
+                                        <p class="text-[10px] text-slate-400">متوافق 100% مع شروط وسياسات منصة إنستجرام وميتا</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    آمن 100%
+                                </span>
+                            </div>
+
+                            <!-- Count Display -->
+                            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block font-sans">إجمالي العملاء المتاح مراسلتهم:</span>
+                                    <span class="text-2xl font-black font-mono text-white tracking-tight">{{ existingContactsCount }}</span>
+                                    <span class="text-xs text-slate-400 ms-1.5">عميل</span>
+                                </div>
+                                <div class="text-end text-[11px] space-y-1">
+                                    <div class="flex items-center gap-1.5 text-emerald-400 font-mono">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        <span>{{ active24hCount }} نشط (24 ساعة)</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-amber-400 font-mono">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                        <span>{{ optedInCount }} وافق على الإشعارات</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Anti-Ban Rule explanation -->
+                            <div class="text-[11px] text-slate-400 space-y-1.5 bg-slate-900/60 p-3 rounded-lg border border-slate-800/80">
+                                <div class="flex items-start gap-1.5 text-slate-300 font-medium">
+                                    <ShieldCheck class="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                                    <span>ضمان حماية الحساب من الحظر (Anti-Ban Guarantee):</span>
+                                </div>
+                                <p class="text-[10px] text-slate-400 leading-relaxed ps-5">
+                                    إنستجرام يمنع الرسائل الباردة العشوائية. نظامنا يرسل فقط لمن تواصل معك في الإنبوكس خلال آخر 24 ساعة، أو من وافق صراحةً على تلقي إشعارات العروض المتكررة (Recurring Notifications).
+                                </p>
+                            </div>
+
+                            <!-- Tips to grow audience -->
+                            <div v-if="existingContactsCount === 0" class="p-3 rounded-lg bg-pink-950/30 border border-pink-500/20 space-y-1.5">
+                                <span class="text-xs font-bold text-pink-300 block">💡 كيف تزيد عدد العملاء المؤهلين بدون أي حظر؟</span>
+                                <ul class="text-[10px] text-slate-300 space-y-1 list-disc list-inside ps-1 leading-relaxed">
+                                    <li><strong>التعليقات التلقائية (Comment-to-DM):</strong> انشر بوست أو ريلز واطلب تعليقاً ليرسل لهم النظام رسالة بالخاص فوراً.</li>
+                                    <li><strong>طلب الموافقة التلقائي:</strong> يرسل نظامنا بطاقة ميتا الرسمية للموافقة على الإشعارات المتكررة لكل من يراسل الحساب.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode B: CSV File Upload (WITH STRICT POLICY WARNING) -->
+                    <div v-else class="space-y-3">
+                        <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-xs text-amber-300 space-y-1">
+                            <div class="flex items-center gap-1.5 font-bold">
+                                <ShieldAlert class="w-4 h-4 text-amber-400 shrink-0" />
+                                <span>تنبيه هام لسياسات ميتا وإنستجرام:</span>
+                            </div>
+                            <p class="text-[10px] text-amber-200/90 leading-relaxed">
+                                إنستجرام لا يقبل أرقام الهواتف أو روابط الحسابات العادية بالإنبوكس. يجب أن يحتوي الملف حصراً على معرّفات (IGSIDs) سابقة لحسابك. للإرسال الآمن المضمون، استخدم تبويب <strong>العملاء المؤهلون بالمتجر</strong>.
+                            </p>
+                        </div>
+
                         <input
                             ref="fileInput"
                             type="file"
@@ -331,7 +421,7 @@ onUnmounted(() => {
                         >
                             <Upload class="w-8 h-8 text-slate-500 group-hover:text-pink-400 mx-auto mb-2 transition" />
                             <p class="text-xs font-bold text-slate-200">
-                                {{ selectedFile ? selectedFile.name : 'اضغط لاختيار ملف CSV بمعرفات حسابات إنستجرام' }}
+                                {{ selectedFile ? selectedFile.name : 'اضغط لاختيار ملف CSV بمعرفات حسابات إنستجرام (IGSIDs)' }}
                             </p>
                             <p class="text-[11px] text-slate-500 mt-1">يجب أن يحتوي الملف على عمود igsid وعمود name (اختياري)</p>
                         </div>
@@ -401,14 +491,6 @@ onUnmounted(() => {
                                 </table>
                             </div>
                         </div>
-                    </div>
-
-                    <div v-else class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-center space-y-2">
-                        <Users class="w-8 h-8 text-pink-400 mx-auto" />
-                        <h4 class="text-xs font-bold text-white">إرسال لجميع جهات اتصال إنستجرام</h4>
-                        <p class="text-[11px] text-slate-400">
-                            سيتم إرسال الحملة إلى {{ existingContactsCount }} عميل مسجل بإنستجرام.
-                        </p>
                     </div>
                 </div>
 

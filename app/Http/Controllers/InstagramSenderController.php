@@ -84,6 +84,24 @@ class InstagramSenderController extends Controller
             })
             ->count();
 
+        $active24hCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->where('platform', 'instagram')
+            ->whereHas('conversations', fn($convQ) => $convQ->where('last_message_at', '>=', now()->subHours(24)))
+            ->count();
+
+        $optedInCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->where('platform', 'instagram')
+            ->whereNotNull('notification_token')
+            ->where(fn($expQ) => $expQ->whereNull('token_expires_at')->orWhere('token_expires_at', '>', now()))
+            ->count();
+
+        $totalContactsCount = Contact::withoutGlobalScopes()
+            ->where('business_id', $business->id)
+            ->where('platform', 'instagram')
+            ->count();
+
         return Inertia::render('InstagramSender/Index', [
             'business' => $business->only(['id', 'name']),
             'instagramAccount' => $instagramAccount ? [
@@ -93,6 +111,9 @@ class InstagramSenderController extends Controller
             ] : null,
             'campaigns' => $campaigns,
             'existingContactsCount' => $existingContactsCount,
+            'active24hCount' => $active24hCount,
+            'optedInCount' => $optedInCount,
+            'totalContactsCount' => $totalContactsCount,
             'stats' => [
                 'total_campaigns' => $totalCampaigns,
                 'active_campaigns' => $activeCampaigns,

@@ -16,6 +16,8 @@ import {
     Key,
     ShieldCheck,
     Layers,
+    AlertTriangle,
+    Zap,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -74,6 +76,7 @@ const metaVerifyToken = 'vertex_secret_token';
 
 const fbPermissions = 'pages_show_list, pages_read_engagement, pages_manage_metadata, pages_messaging, pages_manage_posts';
 const igPermissions = 'instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_manage_metadata';
+const igQuery = 'me?fields=instagram_business_account{id,username}';
 
 const closeModal = () => {
     emit('close');
@@ -183,9 +186,9 @@ const closeModal = () => {
                     <div class="p-4 rounded-xl bg-blue-950/30 border border-blue-800/40 text-blue-200 flex items-start gap-3">
                         <Info class="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                         <div class="text-xs space-y-1">
-                            <p class="font-bold">ما تحتاجه لربط صفحة فيسبوك:</p>
+                            <p class="font-bold">ما تحتاجه لربط صفحة فيسبوك في فيرتكس:</p>
                             <p class="text-blue-300/90 leading-relaxed">
-                                تحتاج إلى شيئين أساسيين: <span class="text-white font-mono font-bold">Page ID</span> (معرف الصفحة) و <span class="text-white font-mono font-bold">Page Access Token</span> (رمز الوصول مع صلاحيات المحادثات والمنشورات).
+                                تحتاج إلى معلومتين أساسيتين: <span class="text-white font-mono font-bold">Page ID</span> (معرف الصفحة) و <span class="text-white font-mono font-bold">Page Access Token</span> (رمز وصول الصفحة مع صلاحيات الرسائل والمحادثات).
                             </p>
                         </div>
                     </div>
@@ -197,7 +200,7 @@ const closeModal = () => {
                             <h3 class="font-bold text-white text-sm">الحصول على معرف الصفحة (Page ID)</h3>
                         </div>
                         <p class="text-xs text-slate-400 leading-relaxed">
-                            افتح صفحة فيسبوك الخاصة بمتجرك، ثم اضغط على قسم <span class="text-slate-200 font-bold">حول (About)</span> &gt; <span class="text-slate-200 font-bold">شفافية الصفحة (Page Transparency)</span>، أو من خلال إعدادات الصفحة، ستجد معرف الصفحة المكون من أرقام (مثل: <code class="text-blue-400 font-mono">104523984578</code>).
+                            افتح صفحة فيسبوك الخاصة بك &gt; ادخل قسم <span class="text-slate-200 font-bold">حول (About)</span> &gt; <span class="text-slate-200 font-bold">شفافية الصفحة (Page Transparency)</span>، أو من خلال إعدادات الأعمال، ستجد معرّف الصفحة المكون من أرقام (مثال: <code class="text-blue-400 font-mono">104523984578</code>).
                         </p>
                         <a
                             href="https://business.facebook.com/latest/settings/pages"
@@ -210,28 +213,91 @@ const closeModal = () => {
                     </div>
 
                     <!-- Step 2: Access Token -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">2</span>
-                            <h3 class="font-bold text-white text-sm">إنشاء رمز الوصول (Page Access Token)</h3>
+                            <h3 class="font-bold text-white text-sm">إنشاء رمز وصول الصفحة (Page Access Token)</h3>
                         </div>
 
-                        <!-- System User Recommendation -->
-                        <div class="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-800/40 text-emerald-300 text-xs space-y-1.5">
-                            <div class="flex items-center gap-1.5 font-bold">
-                                <ShieldCheck class="w-4 h-4 text-emerald-400" />
-                                <span>الطريقة المستقرة والموصى بها: رمز مستخدم النظام الدائم (System User Token)</span>
+                        <!-- System User Add Button Disabled Diagnostic Notice -->
+                        <div class="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs space-y-2">
+                            <div class="flex items-start gap-2 font-bold text-amber-300">
+                                <AlertTriangle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                <span>تنبيه هام بخصوص زر (+ Add) في مستخدمو النظام (System Users):</span>
                             </div>
-                            <ol class="list-decimal list-inside space-y-1 text-slate-300 text-[11px] leading-relaxed">
-                                <li>افتح <a href="https://business.facebook.com/settings/system-users" target="_blank" class="text-emerald-400 underline font-bold">إعدادات الأعمال &gt; مستخدمو النظام (System Users)</a>.</li>
-                                <li>أنشئ مستخدم نظام جديد بدور <span class="font-bold text-white">مسؤول (Admin)</span>.</li>
-                                <li>اضغط على <span class="font-bold text-white">إضافة أصول (Add Assets)</span>، اختر صفحة الفيسبوك، وفعل خيار <span class="font-bold text-white">التحكم الكامل (Full Control)</span>.</li>
-                                <li>اضغط على <span class="font-bold text-white">إنشاء رمز جديد (Generate New Token)</span>، واختر تطبيقك ثم حدد انتهاء الصلاحية إلى <span class="font-bold text-emerald-400">Never (دائم بدون انتهاء)</span>.</li>
-                                <li>حدد الصلاحيات المطلوبة بالأسفل ثم انسخ التوكن الناتج.</li>
+                            <p class="text-amber-200/90 leading-relaxed text-[11px]">
+                                إذا دخلت إلى صفحة مستخدمو النظام ووجدت زر <span class="font-bold text-white bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">+ Add</span> باللون الرمادي غير مفعل وتظهر رسالة:
+                                <br />
+                                <span class="font-mono text-amber-300">"In order to add a system user, an app must be part of this business portfolio"</span>
+                                <br />
+                                فهذا يعني أن محفظة أعمالك في ميتا لا تحتوي على تطبيق (App) مربوط بعد. وفرنا لك خيارين بالأسفل: <strong class="text-white">الطريقة الأولى (أسرع في دقيقة واحدة وبدون إنشاء تطبيق)</strong>، أو <strong class="text-white">الطريقة الثانية (طريقة فك قفل زر Add وإنشاء مستخدم نظام)</strong>.
+                            </p>
+                        </div>
+
+                        <!-- METHOD 1: Graph API Explorer -->
+                        <div class="p-4 rounded-xl bg-blue-950/20 border border-blue-800/40 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2 text-xs font-bold text-blue-300">
+                                    <Zap class="w-4 h-4 text-amber-400" />
+                                    <span>الطريقة الأولى (الأسهل والأسرع - دقيقة واحدة بدون تطبيق): عبر Graph API Explorer</span>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">موصى به للمتاجر</span>
+                            </div>
+                            <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
+                                <li>
+                                    افتح أداة
+                                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
+                                        <span>Meta Graph API Explorer</span>
+                                        <ExternalLink class="w-3 h-3" />
+                                    </a>
+                                    (سجّل الدخول بحسابك على فيسبوك).
+                                </li>
+                                <li>
+                                    في الجزء العلوي الأيمن، في خانة <span class="text-white font-bold">User or Page</span>، اضغط واختر <span class="text-blue-300 font-bold">صفحة الفيسبوك الخاصة بك</span> (وليس User Token).
+                                </li>
+                                <li>
+                                    في قسم <span class="text-white font-bold">Permissions</span>، اضغط <span class="text-slate-200">Add a Permission</span> وأضف الصلاحيات الموضحة بالأسفل (أهمها: <code class="text-blue-400">pages_messaging</code>).
+                                </li>
+                                <li>
+                                    اضغط على الزر الأزرق <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span> ووافق على الصلاحيات، وانسخ التوكن الظاهر في خانة Access Token.
+                                </li>
+                                <li>
+                                    <span class="text-amber-300 font-bold">تمديد التوكن ليصبح دائماً (Never Expires):</span>
+                                    افتح
+                                    <a href="https://developers.facebook.com/tools/debug/accesstoken/" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
+                                        <span>أداة Access Token Debugger</span>
+                                        <ExternalLink class="w-3 h-3" />
+                                    </a>
+                                    ثم الصق التوكن واضغط <span class="text-white font-bold">Debug</span>، وانزل لأسفل واضغط <span class="text-emerald-400 font-bold">Extend Access Token</span> للحصول على توكن دائم لا ينتهي.
+                                </li>
                             </ol>
                         </div>
 
-                        <!-- Required Permissions Box -->
+                        <!-- METHOD 2: System User -->
+                        <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+                            <div class="flex items-center gap-2 text-xs font-bold text-slate-200">
+                                <ShieldCheck class="w-4 h-4 text-emerald-400" />
+                                <span>الطريقة الثانية: مستخدم النظام الدائم (System User Token)</span>
+                            </div>
+
+                            <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
+                                <p class="font-bold text-emerald-400">خطوة فك قفل زر (+ Add) المعطل:</p>
+                                <ol class="list-decimal list-inside space-y-1 text-slate-400">
+                                    <li>افتح <a href="https://business.facebook.com/latest/settings/apps" target="_blank" class="text-blue-400 underline font-bold">إعدادات الأعمال &gt; الحسابات &gt; التطبيقات (Apps)</a>.</li>
+                                    <li>اضغط على <span class="text-white font-bold">إضافة (Add)</span> &gt; <span class="text-white font-bold">ربط معرّف تطبيق (Connect an App ID)</span>، واكتب معرّف تطبيقك (إذا لم يكن لديك تطبيق، يمكنك إنشاء تطبيق مجاني بنوع Business خلال دقيقة عبر <a href="https://developers.facebook.com/apps" target="_blank" class="text-blue-400 underline font-bold">Meta Developers</a>).</li>
+                                    <li>بمجرد ربط التطبيق، سيتفعل زر <span class="text-white font-bold">+ Add</span> في صفحة مستخدمو النظام فوراً.</li>
+                                </ol>
+                            </div>
+
+                            <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                                <li>افتح <a href="https://business.facebook.com/settings/system-users" target="_blank" class="text-emerald-400 underline font-bold">مستخدمو النظام (System Users)</a> واضغط <span class="text-white font-bold">+ Add</span>.</li>
+                                <li>اكتب اسماً للمستخدم (مثال: <code class="text-slate-300">vertex_bot</code>) واختر الدور <span class="text-white font-bold">مسؤول (Admin)</span>.</li>
+                                <li>اضغط على <span class="text-white font-bold">إضافة أصول (Add Assets)</span>، اختر صفحة الفيسبوك، وفعّل خيار <span class="text-white font-bold">التحكم الكامل (Full Control)</span>.</li>
+                                <li>اضغط على <span class="text-white font-bold">إنشاء رمز جديد (Generate New Token)</span>، اختر تطبيقك وحدد الصلاحية <span class="text-emerald-400 font-bold">Never (دائم بدون انتهاء)</span>، واختر الصلاحيات وانسخ التوكن.</li>
+                            </ol>
+                        </div>
+
+                        <!-- Permissions Box -->
                         <div class="space-y-1.5">
                             <div class="flex items-center justify-between">
                                 <label class="text-[11px] font-bold text-slate-300">الصلاحيات المطلوبة للتوكن (Permissions):</label>
@@ -249,23 +315,9 @@ const closeModal = () => {
                                 {{ fbPermissions }}
                             </div>
                         </div>
-
-                        <!-- Alternative Quick Way -->
-                        <div class="pt-1">
-                            <span class="text-xs text-slate-400 font-bold block mb-1">أو للتجربة السريعة عبر Graph API Explorer:</span>
-                            <a
-                                href="https://developers.facebook.com/tools/explorer/"
-                                target="_blank"
-                                class="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-bold"
-                            >
-                                <span>فتح أداة Meta Graph API Explorer</span>
-                                <ExternalLink class="w-3.5 h-3.5" />
-                            </a>
-                            <p class="text-[11px] text-slate-500 mt-0.5">اختر تطبيقك ومن قائمة "User or Page" اختر صفحتك وفعّل الصلاحيات المذكورة ثم اضغط Generate Token.</p>
-                        </div>
                     </div>
 
-                    <!-- Step 3: Webhook info (Optional Custom App) -->
+                    <!-- Step 3: Webhook info -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">3</span>
@@ -325,7 +377,7 @@ const closeModal = () => {
                         <div class="text-xs space-y-1">
                             <p class="font-bold">شروط ربط إنستجرام بنجاح:</p>
                             <p class="text-pink-300/90 leading-relaxed">
-                                يتطلب إنستجرام أن يكون الحساب <span class="text-white font-bold">حساب أعمال (Business Account)</span> ومرتبطاً بصفحة فيسبوك داخل Meta Business Suite، بالإضافة إلى تفعيل ميزة السماح بالوصول للرسائل.
+                                يتطلب إنستجرام أن يكون الحساب <span class="text-white font-bold">حساب أعمال (Business Account)</span> ومرتبطاً بنفس صفحة الفيسبوك داخل Meta Business Suite، بالإضافة إلى تفعيل ميزة السماح بالوصول للرسائل من تطبيق إنستجرام على الهاتف.
                             </p>
                         </div>
                     </div>
@@ -334,13 +386,13 @@ const closeModal = () => {
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">1</span>
-                            <h3 class="font-bold text-white text-sm">إعداد الحساب في تطبيق إنستجرام على الهاتف</h3>
+                            <h3 class="font-bold text-white text-sm">إعداد الحساب في تطبيق إنستجرام على الهاتف (إلزامي)</h3>
                         </div>
                         <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                            <li>افتح تطبيق إنستجرام &gt; الإعدادات والخصوصية &gt; نوع الحساب &gt; قم بالتبديل إلى <span class="text-white font-bold">حساب احترافي / تجاري (Professional/Business)</span>.</li>
+                            <li>افتح تطبيق إنستجرام &gt; الإعدادات والخصوصية &gt; نوع الحساب والأدوات &gt; قم بالتبديل إلى <span class="text-white font-bold">حساب احترافي / تجاري (Professional/Business)</span>.</li>
                             <li>ادخل إلى <span class="text-white font-bold">الرسائل والردود على القصص (Messages and story replies)</span>.</li>
                             <li>اختر <span class="text-white font-bold">أدوات التحكم في الرسائل (Message controls)</span>.</li>
-                            <li>تأكد من تفعيل زر <span class="text-pink-400 font-bold">السماح بالوصول إلى الرسائل (Allow access to messages)</span> تحت المتصلين أو التطبيقات المرتبطة.</li>
+                            <li>تأكد من تفعيل زر <span class="text-pink-400 font-bold">السماح بالوصول إلى الرسائل (Allow access to messages)</span> تحت الأدوات المتصلة، حتى يستطيع فيرتكس استقبال والرد على الرسائل.</li>
                         </ol>
                     </div>
 
@@ -351,7 +403,7 @@ const closeModal = () => {
                             <h3 class="font-bold text-white text-sm">ربط حساب إنستجرام بصفحة فيسبوك</h3>
                         </div>
                         <p class="text-xs text-slate-400 leading-relaxed">
-                            يجب أن يكون حساب إنستجرام مربوطاً بنفس صفحة الفيسبوك داخل إدارة الأعمال لكي تسمح Meta بالوصول إلى الـ Graph API.
+                            يجب أن يكون حساب إنستجرام مربوطاً بصفحة الفيسبوك داخل Meta Business Suite حتى تمنح Meta الصلاحيات للتطبيقات:
                         </p>
                         <a
                             href="https://business.facebook.com/latest/settings/instagram_account"
@@ -361,28 +413,67 @@ const closeModal = () => {
                             <span>فتح حسابات إنستجرام في Meta Business Suite</span>
                             <ExternalLink class="w-3.5 h-3.5" />
                         </a>
+                        <p class="text-[11px] text-slate-500">إذا لم تجد الحساب مربوطاً، اضغط "إضافة (Add)" وسجل دخول بحساب إنستجرام لربطه بصفحتك.</p>
                     </div>
 
-                    <!-- Step 3: Instagram Business Account ID & Access Token -->
+                    <!-- Step 3: Instagram Business Account ID -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">3</span>
-                            <h3 class="font-bold text-white text-sm">معرف حساب إنستجرام للأعمال والتوكن</h3>
+                            <h3 class="font-bold text-white text-sm">الحصول على معرف حساب إنستجرام للأعمال (Account ID)</h3>
                         </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            معرف حساب إنستجرام للأعمال هو رقم مكون من 15 إلى 17 خانة. يمكنك الحصول عليه بإحدى طريقتين:
+                        </p>
 
-                        <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
-                            <p>
-                                <span class="text-white font-bold">1. Instagram Business Account ID:</span> ستجده في صفحة تفاصيل حساب إنستجرام في Meta Business Suite، أو عبر أداة Graph API من خلال الاستعلام عن <code class="text-pink-400">me/accounts?fields=instagram_business_account</code>.
-                            </p>
-                            <p>
-                                <span class="text-white font-bold">2. Instagram Access Token:</span> يمكنك استخدام نفس الـ <span class="text-emerald-400 font-bold">System User Token</span> الخاص بصفحة فيسبوك المربوطة، مع التأكد من تضمين الصلاحيات التالية:
-                            </p>
+                        <div class="space-y-3">
+                            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-1">
+                                <span class="font-bold text-white">الطريقة الأولى (مباشرة من Meta Business Suite):</span>
+                                <p class="text-slate-400 text-[11px]">
+                                    افتح رابط
+                                    <a href="https://business.facebook.com/latest/settings/instagram_account" target="_blank" class="text-pink-400 underline font-bold">حسابات إنستجرام</a>،
+                                    واضغط على اسم حسابك، ستجد رقم المعرّف (ID) مكتوباً أسفل اسم الحساب مباشرة (مثال: <code class="text-pink-400 font-mono">17841400123456789</code>).
+                                </p>
+                            </div>
+
+                            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-white">الطريقة الثانية (عبر أداة Graph API Explorer):</span>
+                                    <button
+                                        type="button"
+                                        @click="copyToClipboard(igQuery, 'ig_query')"
+                                        class="inline-flex items-center gap-1 text-[11px] font-bold text-pink-400 hover:text-pink-300 transition"
+                                    >
+                                        <Check v-if="copiedKey === 'ig_query'" class="w-3.5 h-3.5 text-emerald-400" />
+                                        <Copy v-else class="w-3.5 h-3.5" />
+                                        <span>{{ copiedKey === 'ig_query' ? 'تم النسخ' : 'نسخ الاستعلام' }}</span>
+                                    </button>
+                                </div>
+                                <p class="text-slate-400 text-[11px]">
+                                    افتح أداة <a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-pink-400 underline font-bold">Graph API Explorer</a>، اختر صفحتك، واكتب هذا الاستعلام ثم اضغط Submit:
+                                </p>
+                                <div class="p-2 rounded bg-slate-950 font-mono text-[11px] text-pink-300 select-all">
+                                    {{ igQuery }}
+                                </div>
+                                <p class="text-[11px] text-slate-500">سيظهر لك الـ id التابع لحساب إنستجرام للأعمال داخل استجابة الـ API فوراً.</p>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Step 4: Access Token -->
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">4</span>
+                            <h3 class="font-bold text-white text-sm">رمز وصول إنستجرام (Instagram Access Token)</h3>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            رمز وصول إنستجرام هو <span class="text-white font-bold">نفس رمز وصول صفحة الفيسبوك (Page Access Token)</span> المربوطة بحساب إنستجرام (الذي تم استخراجه في خطوة فيسبوك أعلاه سواء عبر Graph API Explorer أو System User)، مع التأكد من تضمين صلاحيات إنستجرام التالية:
+                        </p>
 
                         <!-- Required Permissions Box -->
                         <div class="space-y-1.5 pt-1">
                             <div class="flex items-center justify-between">
-                                <label class="text-[11px] font-bold text-slate-300">صلاحيات إنستجرام المطلوبة:</label>
+                                <label class="text-[11px] font-bold text-slate-300">صلاحيات إنستجرام المطلوبة للتوكن:</label>
                                 <button
                                     type="button"
                                     @click="copyToClipboard(igPermissions, 'ig_perm')"
@@ -398,8 +489,9 @@ const closeModal = () => {
                             </div>
                         </div>
 
-                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
-                            💡 بعد وضع المعرف والتوكن في بطاقة إنستجرام والضغط على زر الربط، سيقوم فيرتكس بفحص المعرف وجلب اسم المستخدم وتفعيل الرد الآلي فوراً.
+                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
+                            <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <span>بعد وضع المعرف والتوكن في بطاقة إنستجرام والضغط على زر الربط، سيقوم فيرتكس بفحص المعرف وجلب اسم الحساب وتفعيل المحادثات والرد الآلي فوراً.</span>
                         </div>
                     </div>
                 </div>
