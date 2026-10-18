@@ -1,58 +1,118 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# VERTEX: Customer Conversation & Retention Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+VERTEX is a customer conversation, retention, and multichannel messaging platform engineered for growing commerce teams and service businesses. It consolidates customer conversations across WhatsApp, Facebook Messenger, Instagram, and Telegram into a unified team inbox with order context, AI-assisted workflows, permission-based marketing campaigns, and transparent usage billing.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 1. Architectural Overview
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+VERTEX follows a **Modular Monolith** architecture with a specialized provider adapter boundary:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```text
+Browser (Vue 3 + Inertia.js)
+        │ HTTPS / Session Auth
+        ▼
+Laravel 13 Application (System of Record) ───── PostgreSQL / Relational DB
+   │     │     │                                       │
+   │     │     └─ Redis (Queue, Cache, Locks)          ├─ Webhook Receipts & Deduplication
+   │     └─ Laravel Reverb (Realtime Events)           ├─ Immutable Usage Ledger
+   ├─ Meta Channel Service (Graph API + Signatures)    ├─ Audit Events Log
+   ├─ Telegram Channel Service (Bot API)               ├─ Consents & Suppressions
+   ├─ Fawry Payment Service (Signed IPN)               └─ Platform Admins (Dedicated Guard)
+   └─ Private Signed API ─ Node.js WhatsApp Adapter (Baileys Service)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### Core Tenancy & Identity Design
+- **Platform Operators (`admin` guard):** Stored in `platform_admins`. Isolated from customer accounts and tenant metrics. Roles: `owner`, `support`, `finance`, `operations`.
+- **Tenant Accounts (`web` guard):** Stored in `users` with multi-business ownership (`businesses`, `team_members`).
+- **Domain Guardrails:**
+  - `EnsureBusinessAccess`: Enforces tenant-boundary authorization on all channel, AI, and inbox routes.
+  - `WebhookReceipt`: Idempotent deduplication for Meta, Telegram, WhatsApp, and Fawry incoming webhooks.
+  - `UsageLedger`: Immutable double-entry style ledger tracking all wallet credits, debits, adjustments, and campaign consumption.
+  - `Consent` & `SuppressionEntry`: Enforces opt-in verification and Do-Not-Contact lists across marketing campaigns.
+  - `AuditEvent`: Append-only security audit log for admin actions, tenant impersonation, and balance adjustments.
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 2. Prerequisites & Environment Setup
 
-## Code of Conduct
+### Prerequisites
+- **PHP:** 8.2 or higher (with `pdo`, `mbstring`, `openssl`, `curl`, `json` extensions)
+- **Composer:** 2.x
+- **Node.js:** 18.x or 20.x LTS with NPM
+- **Database:** PostgreSQL (recommended for production) or MySQL / SQLite (for local dev)
+- **Redis:** Recommended for queues and locks
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 1. Backend Setup (Laravel)
+```bash
+cd vertex
 
-## Security Vulnerabilities
+# Install PHP dependencies
+composer install
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Copy environment template
+cp .env.example .env
 
-## License
+# Generate application key
+php artisan key:generate
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Run migrations and seed clean data
+php artisan migrate --seed
+```
+
+### 2. WhatsApp Adapter Setup (Node.js Service)
+```bash
+cd ../JS-server
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+# Set SHARED_SECRET matching vertex .env (WHATSAPP_SERVICE_SECRET)
+npm start
+```
+
+### 3. Frontend Build
+```bash
+cd ../vertex
+npm install
+npm run build   # or npm run dev for local development
+```
+
+---
+
+## 3. Seeded Accounts & Testing Credentials
+
+Running `php artisan db:seed` provisions the following test accounts:
+
+| Role | Guard / Context | Email | Password |
+|---|---|---|---|
+| **Platform Super Admin** | `admin` (`/admin/login`) | `admin@vertex.app` | `Admin@Vertex2026!` |
+| **Store Owner** | `web` (`/login`) | `owner@vertex.app` | `Password123!` |
+| **Support Agent** | `web` (`/login`) | `agent@vertex.app` | `Password123!` |
+
+*(Store owner account owns "متجر فيرتكس التجريبي" with pre-configured inbox conversations, channel setups, and wallet balance.)*
+
+---
+
+## 4. Security & Webhook Hardening
+
+- **Simulator Route Restriction:** Webhook simulation routes (`/webhooks/simulate/*`) are restricted to `local` and `testing` environments or require `ENABLE_SIMULATOR=true`. Never exposed in production.
+- **Signature Verification:**
+  - **Meta:** `X-Hub-Signature-256` HMAC validation against raw payload.
+  - **Telegram:** Secret token validation (`X-Telegram-Bot-Api-Secret-Token`).
+  - **WhatsApp Node Service:** Inter-service HMAC token generation and verification (`WhatsAppTokenService`).
+  - **Fawry:** MD5/SHA256 signature validation with server-to-server reconciliation.
+- **Node.js Service Boundary:** Fallback static shared secret is strictly prohibited in production (`NODE_ENV=production` fails startup if secret is missing).
+
+---
+
+## 5. Verification & Test Suite
+
+Run the full automated test suite covering authentication, tenant isolation, billing ledger, campaign balance gates, and channel integrity:
+
+```bash
+php artisan test
+```
+
+All 120+ feature and unit tests run with transactional database isolation (`RefreshDatabase`).
