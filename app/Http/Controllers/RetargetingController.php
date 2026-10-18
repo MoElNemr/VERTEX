@@ -83,9 +83,15 @@ class RetargetingController extends Controller
             ->where('status', 'processing')
             ->count();
 
+        $user = $request->user('web') ?: $request->user('team');
+        $wallet = $user ? $user->getOrCreateWallet() : null;
+        $walletService = app(\App\Services\WalletService::class);
+
         return Inertia::render('Retargeting/Index', [
             'business' => $business->only(['id', 'name']),
             'campaigns' => $campaigns,
+            'wallet' => $wallet,
+            'messagePricing' => $walletService->getMessagePricing(),
             'audience' => [
                 'total' => array_sum($platformAudience),
                 'by_platform' => [
@@ -124,9 +130,18 @@ class RetargetingController extends Controller
             'auto_start' => ['nullable', 'boolean'],
         ]);
 
+        $walletService = app(\App\Services\WalletService::class);
+        $user = $business->user;
+
         $campaign = $this->campaignService->createRetargetingCampaign($business, $validated);
 
         if (!empty($validated['auto_start']) && $campaign->total_recipients > 0) {
+            $requiredCredits = $campaign->total_recipients * $walletService->getRetargetingMessageCreditCost();
+            if ($user && !$walletService->hasSufficientCredits($user, $requiredCredits)) {
+                $wallet = $user->getOrCreateWallet();
+                return redirect()->route('retargeting.index')->with('error', "تم حفظ الحملة كمسودة ولكن تعذر إطلاقها لعدم كفاية رصيد الرسائل. المطلوب: {$requiredCredits} رسالة، ورصيدك الحالي: {$wallet->credits} رسالة. يرجى شحن المحفظة أولاً.");
+            }
+
             $this->campaignService->launchCampaign($campaign);
         }
 

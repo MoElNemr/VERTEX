@@ -172,7 +172,28 @@ class SuperAdminController extends Controller
             'paymentTransactions' => $paymentTransactions,
             'userWallets' => $userWallets,
             'recentBulkTransactions' => $recentBulkTransactions,
+            'messagePricing' => app(\App\Services\WalletService::class)->getMessagePricing(),
         ]);
+    }
+
+    /**
+     * Update Bulk and Retargeting Message Pricing.
+     */
+    public function updateMessagePricing(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'bulk_message_price' => ['required', 'numeric', 'min:0.01'],
+            'retargeting_message_price' => ['required', 'numeric', 'min:0.01'],
+            'bulk_message_credit_cost' => ['required', 'integer', 'min:1'],
+            'retargeting_message_credit_cost' => ['required', 'integer', 'min:1'],
+        ]);
+
+        SystemSetting::set('bulk_message_price', $validated['bulk_message_price'], 'pricing');
+        SystemSetting::set('retargeting_message_price', $validated['retargeting_message_price'], 'pricing');
+        SystemSetting::set('bulk_message_credit_cost', $validated['bulk_message_credit_cost'], 'pricing');
+        SystemSetting::set('retargeting_message_credit_cost', $validated['retargeting_message_credit_cost'], 'pricing');
+
+        return back()->with('success', 'تم تحديث أسعار رسائل الإرسال الجماعي وإعادة الاستهداف بنجاح.');
     }
 
     /**

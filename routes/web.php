@@ -161,6 +161,9 @@ Route::middleware(['super_admin'])->prefix('admin')->name('superadmin.')->group(
     // Super Admin Fawry Settings
     Route::post('/fawry/settings', [\App\Http\Controllers\SuperAdminController::class, 'updateFawrySettings'])->name('fawry.settings');
 
+    // Super Admin Message Pricing (Bulk & Retargeting)
+    Route::post('/pricing/messages', [\App\Http\Controllers\SuperAdminController::class, 'updateMessagePricing'])->name('pricing.messages');
+
     // System Cache & Optimizations
     Route::post('/system/optimize', [\App\Http\Controllers\SuperAdminController::class, 'clearSystemCache'])->name('system.optimize');
 });

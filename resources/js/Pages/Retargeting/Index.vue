@@ -25,6 +25,8 @@ import {
     ChevronDown,
     Zap,
     ExternalLink,
+    Wallet,
+    Coins,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -35,6 +37,17 @@ const props = defineProps({
     campaigns: {
         type: Object,
         default: () => ({ data: [] }),
+    },
+    wallet: {
+        type: Object,
+        default: () => ({ credits: 0, balance: 0 }),
+    },
+    messagePricing: {
+        type: Object,
+        default: () => ({
+            retargeting: { price: 0.25, credit_cost: 1, currency: 'EGP' },
+            bulk: { price: 0.20, credit_cost: 1, currency: 'EGP' },
+        }),
     },
     audience: {
         type: Object,
@@ -224,6 +237,42 @@ onUnmounted(() => {
         </template>
 
         <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-5">
+            <!-- 0. WALLET BALANCE & PRICING BANNER -->
+            <div class="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900/90 to-purple-950/40 border border-blue-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold shrink-0">
+                        <Wallet class="w-5 h-5" />
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h4 class="text-xs font-bold text-white">رصيد رسائل إعادة الاستهداف (خارج الباقات)</h4>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                يتم الخصم من المحفظة
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-0.5">
+                            سعر رسالة إعادة الاستهداف:
+                            <span class="font-mono font-bold text-amber-300">{{ messagePricing?.retargeting?.price || 0.25 }} ج.م</span>
+                            ({{ messagePricing?.retargeting?.credit_cost || 1 }} رسالة/نقطة لكل عميل)
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                    <div class="text-end">
+                        <div class="text-[10px] text-slate-400">الرصيد المتاح</div>
+                        <div class="font-mono text-lg font-bold text-emerald-400">{{ wallet?.credits || 0 }} <span class="text-xs text-slate-300 font-sans">رسالة</span></div>
+                    </div>
+                    <Link
+                        :href="route('wallet.index')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm"
+                    >
+                        <Coins class="w-3.5 h-3.5" />
+                        <span>شحن المحفظة</span>
+                    </Link>
+                </div>
+            </div>
+
             <!-- 1. AUDIENCE & BAN-PREVENTION STATS ROW -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <!-- Stat 1: Total Reachable Contacts -->
@@ -601,6 +650,32 @@ onUnmounted(() => {
                         <label for="auto_start" class="text-xs text-slate-300 select-none cursor-pointer">
                             بدء إرسال الحملة فوراً بعد الحفظ
                         </label>
+                    </div>
+
+                    <!-- Wallet & Credits Cost Estimation in Modal -->
+                    <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span>تكلفة الرسائل المقدرة:</span>
+                            <span class="font-mono font-bold text-amber-300">
+                                {{ audience.total * (messagePricing?.retargeting?.credit_cost || 1) }} رسالة
+                                ({{ ((audience.total * (messagePricing?.retargeting?.price || 0.25))).toFixed(2) }} ج.م)
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-400">
+                            <span>رصيدك المتاح حالياً:</span>
+                            <span class="font-mono font-bold" :class="wallet?.credits >= (audience.total * (messagePricing?.retargeting?.credit_cost || 1)) ? 'text-emerald-400' : 'text-rose-400'">
+                                {{ wallet?.credits || 0 }} رسالة
+                            </span>
+                        </div>
+                        <div v-if="form.auto_start && wallet?.credits < (audience.total * (messagePricing?.retargeting?.credit_cost || 1))" class="pt-1.5 border-t border-slate-800/80 flex items-center justify-between gap-2 text-[11px] text-amber-400">
+                            <span class="flex items-center gap-1">
+                                <AlertCircle class="w-3.5 h-3.5 shrink-0" />
+                                الرصيد الحالي غير كافٍ للبدء الفوري. سيتم الحفظ كمسودة.
+                            </span>
+                            <Link :href="route('wallet.index')" class="text-blue-400 hover:underline font-bold shrink-0">
+                                شحن المحفظة
+                            </Link>
+                        </div>
                     </div>
 
                     <!-- Modal Actions -->

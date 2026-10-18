@@ -149,6 +149,59 @@ class WalletService
     }
 
     /**
+     * Get configured bulk message unit price in EGP.
+     */
+    public function getBulkMessagePrice(): float
+    {
+        return (float) SystemSetting::get('bulk_message_price', 0.20);
+    }
+
+    /**
+     * Get configured retargeting message unit price in EGP.
+     */
+    public function getRetargetingMessagePrice(): float
+    {
+        return (float) SystemSetting::get('retargeting_message_price', 0.25);
+    }
+
+    /**
+     * Get credits deducted per bulk message.
+     */
+    public function getBulkMessageCreditCost(): int
+    {
+        return max(1, (int) SystemSetting::get('bulk_message_credit_cost', 1));
+    }
+
+    /**
+     * Get credits deducted per retargeting message.
+     */
+    public function getRetargetingMessageCreditCost(): int
+    {
+        return max(1, (int) SystemSetting::get('retargeting_message_credit_cost', 1));
+    }
+
+    /**
+     * Get consolidated message pricing settings.
+     */
+    public function getMessagePricing(): array
+    {
+        return [
+            'bulk' => [
+                'price' => $this->getBulkMessagePrice(),
+                'credit_cost' => $this->getBulkMessageCreditCost(),
+                'currency' => 'EGP',
+                'label' => 'رسائل الإرسال الجماعي (Bulk Sender)',
+            ],
+            'retargeting' => [
+                'price' => $this->getRetargetingMessagePrice(),
+                'credit_cost' => $this->getRetargetingMessageCreditCost(),
+                'currency' => 'EGP',
+                'label' => 'رسائل إعادة الاستهداف (Retargeting)',
+            ],
+        ];
+    }
+
+    /**
      * Check if user has sufficient credits for an operation.
      */
     public function hasSufficientCredits(User $user, int $requiredCredits = 1): bool
@@ -158,7 +211,7 @@ class WalletService
     }
 
     /**
-     * Deduct credit for a sent message in a bulk campaign.
+     * Deduct credit for a sent message in a bulk or retargeting campaign.
      * Throws an exception if user has insufficient credits.
      */
     public function deductCredit(
@@ -166,18 +219,21 @@ class WalletService
         int $businessId,
         string $platform,
         string $description,
-        array $metadata = []
+        array $metadata = [],
+        int $creditCost = 1
     ): BulkMessageWallet {
-        return DB::transaction(function () use ($user, $businessId, $platform, $description, $metadata) {
+        $cost = max(1, $creditCost);
+
+        return DB::transaction(function () use ($user, $businessId, $platform, $description, $metadata, $cost) {
             $wallet = BulkMessageWallet::where('user_id', $user->id)
                 ->lockForUpdate()
                 ->first();
 
-            if (!$wallet || $wallet->credits < 1) {
-                throw new \RuntimeException('رصيد الرسائل غير كافٍ لإتمام عملية الإرسال.');
+            if (!$wallet || $wallet->credits < $cost) {
+                throw new \RuntimeException("رصيد الرسائل غير كافٍ. المطلوب: {$cost} نقطة، المتاح: " . ($wallet?->credits ?? 0));
             }
 
-            $wallet->credits -= 1;
+            $wallet->credits -= $cost;
             $wallet->save();
 
             BulkMessageTransaction::create([
@@ -186,16 +242,17 @@ class WalletService
                 'payment_transaction_id' => null,
                 'type' => 'usage',
                 'amount' => 0.00,
-                'credits' => -1,
+                'credits' => -$cost,
                 'balance_after' => $wallet->balance,
                 'credits_after' => $wallet->credits,
                 'platform' => $platform,
                 'description' => $description,
-                'metadata' => $metadata,
+                'metadata' => array_merge($metadata, ['credit_cost' => $cost]),
             ]);
 
             return $wallet;
         });
     }
 }
+
 

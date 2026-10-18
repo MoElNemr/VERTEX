@@ -125,7 +125,7 @@ const simulatePayment = async () => {
                     </div>
                     <h1 class="text-xl font-black text-white">إدارة باقة الاشتراك والدفع عبر فوري (Fawry)</h1>
                     <p class="text-xs text-slate-400">
-                        الخطط تشمل خدمات صندوق الوارد والردود الآلية وإعادة الاستهداف. الإرسال الجماعي يحاسب حسب الرسالة.
+                        الخطط تشمل خدمات صندوق الوارد وتوحيد القنوات والردود الآلية. حملات الإرسال الجماعي وإعادة الاستهداف تحاسب حسب الرسالة من المحفظة.
                     </p>
                 </div>
 
@@ -213,13 +213,9 @@ const simulatePayment = async () => {
                                 <Check class="w-4 h-4 text-emerald-400 shrink-0" />
                                 <span>صندوق الوارد الموحد (Unified Inbox)</span>
                             </li>
-                            <li class="flex items-center gap-2">
-                                <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                                <span>حملات إعادة الاستهداف (Retargeting)</span>
-                            </li>
                             <li class="flex items-center gap-2 text-slate-400">
                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 ms-1 me-1"></span>
-                                <span>الإرسال الجماعي: دفع حسب الرسالة</span>
+                                <span>الإرسال الجماعي وإعادة الاستهداف: دفع حسب الرسالة (محفظة مستقلة)</span>
                             </li>
                         </ul>
                     </div>

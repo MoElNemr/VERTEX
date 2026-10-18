@@ -93,6 +93,13 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    messagePricing: {
+        type: Object,
+        default: () => ({
+            bulk: { price: 0.20, credit_cost: 1, currency: 'EGP' },
+            retargeting: { price: 0.25, credit_cost: 1, currency: 'EGP' },
+        }),
+    },
 });
 
 const activeTab = ref('overview'); // 'overview' | 'businesses' | 'users' | 'plans' | 'fawry' | 'sessions' | 'campaigns'
@@ -107,6 +114,21 @@ const fawryForm = useForm({
     merchant_wallet: props.fawrySettings?.merchant_wallet || '',
     mode: props.fawrySettings?.mode || 'sandbox',
 });
+
+const pricingForm = useForm({
+    bulk_message_price: props.messagePricing?.bulk?.price ?? 0.20,
+    bulk_message_credit_cost: props.messagePricing?.bulk?.credit_cost ?? 1,
+    retargeting_message_price: props.messagePricing?.retargeting?.price ?? 0.25,
+    retargeting_message_credit_cost: props.messagePricing?.retargeting?.credit_cost ?? 1,
+});
+
+const submitPricingForm = () => {
+    pricingForm.post(route('superadmin.pricing.messages'), {
+        preserveScroll: true,
+        onSuccess: () => showNotice('تم تحديث أسعار رسائل الإرسال الجماعي وإعادة الاستهداف بنجاح'),
+        onError: () => showNotice('يرجى التحقق من صحة الأسعار المدخلة', 'error'),
+    });
+};
 
 const copiedWebhook = ref(false);
 const copyWebhookUrl = () => {
@@ -1447,6 +1469,129 @@ const restartSession = async (sessionId) => {
                             >
                                 <Check class="w-4 h-4" />
                                 <span>حفظ وتحديث إعدادات فوري</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Message Pricing Engine: Bulk & Retargeting Separate Pricing -->
+                <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-6 text-start">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+                                <Coins class="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                    <span>تسعير الرسائل المستقل (خارج الباقات: إرسال جماعي وإعادة استهداف)</span>
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    حدد سعر الرسالة بالجنيه المصري وعدد النقاط/الرصيد المخصوم من محفظة المستخدم لكل من حملات الإرسال الجماعي وإعادة الاستهداف
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitPricingForm" class="space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <!-- Card A: Bulk Sender Pricing -->
+                            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                                        <Send class="w-4 h-4" />
+                                        <span>حملات الإرسال الجماعي (Bulk Sender)</span>
+                                    </div>
+                                    <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                                        CSV & جهات الاتصال
+                                    </span>
+                                </div>
+
+                                <div class="space-y-3 pt-1">
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                                            سعر الرسالة الواحدة (ج.م)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            v-model.number="pricingForm.bulk_message_price"
+                                            required
+                                            class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/80 text-xs text-white font-mono focus:border-blue-500 focus:outline-none"
+                                        />
+                                        <span class="text-[10px] text-slate-500">القيمة المالية التقديرية للرسالة في باقات الشحن</span>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                                            عدد نقاط الرصيد المخصومة لكل رسالة
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            v-model.number="pricingForm.bulk_message_credit_cost"
+                                            required
+                                            class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/80 text-xs text-white font-mono focus:border-blue-500 focus:outline-none"
+                                        />
+                                        <span class="text-[10px] text-slate-500">افتراضياً: 1 نقطة لكل رسالة مرسلة بنجاح</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card B: Retargeting Pricing -->
+                            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 text-xs font-bold text-purple-400">
+                                        <Repeat class="w-4 h-4" />
+                                        <span>حملات إعادة الاستهداف (Retargeting)</span>
+                                    </div>
+                                    <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-bold">
+                                        خارج الباقات (خصم من المحفظة)
+                                    </span>
+                                </div>
+
+                                <div class="space-y-3 pt-1">
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                                            سعر الرسالة الواحدة (ج.م)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            v-model.number="pricingForm.retargeting_message_price"
+                                            required
+                                            class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/80 text-xs text-white font-mono focus:border-purple-500 focus:outline-none"
+                                        />
+                                        <span class="text-[10px] text-slate-500">سعر رسالة الاستهداف الذكي (واتساب، فيسبوك، إنستجرام، تيليجرام)</span>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                                            عدد نقاط الرصيد المخصومة لكل رسالة
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            v-model.number="pricingForm.retargeting_message_credit_cost"
+                                            required
+                                            class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700/80 text-xs text-white font-mono focus:border-purple-500 focus:outline-none"
+                                        />
+                                        <span class="text-[10px] text-slate-500">يتم خصمها من رصيد محفظة العميل عند كل عملية استهداف</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="pt-3 border-t border-slate-800 flex justify-end">
+                            <button
+                                type="submit"
+                                :disabled="pricingForm.processing"
+                                class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/20 transition disabled:opacity-50 cursor-pointer"
+                            >
+                                <Check class="w-4 h-4" />
+                                <span>حفظ وتحديث أسعار الرسائل</span>
                             </button>
                         </div>
                     </form>

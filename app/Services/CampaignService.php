@@ -319,15 +319,19 @@ class CampaignService
      */
     public function launchCampaign(Campaign $campaign): void
     {
-        // For bulk campaigns (WhatsApp, Telegram, Facebook, Instagram), verify wallet credits
-        if ($campaign->type !== 'retargeting') {
-            $user = $campaign->business?->user;
-            if ($user) {
-                $pendingCount = $campaign->recipients()->where('status', 'pending')->count();
-                if (!$this->walletService->hasSufficientCredits($user, $pendingCount)) {
-                    $wallet = $user->getOrCreateWallet();
-                    throw new \RuntimeException("رصيد الرسائل غير كافٍ لإطلاق الحملة. رصيدك الحالي: {$wallet->credits} رسالة، والمطلوب: {$pendingCount} رسالة.");
-                }
+        // Verify wallet credits for all campaigns (bulk and retargeting)
+        $user = $campaign->business?->user;
+        if ($user) {
+            $pendingCount = $campaign->recipients()->where('status', 'pending')->count();
+            $creditCost = ($campaign->type === 'retargeting')
+                ? $this->walletService->getRetargetingMessageCreditCost()
+                : $this->walletService->getBulkMessageCreditCost();
+            $totalRequired = $pendingCount * $creditCost;
+
+            if (!$this->walletService->hasSufficientCredits($user, $totalRequired)) {
+                $wallet = $user->getOrCreateWallet();
+                $typeLabel = ($campaign->type === 'retargeting') ? 'إعادة الاستهداف' : 'الإرسال الجماعي';
+                throw new \RuntimeException("رصيد الرسائل غير كافٍ لإطلاق حملة {$typeLabel}. رصيدك الحالي: {$wallet->credits} رسالة، والمطلوب: {$totalRequired} رسالة.");
             }
         }
 
@@ -361,13 +365,15 @@ class CampaignService
             return null;
         }
 
-        // For bulk sender campaigns, ensure user has at least 1 credit remaining
-        if ($campaign->type !== 'retargeting') {
-            $user = $campaign->business?->user;
-            if ($user && !$this->walletService->hasSufficientCredits($user, 1)) {
-                $campaign->update(['status' => 'paused']);
-                throw new \RuntimeException('رصيد الرسائل نفد. تم إيقاف الحملة مؤقتاً حتى إعادة شحن المحفظة.');
-            }
+        // Ensure user has sufficient credits remaining for this step
+        $user = $campaign->business?->user;
+        $creditCost = ($campaign->type === 'retargeting')
+            ? $this->walletService->getRetargetingMessageCreditCost()
+            : $this->walletService->getBulkMessageCreditCost();
+
+        if ($user && !$this->walletService->hasSufficientCredits($user, $creditCost)) {
+            $campaign->update(['status' => 'paused']);
+            throw new \RuntimeException('رصيد الرسائل نفد. تم إيقاف الحملة مؤقتاً حتى إعادة شحن المحفظة.');
         }
 
         $recipient = DB::transaction(function () use ($campaign) {
@@ -415,34 +421,38 @@ class CampaignService
 
         $businessId = $campaign->business_id;
 
-        // If not retargeting, deduct 1 credit from user bulk wallet
-        if ($campaign->type !== 'retargeting') {
-            $user = $campaign->business?->user;
-            if ($user) {
-                try {
-                    $this->walletService->deductCredit(
-                        $user,
-                        $businessId,
-                        $recipient->platform,
-                        "إرسال رسالة حملة {$campaign->name} إلى {$recipient->recipient_id}",
-                        [
-                            'campaign_id' => $campaign->id,
-                            'recipient_id' => $recipient->id,
-                            'platform' => $recipient->platform,
-                        ]
-                    );
-                } catch (\Throwable $e) {
-                    // Insufficient credits: pause campaign and fail recipient
-                    $campaign->update(['status' => 'paused']);
-                    $recipient->update([
-                        'status' => 'failed',
-                        'error_message' => 'رصيد الرسائل غير كافٍ. تم إيقاف الحملة مؤقتاً.',
-                        'sent_at' => now(),
-                    ]);
-                    $campaign->increment('failed_count');
-                    Log::warning("Campaign {$campaign->id} paused due to empty wallet balance: " . $e->getMessage());
-                    return false;
-                }
+        // Deduct credits from user wallet based on campaign type (bulk or retargeting)
+        $user = $campaign->business?->user;
+        if ($user) {
+            $creditCost = ($campaign->type === 'retargeting')
+                ? $this->walletService->getRetargetingMessageCreditCost()
+                : $this->walletService->getBulkMessageCreditCost();
+
+            try {
+                $this->walletService->deductCredit(
+                    $user,
+                    $businessId,
+                    $recipient->platform,
+                    "إرسال رسالة حملة {$campaign->name} إلى {$recipient->recipient_id}",
+                    [
+                        'campaign_id' => $campaign->id,
+                        'campaign_type' => $campaign->type,
+                        'recipient_id' => $recipient->id,
+                        'platform' => $recipient->platform,
+                    ],
+                    $creditCost
+                );
+            } catch (\Throwable $e) {
+                // Insufficient credits: pause campaign and fail recipient
+                $campaign->update(['status' => 'paused']);
+                $recipient->update([
+                    'status' => 'failed',
+                    'error_message' => 'رصيد الرسائل غير كافٍ. تم إيقاف الحملة مؤقتاً.',
+                    'sent_at' => now(),
+                ]);
+                $campaign->increment('failed_count');
+                Log::warning("Campaign {$campaign->id} paused due to empty wallet balance: " . $e->getMessage());
+                return false;
             }
         }
 

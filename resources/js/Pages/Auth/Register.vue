@@ -412,13 +412,9 @@ const submit = () => {
                                     <Check class="w-3 h-3 text-emerald-400 shrink-0" />
                                     <span>صندوق الوارد الموحد (Unified Inbox)</span>
                                 </li>
-                                <li class="flex items-center gap-1">
-                                    <Check class="w-3 h-3 text-emerald-400 shrink-0" />
-                                    <span>حملات إعادة الاستهداف (Retargeting)</span>
-                                </li>
                                 <li class="flex items-center gap-1 text-slate-400">
                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 ms-0.5 me-1"></span>
-                                    <span>الإرسال الجماعي: محاسبة حسب الرسالة</span>
+                                    <span>الإرسال الجماعي وإعادة الاستهداف: دفع حسب الرسالة</span>
                                 </li>
                             </ul>
                         </div>
