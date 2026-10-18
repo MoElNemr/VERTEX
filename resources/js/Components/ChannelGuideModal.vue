@@ -425,18 +425,6 @@ const closeModal = () => {
                                 </div>
                             </div>
                         </div>
-
-                        <!-- HTTPS & Ngrok Notice -->
-                        <div class="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs space-y-1.5">
-                            <div class="flex items-start gap-2 font-bold text-amber-300">
-                                <AlertTriangle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                                <span>تنبيه هام بخصوص الـ Webhooks وبيئة التشغيل (HTTPS Required):</span>
-                            </div>
-                            <p class="text-amber-200/90 leading-relaxed text-[11px] ps-6">
-                                تشترط منصة Meta أن يكون عنوان الـ Callback URL يعمل ببروتوكول <strong class="text-white font-mono">HTTPS</strong> صالح ومتاح على الإنترنت بشكل عام (Public Domain).
-                                إذا كنت تشغل النظام محلياً في بيئة التطوير (Localhost)، لن تقبل Meta رابطاً محلياً؛ يجب استخدام أداة نفق مثل <strong class="text-white font-mono">Ngrok</strong> (<code class="bg-slate-900 px-1 py-0.5 rounded text-amber-300 font-mono">ngrok http 8000</code>) أو <strong class="text-white font-mono">Cloudflare Tunnel</strong> لتوليد رابط HTTPS حقيقي ووضعه في خانة الـ Callback URL.
-                            </p>
-                        </div>
                     </div>
                 </div>
 
@@ -641,18 +629,6 @@ const closeModal = () => {
                                     <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-pink-300">live_comments</span>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- HTTPS & Ngrok Notice -->
-                        <div class="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs space-y-1.5">
-                            <div class="flex items-start gap-2 font-bold text-amber-300">
-                                <AlertTriangle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                                <span>تنبيه هام بخصوص الـ Webhooks وبيئة التشغيل (HTTPS Required):</span>
-                            </div>
-                            <p class="text-amber-200/90 leading-relaxed text-[11px] ps-6">
-                                تشترط منصة Meta أن يكون عنوان الـ Callback URL يعمل ببروتوكول <strong class="text-white font-mono">HTTPS</strong> صالح ومتاح على الإنترنت بشكل عام (Public Domain).
-                                إذا كنت تشغل النظام محلياً في بيئة التطوير (Localhost)، يجب استخدام أداة نفق مثل <strong class="text-white font-mono">Ngrok</strong> أو <strong class="text-white font-mono">Cloudflare Tunnel</strong> لتوليد رابط HTTPS صالح للـ Webhooks.
-                            </p>
                         </div>
                     </div>
                 </div>
