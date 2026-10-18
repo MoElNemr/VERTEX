@@ -250,16 +250,23 @@ const closeModal = () => {
                                         <span>Meta Graph API Explorer</span>
                                         <ExternalLink class="w-3 h-3" />
                                     </a>
-                                    (سجّل الدخول بحسابك على فيسبوك).
+                                    (تأكد أن تطبيقك <code class="text-blue-300">vertex</code> محدد في خانة Meta App).
                                 </li>
                                 <li>
-                                    في الجزء العلوي الأيمن، في خانة <span class="text-white font-bold">User or Page</span>، اضغط واختر <span class="text-blue-300 font-bold">صفحة الفيسبوك الخاصة بك</span> (وليس User Token).
+                                    في القائمة اليمين تحت <span class="text-white font-bold">User or Page</span>، اضغط على زر <span class="text-amber-300 font-bold bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">Get Token</span>، ثم اختر من القائمة <span class="text-white font-bold">Get Page Access Token</span>.
                                 </li>
                                 <li>
-                                    في قسم <span class="text-white font-bold">Permissions</span>، اضغط <span class="text-slate-200">Add a Permission</span> وأضف الصلاحيات الموضحة بالأسفل (أهمها: <code class="text-blue-400">pages_messaging</code>).
+                                    ستفتح لك نافذة منبثقة من فيسبوك: اضغط "متابعة" ثم اختر صفحة فيسبوك الخاصة بك وضع عليها علامة صح واضغط "تم".
                                 </li>
                                 <li>
-                                    اضغط على الزر الأزرق <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span> ووافق على الصلاحيات، وانسخ التوكن الظاهر في خانة Access Token.
+                                    سيظهر الآن اسم صفحتك مكان Get Token، وستمتلئ خانة <span class="text-white font-bold">Access Token</span> بكود التوكن فوراً! اضغط على أيقونة النسخ 📋 لنسخه.
+                                </li>
+                                <li>
+                                    <span class="text-white font-bold">للحصول على معرف الصفحة (Page ID):</span> في نفس الشاشة، اضغط على زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Submit</span> الأزرق في شريط الـ GET، وسيظهر لك في الصندوق على اليسار كود JSON يحتوي على <code class="text-blue-300">"id": "1045..."</code> انسخ هذا الرقم.
+                                </li>
+                                <li>
+                                    <span class="text-white font-bold">إضافة الصلاحيات للتوكن:</span> تحت قسم Permissions، اضغط <span class="text-slate-200 font-bold">Add a Permission</span> وأضف:
+                                    <code class="text-blue-400 font-mono">pages_messaging</code> و <code class="text-blue-400 font-mono">pages_show_list</code> و <code class="text-blue-400 font-mono">pages_read_engagement</code>، ثم اضغط على زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span> ووافق عليها.
                                 </li>
                                 <li>
                                     <span class="text-amber-300 font-bold">تمديد التوكن ليصبح دائماً (Never Expires):</span>
