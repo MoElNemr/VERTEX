@@ -16,8 +16,8 @@ class EnsureActiveSubscription
     {
         $user = $request->user('web');
 
-        // Unauthenticated guests, team guard members, and super admins pass freely
-        if (!$user || $user->is_super_admin) {
+        // Unauthenticated guests and team guard members pass freely
+        if (!$user) {
             return $next($request);
         }
 

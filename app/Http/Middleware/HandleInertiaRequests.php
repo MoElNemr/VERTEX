@@ -86,6 +86,11 @@ class HandleInertiaRequests extends Middleware
                 'can_manage_businesses' => $isOwner,
                 'can_view_all_conversations' => $isOwner || in_array($role, ['admin', 'supervisor']),
             ],
+            'platformAdmin' => $request->user('admin') ? [
+                'id'   => $request->user('admin')->id,
+                'name' => $request->user('admin')->name,
+                'role' => $request->user('admin')->role,
+            ] : null,
             'currentBusiness' => $currentBusiness,
             'businesses' => $businesses,
             'has_ai' => $hasAi,

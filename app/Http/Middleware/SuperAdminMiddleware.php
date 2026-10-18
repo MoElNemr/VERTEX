@@ -6,23 +6,28 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Guard for the platform admin console (/admin/*).
+ * Accepts ONLY the dedicated 'admin' guard (PlatformAdmin).
+ * A regular user session — even with is_super_admin=true — cannot enter.
+ */
 class SuperAdminMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user('web');
+        $admin = $request->user('admin');
 
-        if (!$user) {
-            return redirect()->route('admin.login');
+        if (! $admin) {
+            // Preserve intended URL for post-login redirect
+            return redirect()->route('admin.login')
+                ->with('status', 'يرجى تسجيل الدخول للوصول إلى لوحة إدارة المنصة.');
         }
 
-        if (!$user->is_super_admin) {
-            abort(403, 'غير مصرح لك بالوصول إلى لوحة التحكم الرئيسية (Super Admin).');
+        if (! $admin->is_active) {
+            auth('admin')->logout();
+            $request->session()->invalidate();
+            return redirect()->route('admin.login')
+                ->withErrors(['email' => 'هذا الحساب موقوف. تواصل مع مالك المنصة.']);
         }
 
         return $next($request);

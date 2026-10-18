@@ -10,6 +10,7 @@ use App\Models\InstagramAccount;
 use App\Models\Message;
 use App\Models\QuickReply;
 use App\Models\TelegramAccount;
+use App\Models\User;
 use App\Models\WhatsappAccount;
 use Illuminate\Database\Seeder;
 
@@ -17,7 +18,9 @@ class RichDemoSeeder extends Seeder
 {
     public function run(): void
     {
-        $business = Business::first();
+        // Use the demo owner user (not a platform admin)
+        $owner = User::where('email', 'owner@vertex.app')->first();
+        $business = $owner ? $owner->businesses()->first() : Business::first();
         if (!$business) return;
 
         // 1. Fake-connect all channels so the UI looks live and populated

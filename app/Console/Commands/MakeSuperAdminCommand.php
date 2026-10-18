@@ -2,105 +2,52 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Plan;
-use App\Models\Subscription;
-use App\Models\User;
+use App\Models\PlatformAdmin;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 
 class MakeSuperAdminCommand extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'make:superadmin 
-                            {--name= : Name of the super admin}
-                            {--email= : Email of the super admin}
-                            {--password= : Password for the super admin}';
+    protected $signature = 'make:superadmin
+                            {--name= : Full name of the platform admin}
+                            {--email= : Email address}
+                            {--password= : Password (min 8 chars)}
+                            {--role=owner : Role: owner|operations|finance|support}';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Create or promote a user to System Super Admin with full master access';
+    protected $description = 'Bootstrap a platform admin account in the dedicated platform_admins table';
 
-    /**
-     * Execute the console command.
-     */
     public function handle(): int
     {
-        $this->info('==================================================');
-        $this->info('   VERTEX PLATFORM - SYSTEM SUPERADMIN CREATION   ');
-        $this->info('==================================================');
+        $this->info('================================================');
+        $this->info('  VERTEX PLATFORM — PLATFORM ADMIN BOOTSTRAP  ');
+        $this->info('================================================');
 
-        $name = $this->option('name') ?: $this->ask('Enter Super Admin Full Name', 'System Superadmin');
-        $email = $this->option('email') ?: $this->ask('Enter Super Admin Email', 'admin@vertex.app');
-        $password = $this->option('password');
+        $name     = $this->option('name')     ?: $this->ask('Full name', 'Platform Owner');
+        $email    = $this->option('email')    ?: $this->ask('Email', 'admin@vertex.app');
+        $role     = $this->option('role')     ?: $this->choice('Role', PlatformAdmin::ROLES, 'owner');
+        $password = $this->option('password') ?: $this->secret('Password (min 8 chars)') ?: 'password123';
 
-        if (!$password) {
-            $password = $this->secret('Enter Password (minimum 8 characters, or press enter for "password123")') ?: 'password123';
-        }
-
-        if (strlen($password) < 6) {
-            $this->error('Password must be at least 6 characters.');
+        if (strlen($password) < 8) {
+            $this->error('Password must be at least 8 characters.');
             return self::FAILURE;
         }
 
-        // Find or create user
-        $user = User::withoutGlobalScopes()->where('email', $email)->first();
-
-        if ($user) {
-            $user->update([
-                'name' => $name,
-                'password' => Hash::make($password),
-                'is_super_admin' => true,
-                'email_verified_at' => $user->email_verified_at ?: now(),
-            ]);
-            $this->info("Updated existing user [{$email}] to Super Admin.");
-        } else {
-            $user = User::create([
-                'name' => $name,
-                'email' => $email,
-                'password' => Hash::make($password),
-                'is_super_admin' => true,
-                'email_verified_at' => now(),
-            ]);
-            $this->info("Created new Super Admin user [{$email}].");
+        // Prevent creating a second owner via CLI without explicit confirmation
+        if ($role === 'owner' && PlatformAdmin::where('role', 'owner')->exists()) {
+            if (! $this->confirm('An owner already exists. Create another owner?', false)) {
+                $this->warn('Aborted. Existing owner unchanged.');
+                return self::SUCCESS;
+            }
         }
 
-        // Ensure default Pricing Plans exist in the database if empty
-        $premiumPlan = Plan::firstOrCreate(
-            ['type' => 'premium'],
+        $admin = PlatformAdmin::updateOrCreate(
+            ['email' => $email],
             [
-                'name' => 'Enterprise Unlimited',
-                'max_businesses' => null,
-                'price_monthly' => 99.00,
-                'price_yearly' => 990.00,
-                'is_active' => true,
-            ]
-        );
-
-        Plan::firstOrCreate(
-            ['type' => 'standard'],
-            [
-                'name' => 'Professional Growth',
-                'max_businesses' => 5,
-                'price_monthly' => 29.00,
-                'price_yearly' => 290.00,
-                'is_active' => true,
-            ]
-        );
-
-        // Ensure Super Admin has an active subscription
-        Subscription::firstOrCreate(
-            ['user_id' => $user->id, 'plan_id' => $premiumPlan->id],
-            [
-                'status' => 'active',
-                'starts_at' => now(),
-                'ends_at' => now()->addYears(10),
+                'name'               => $name,
+                'password'           => Hash::make($password),
+                'role'               => $role,
+                'is_active'          => true,
+                'email_verified_at'  => now(),
             ]
         );
 
@@ -108,16 +55,15 @@ class MakeSuperAdminCommand extends Command
         $this->table(
             ['Field', 'Value'],
             [
-                ['ID', $user->id],
-                ['Name', $user->name],
-                ['Email', $user->email],
-                ['Role', 'Super Admin (Master Control)'],
-                ['Plan', 'Enterprise Unlimited (10 Years)'],
+                ['ID',        $admin->id],
+                ['Name',      $admin->name],
+                ['Email',     $admin->email],
+                ['Role',      $admin->role],
                 ['Admin URL', url('/admin/login')],
             ]
         );
 
-        $this->info('Super Admin created and configured successfully!');
+        $this->info('Platform admin ready. Login at /admin/login');
         return self::SUCCESS;
     }
 }

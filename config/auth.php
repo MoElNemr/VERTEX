@@ -46,6 +46,10 @@ return [
             'driver' => 'session',
             'provider' => 'team_members',
         ],
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'platform_admins',
+        ],
     ],
 
     'providers' => [
@@ -56,6 +60,10 @@ return [
         'team_members' => [
             'driver' => 'eloquent',
             'model' => \App\Models\TeamMember::class,
+        ],
+        'platform_admins' => [
+            'driver' => 'eloquent',
+            'model' => \App\Models\PlatformAdmin::class,
         ],
     ],
 

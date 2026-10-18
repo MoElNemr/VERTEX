@@ -35,6 +35,7 @@ class SuperAdminController extends Controller
     public function index(Request $request): Response
     {
         // 1. Platform KPIs
+        // Customer users only (platform admins are in platform_admins table)
         $totalUsers = User::count();
         $totalBusinesses = Business::count();
         $totalMessages = Message::count();
@@ -208,7 +209,7 @@ class SuperAdminController extends Controller
             'reason' => ['required', 'string', 'max:255'],
         ]);
 
-        $admin = $request->user('web');
+        $admin = $request->user('admin');
         $multiplier = $validated['type'] === 'deduct' ? -1 : 1;
 
         $walletService->adjustBalance(
@@ -251,7 +252,6 @@ class SuperAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
-            'is_super_admin' => ['nullable', 'boolean'],
             'plan_id' => ['nullable', 'exists:plans,id'],
         ]);
 
@@ -259,7 +259,6 @@ class SuperAdminController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'is_super_admin' => (bool) ($validated['is_super_admin'] ?? false),
             'email_verified_at' => now(),
         ]);
 
@@ -286,14 +285,12 @@ class SuperAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:6'],
-            'is_super_admin' => ['nullable', 'boolean'],
             'plan_id' => ['nullable', 'exists:plans,id'],
         ]);
 
         $updateData = [
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'is_super_admin' => (bool) ($validated['is_super_admin'] ?? false),
         ];
 
         if (!empty($validated['password'])) {
@@ -322,18 +319,13 @@ class SuperAdminController extends Controller
      */
     public function destroyUser(Request $request, User $user): RedirectResponse
     {
-        $currentAdmin = $request->user('web');
+        $currentAdmin = $request->user('admin');
 
-        if ($currentAdmin->id === $user->id) {
+        if ($currentAdmin && $currentAdmin->id === $user->id) {
             return back()->with('error', 'لا يمكنك حذف حسابك الشخصي الحالي.');
         }
 
-        if ($user->is_super_admin) {
-            $otherAdminsCount = User::where('is_super_admin', true)->where('id', '!=', $user->id)->count();
-            if ($otherAdminsCount === 0) {
-                return back()->with('error', 'لا يمكنك حذف الأدمن الوحيد للنظام.');
-            }
-        }
+        // No longer enforce is_super_admin lock here — platform admins are separate
 
         $userName = $user->name;
         $user->delete();
@@ -525,7 +517,7 @@ class SuperAdminController extends Controller
      */
     public function toggleSuperAdmin(Request $request, User $user): JsonResponse|RedirectResponse
     {
-        $currentAdmin = $request->user('web');
+        $currentAdmin = $request->user('admin');
 
         // Safety: prevent removing own super admin if only admin
         if ($currentAdmin->id === $user->id && $user->is_super_admin) {
