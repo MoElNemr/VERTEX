@@ -6,6 +6,7 @@ use App\Models\BulkMessageTransaction;
 use App\Models\BulkMessageWallet;
 use App\Models\PaymentTransaction;
 use App\Models\SystemSetting;
+use App\Models\UsageLedger;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -104,6 +105,23 @@ class WalletService
                 ],
             ]);
 
+            // Immutable Usage Ledger record for billing transparency & reconciliation
+            UsageLedger::credit(
+                $user->id,
+                $amount,
+                $credits,
+                'wallet_topup',
+                $description,
+                [
+                    'business_id' => session('current_business_id'),
+                    'balance_after' => $wallet->balance,
+                    'credits_after' => $wallet->credits,
+                    'reference_type' => $paymentTransaction ? 'PaymentTransaction' : null,
+                    'reference_id' => $paymentTransaction?->id,
+                    'recorded_by' => 'system',
+                ]
+            );
+
             return $wallet;
         });
     }
@@ -145,6 +163,22 @@ class WalletService
                     'admin' => $adminName,
                     'reason' => $reason,
                 ],
+            ]);
+
+            // Immutable Usage Ledger record for administrative adjustment
+            UsageLedger::create([
+                'user_id' => $user->id,
+                'business_id' => null,
+                'entry_type' => $amount >= 0 ? 'adjustment' : 'debit',
+                'category' => 'admin_adjustment',
+                'amount' => abs($amount),
+                'credits' => $credits,
+                'currency' => 'EGP',
+                'description' => "تعديل يدوي بواسطة ({$adminName}): {$reason}",
+                'balance_after' => $wallet->balance,
+                'credits_after' => $wallet->credits,
+                'recorded_by' => $adminName,
+                'reason' => $reason,
             ]);
 
             return $wallet;
@@ -254,6 +288,23 @@ class WalletService
                 'description' => $description,
                 'metadata' => array_merge($metadata, ['credit_cost' => $cost]),
             ]);
+
+            // Immutable Usage Ledger record for message/campaign consumption
+            UsageLedger::debit(
+                $user->id,
+                0.00,
+                $cost,
+                'campaign',
+                $description,
+                [
+                    'business_id' => $businessId,
+                    'balance_after' => $wallet->balance,
+                    'credits_after' => $wallet->credits,
+                    'reference_type' => 'Campaign',
+                    'reference_id' => $metadata['campaign_id'] ?? null,
+                    'recorded_by' => 'system',
+                ]
+            );
 
             return $wallet;
         });

@@ -23,6 +23,8 @@ class MarketingAndCampaignsTest extends TestCase
         parent::setUp();
 
         $this->user = User::factory()->create();
+        $this->user->getOrCreateWallet()->update(['credits' => 100, 'balance' => 50.0]);
+
         $this->business = Business::create([
             'user_id' => $this->user->id,
             'name' => 'متجر الإلكترونيات التجريبي',
@@ -65,18 +67,28 @@ class MarketingAndCampaignsTest extends TestCase
             'phone' => '201012345678',
         ]);
 
-        Contact::create([
+        $fbContact = Contact::create([
             'business_id' => $this->business->id,
             'platform' => 'facebook',
             'platform_sender_id' => 'fb_123456',
             'name' => 'سارة محمد',
         ]);
+        $fbContact->conversations()->create([
+            'business_id' => $this->business->id,
+            'platform' => 'facebook',
+            'last_message_at' => now(),
+        ]);
 
-        Contact::create([
+        $igContact = Contact::create([
             'business_id' => $this->business->id,
             'platform' => 'instagram',
             'platform_sender_id' => 'ig_98765',
             'name' => 'محمود حسن',
+        ]);
+        $igContact->conversations()->create([
+            'business_id' => $this->business->id,
+            'platform' => 'instagram',
+            'last_message_at' => now(),
         ]);
 
         Contact::create([

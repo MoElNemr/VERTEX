@@ -6,9 +6,12 @@ use App\Jobs\ProcessCampaignRecipientJob;
 use App\Models\Business;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use App\Models\Consent;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\MessageAttempt;
+use App\Models\SuppressionEntry;
 use App\Services\Channels\ChannelManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -78,6 +81,15 @@ class CampaignService
                         $q->orWhereJsonContains('tags', $tag);
                     }
                 });
+            }
+
+            // Exclude suppressed contacts (Do-Not-Contact list)
+            $suppressedIdentifiers = SuppressionEntry::where('business_id', $business->id)->pluck('identifier');
+            if ($suppressedIdentifiers->isNotEmpty()) {
+                $contactsQuery->whereNotIn('platform_sender_id', $suppressedIdentifiers)
+                    ->where(function ($q) use ($suppressedIdentifiers) {
+                        $q->whereNull('phone')->orWhereNotIn('phone', $suppressedIdentifiers);
+                    });
             }
 
             $contacts = $contactsQuery->get();
@@ -455,6 +467,17 @@ class CampaignService
 
         $businessId = $campaign->business_id;
 
+        // 1. Consent / Suppression guard (Do-Not-Contact enforcement)
+        if (Consent::isSuppressed($businessId, $recipient->platform, $recipient->recipient_id)) {
+            $recipient->update([
+                'status' => 'failed',
+                'error_message' => 'مستبعد من الإرسال بناءً على قائمة عدم الإزعاج (Suppressed / Do-Not-Contact)',
+                'sent_at' => now(),
+            ]);
+            $campaign->increment('failed_count');
+            return false;
+        }
+
         // Deduct credits from user wallet based on campaign type (bulk or retargeting)
         $user = $campaign->business?->user;
         if ($user) {
@@ -542,6 +565,22 @@ class CampaignService
             $platformMsgId = $dispatchResult['platform_message_id'] ?? null;
             $status = ($dispatchResult['status'] ?? '') === 'failed' ? 'failed' : 'sent';
             $error = $status === 'failed' ? ($dispatchResult['error'] ?? 'Unknown dispatch error') : null;
+
+            // Track persistent message attempt for audit & replay
+            try {
+                MessageAttempt::create([
+                    'message_id' => $message->id,
+                    'business_id' => $businessId,
+                    'idempotency_key' => MessageAttempt::makeIdempotencyKey($message->id, $recipient->platform),
+                    'provider' => $recipient->platform,
+                    'provider_message_id' => $platformMsgId,
+                    'status' => $status === 'sent' ? 'submitted' : 'failed',
+                    'error_message' => $error,
+                    'submitted_at' => now(),
+                ]);
+            } catch (\Throwable $attemptErr) {
+                Log::warning("Failed to record MessageAttempt: " . $attemptErr->getMessage());
+            }
 
             $recipient->update([
                 'status' => $status,

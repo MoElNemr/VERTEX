@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\PaymentTransaction;
 use App\Models\Plan;
+use App\Models\PlatformAdmin;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -146,9 +147,15 @@ class FawryPaymentAndRegistrationTest extends TestCase
 
     public function test_superadmin_can_update_fawry_settings(): void
     {
-        $admin = User::factory()->create(['is_super_admin' => true]);
+        $admin = PlatformAdmin::create([
+            'name' => 'Admin Operator',
+            'email' => 'admin_fawry@vertex.test',
+            'password' => bcrypt('password'),
+            'role' => 'owner',
+            'is_active' => true,
+        ]);
 
-        $response = $this->actingAs($admin)->post('/admin/fawry/settings', [
+        $response = $this->actingAs($admin, 'admin')->post('/admin/fawry/settings', [
             'merchant_code' => 'TEST_CODE_999',
             'security_key' => 'SECRET_KEY_123',
             'merchant_wallet' => '01009998887',

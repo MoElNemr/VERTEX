@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentTransaction;
+use App\Models\WebhookReceipt;
 use App\Services\FawryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -38,10 +39,24 @@ class FawryWebhookController extends Controller
             return response()->json(['error' => 'Transaction not found'], 404);
         }
 
+        // Webhook Idempotency & Deduplication
+        $eventId = 'fawry_' . $merchantRefNum . '_' . ($fawryRefNumber ?: $orderStatus);
+        [$receipt, $isDuplicate] = WebhookReceipt::recordAndCheck(
+            'fawry',
+            $eventId,
+            $transaction->business_id ?? null,
+            'payment_ipn'
+        );
+
+        if ($isDuplicate && $receipt->processing_status === 'processed') {
+            return response()->json(['status' => 'already_processed']);
+        }
+
         // Verify signature in live mode
         $config = $this->fawryService->getConfig();
         if ($config['mode'] === 'live') {
             if (!$this->fawryService->verifyWebhookSignature($payload)) {
+                $receipt->markFailed('Invalid signature');
                 Log::warning('Fawry Webhook invalid signature for transaction: ' . $merchantRefNum);
                 return response()->json(['error' => 'Invalid signature'], 403);
             }
@@ -49,14 +64,17 @@ class FawryWebhookController extends Controller
 
         if (in_array($orderStatus, ['PAID', 'SUCCESS'])) {
             $this->fawryService->handleSuccessfulPayment($transaction, $fawryRefNumber);
+            $receipt->markProcessed();
             return response()->json(['status' => 'success', 'message' => 'Payment processed']);
         }
 
         if (in_array($orderStatus, ['FAILED', 'CANCELLED', 'EXPIRED'])) {
             $transaction->update(['status' => strtolower($orderStatus)]);
+            $receipt->markProcessed();
             return response()->json(['status' => 'updated', 'message' => 'Status set to ' . $orderStatus]);
         }
 
+        $receipt->markProcessed();
         return response()->json(['status' => 'acknowledged']);
     }
 

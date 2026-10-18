@@ -146,7 +146,7 @@ class CampaignBalanceGateTest extends TestCase
         ]);
     }
 
-    public function test_retargeting_campaign_does_not_deduct_credits_from_bulk_wallet(): void
+    public function test_retargeting_campaign_deducts_credits_based_on_system_pricing(): void
     {
         $user = User::factory()->create();
         $business = Business::create(['user_id' => $user->id, 'name' => 'Test Store']);
@@ -182,8 +182,8 @@ class CampaignBalanceGateTest extends TestCase
         // Process step
         $campaignService->processNextRecipient($campaign);
 
-        // Wallet credits must remain untouched at 5 because retargeting is included in monthly plan
+        // Wallet credits must be deducted according to retargeting message credit cost (5 - 1 = 4)
         $wallet = $user->bulkWallet()->first();
-        $this->assertEquals(5, $wallet->credits);
+        $this->assertEquals(4, $wallet->credits);
     }
 }

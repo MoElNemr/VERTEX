@@ -54,16 +54,20 @@ class PlatformAdmin extends Authenticatable
         return in_array($this->role, array_slice(self::ROLES, array_search($role, self::ROLES) ?: 0), true);
     }
 
-    public function can(string $ability, mixed $arguments = []): bool
+    public function can($abilities, $arguments = []): bool
     {
         // Owner can do everything
         if ($this->isOwner()) return true;
 
-        return match ($ability) {
-            'view-tenants', 'view-billing', 'view-channels', 'view-campaigns' => true,
-            'adjust-wallet', 'manage-plans', 'manage-pricing' => in_array($this->role, ['finance', 'operations']),
-            'manage-admins', 'manage-settings', 'manage-feature-flags' => $this->role === 'operations',
-            default => false,
-        };
+        if (is_string($abilities)) {
+            return match ($abilities) {
+                'view-tenants', 'view-billing', 'view-channels', 'view-campaigns' => true,
+                'adjust-wallet', 'manage-plans', 'manage-pricing' => in_array($this->role, ['finance', 'operations']),
+                'manage-admins', 'manage-settings', 'manage-feature-flags' => $this->role === 'operations',
+                default => false,
+            };
+        }
+
+        return parent::can($abilities, $arguments);
     }
 }

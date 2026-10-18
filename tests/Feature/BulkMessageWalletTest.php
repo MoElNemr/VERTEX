@@ -6,6 +6,7 @@ use App\Models\BulkMessageTransaction;
 use App\Models\BulkMessageWallet;
 use App\Models\PaymentTransaction;
 use App\Models\Plan;
+use App\Models\PlatformAdmin;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -138,11 +139,17 @@ class BulkMessageWalletTest extends TestCase
 
     public function test_superadmin_can_manually_adjust_user_wallet_balance(): void
     {
-        $admin = User::factory()->create(['is_super_admin' => true]);
+        $admin = PlatformAdmin::create([
+            'name' => 'Admin Operator',
+            'email' => 'admin_test@vertex.test',
+            'password' => bcrypt('password'),
+            'role' => 'owner',
+            'is_active' => true,
+        ]);
         $targetUser = User::factory()->create();
 
         // 1. Add credit
-        $response = $this->actingAs($admin)->post(route('superadmin.users.wallet-adjust', $targetUser->id), [
+        $response = $this->actingAs($admin, 'admin')->post(route('superadmin.users.wallet-adjust', $targetUser->id), [
             'amount' => 200.00,
             'credits' => 1000,
             'type' => 'add',
@@ -165,7 +172,7 @@ class BulkMessageWalletTest extends TestCase
         ]);
 
         // 2. Deduct credit
-        $response2 = $this->actingAs($admin)->post(route('superadmin.users.wallet-adjust', $targetUser->id), [
+        $response2 = $this->actingAs($admin, 'admin')->post(route('superadmin.users.wallet-adjust', $targetUser->id), [
             'amount' => 50.00,
             'credits' => 250,
             'type' => 'deduct',

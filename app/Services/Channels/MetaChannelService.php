@@ -8,6 +8,7 @@ use App\Models\Conversation;
 use App\Models\FacebookAccount;
 use App\Models\InstagramAccount;
 use App\Models\Message;
+use App\Models\WebhookReceipt;
 use App\Services\Channels\Concerns\HandlesAiAutoReply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -331,14 +332,13 @@ class MetaChannelService implements ChannelServiceInterface
 
         $expectedToken = config('services.meta.verify_token', 'vertex_meta_token_' . $business->id);
 
-        if ($mode === 'subscribe' && ($token === $expectedToken || $token === 'vertex_secret_token')) {
+        if ($mode === 'subscribe' && !empty($token) && hash_equals((string) $expectedToken, (string) $token)) {
             Log::info("Meta webhook verified successfully for business {$business->id}");
             return (string) $challenge;
         }
 
-        Log::warning("Meta webhook verification failed for business {$business->id}", [
+        Log::warning("Meta webhook verification failed for business {$business->id} (token mismatch or invalid mode)", [
             'mode' => $mode,
-            'token' => $token,
         ]);
 
         return null;
@@ -349,6 +349,21 @@ class MetaChannelService implements ChannelServiceInterface
      */
     public function handleWebhook(Business $business, Request $request): array
     {
+        // 1. Verify X-Hub-Signature-256 if Meta App Secret is configured
+        $appSecret = config('services.meta.app_secret');
+        $hubSignature = $request->header('X-Hub-Signature-256');
+
+        if ($appSecret && $hubSignature) {
+            $expectedSignature = 'sha256=' . hash_hmac('sha256', $request->getContent(), $appSecret);
+            if (!hash_equals($expectedSignature, $hubSignature)) {
+                Log::warning("Meta webhook signature mismatch for business {$business->id}");
+                return [
+                    'status' => 'rejected',
+                    'error' => 'Invalid webhook signature.',
+                ];
+            }
+        }
+
         $object = $request->input('object');
         $entries = $request->input('entry', []);
 

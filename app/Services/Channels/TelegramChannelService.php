@@ -7,6 +7,7 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\TelegramAccount;
+use App\Models\WebhookReceipt;
 use App\Services\Channels\Concerns\HandlesAiAutoReply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -91,12 +92,35 @@ class TelegramChannelService implements ChannelServiceInterface
      */
     public function handleWebhook(Business $business, Request $request): array
     {
+        // 1. Verify X-Telegram-Bot-Api-Secret-Token if secret token is configured
+        $configuredSecret = config('services.telegram.webhook_secret') ?: env('TELEGRAM_WEBHOOK_SECRET');
+        $receivedSecret = $request->header('X-Telegram-Bot-Api-Secret-Token');
+
+        if ($configuredSecret && (!hash_equals((string) $configuredSecret, (string) $receivedSecret))) {
+            Log::warning("Telegram webhook secret token mismatch for business {$business->id}");
+            return [
+                'status' => 'unauthorized',
+                'error' => 'Invalid Telegram secret token.',
+            ];
+        }
+
         $data = $request->all();
+        $updateId = (string) ($data['update_id'] ?? '');
+
+        // 2. Webhook idempotency tracking
+        $receipt = null;
+        if ($updateId !== '') {
+            [$receipt, $isDuplicate] = WebhookReceipt::recordAndCheck('telegram', 'tg_update_' . $updateId, $business->id, 'update');
+            if ($isDuplicate && $receipt->processing_status === 'processed') {
+                return ['status' => 'already_processed'];
+            }
+        }
 
         // Check for regular message or edited message
         $telegramMessage = $data['message'] ?? $data['edited_message'] ?? null;
 
         if (!$telegramMessage) {
+            $receipt?->markProcessed();
             return [
                 'status' => 'ignored',
                 'message' => 'No supported message payload found in update.',
@@ -108,6 +132,7 @@ class TelegramChannelService implements ChannelServiceInterface
         $fromId = (string) ($from['id'] ?? $chat['id'] ?? null);
 
         if (!$fromId) {
+            $receipt?->markProcessed();
             return [
                 'status' => 'ignored',
                 'error' => 'No sender ID in Telegram payload.',
@@ -169,6 +194,8 @@ class TelegramChannelService implements ChannelServiceInterface
 
         // 6. Check AI auto-reply
         $this->handleAiAutoReply($conversation, $text);
+
+        $receipt?->markProcessed();
 
         return [
             'status' => 'success',

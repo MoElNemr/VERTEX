@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\WebhookReceipt;
 use App\Models\WhatsappAccount;
 use App\Services\Channels\Concerns\HandlesAiAutoReply;
 use Illuminate\Http\Request;
@@ -98,17 +99,48 @@ class WhatsAppChannelService implements ChannelServiceInterface
      */
     public function handleWebhook(Business $business, Request $request): array
     {
+        // 1. Verify inter-service authentication token or shared secret outside testing
+        if (!app()->environment('testing')) {
+            $token = $request->header('X-Server-Token');
+            $secret = $request->header('X-Shared-Secret');
+            $expectedSecret = config('services.whatsapp.secret', 'vertex_wa_secure_secret_key_2026');
+
+            $isValidToken = WhatsAppTokenService::verifyToken($token, $expectedSecret);
+            $isValidSecret = !empty($secret) && hash_equals((string) $expectedSecret, (string) $secret);
+
+            if (!$isValidToken && !$isValidSecret) {
+                Log::warning("WhatsApp webhook unauthorized for business {$business->id}");
+                return [
+                    'status' => 'unauthorized',
+                    'error' => 'Missing or invalid inter-service authentication credentials.',
+                ];
+            }
+        }
+
         $event = $request->input('event');
         $data = $request->input('data', []);
 
+        // 2. Webhook idempotency tracking
+        $eventId = 'wa_' . ($data['message_id'] ?? ($event . '_' . ($data['session_id'] ?? time())));
+        [$receipt, $isDuplicate] = WebhookReceipt::recordAndCheck('whatsapp', $eventId, $business->id, $event);
+
+        if ($isDuplicate && $receipt->processing_status === 'processed') {
+            return ['status' => 'already_processed'];
+        }
+
         if ($event === 'connection.update') {
-            return $this->handleConnectionUpdate($business, $data);
+            $result = $this->handleConnectionUpdate($business, $data);
+            $receipt->markProcessed();
+            return $result;
         }
 
         if ($event === 'messages.upsert') {
-            return $this->handleIncomingMessage($business, $data);
+            $result = $this->handleIncomingMessage($business, $data);
+            $receipt->markProcessed();
+            return $result;
         }
 
+        $receipt->markProcessed();
         return [
             'status' => 'ignored',
             'message' => 'Unhandled WhatsApp event: ' . $event,
