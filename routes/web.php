@@ -177,14 +177,16 @@ Route::get('/webhooks/meta/{business}', [\App\Http\Controllers\Webhooks\MetaWebh
 Route::post('/webhooks/meta/{business}', [\App\Http\Controllers\Webhooks\MetaWebhookController::class, 'handle'])->name('webhooks.meta');
 Route::post('/webhooks/whatsapp/{business}', [\App\Http\Controllers\Webhooks\WhatsAppWebhookController::class, 'handle'])->name('webhooks.whatsapp');
 
-// Webhook Testing & Simulation (Allows testing full inbound flows)
-Route::prefix('webhooks/simulate')->group(function () {
-    Route::post('/telegram/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateTelegram'])->name('webhooks.simulate.telegram');
-    Route::post('/facebook/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateFacebook'])->name('webhooks.simulate.facebook');
-    Route::post('/facebook-comment/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateFacebookComment'])->name('webhooks.simulate.facebook-comment');
-    Route::post('/instagram/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateInstagram'])->name('webhooks.simulate.instagram');
-    Route::post('/instagram-comment/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateInstagramComment'])->name('webhooks.simulate.instagram-comment');
-    Route::post('/whatsapp/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateWhatsApp'])->name('webhooks.simulate.whatsapp');
-});
+// Webhook Simulator — local/testing/dev only. Never expose to production.
+if (app()->environment(['local', 'testing']) || env('ENABLE_SIMULATOR', false)) {
+    Route::prefix('webhooks/simulate')->group(function () {
+        Route::post('/telegram/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateTelegram'])->name('webhooks.simulate.telegram');
+        Route::post('/facebook/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateFacebook'])->name('webhooks.simulate.facebook');
+        Route::post('/facebook-comment/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateFacebookComment'])->name('webhooks.simulate.facebook-comment');
+        Route::post('/instagram/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateInstagram'])->name('webhooks.simulate.instagram');
+        Route::post('/instagram-comment/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateInstagramComment'])->name('webhooks.simulate.instagram-comment');
+        Route::post('/whatsapp/{business}', [\App\Http\Controllers\Webhooks\WebhookSimulatorController::class, 'simulateWhatsApp'])->name('webhooks.simulate.whatsapp');
+    });
+}
 
 require __DIR__.'/auth.php';
