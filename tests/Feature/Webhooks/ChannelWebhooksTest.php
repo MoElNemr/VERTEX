@@ -195,13 +195,13 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_whatsapp_webhook_handles_connection_and_incoming_message(): void
     {
-        // 1. Connection update with QR code
+        // 1. Connection update
         $connPayload = [
             'event' => 'connection.update',
             'data' => [
                 'session_id' => 'session_' . $this->business->id,
-                'status' => 'qr',
-                'qr_code' => '2@mock_qr_string_data',
+                'status' => 'connecting',
+                'phone_number' => '201099887766',
             ],
         ];
 
@@ -211,7 +211,7 @@ class ChannelWebhooksTest extends TestCase
         $this->assertDatabaseHas('whatsapp_accounts', [
             'business_id' => $this->business->id,
             'status' => 'connecting',
-            'qr_code' => '2@mock_qr_string_data',
+            'phone_number' => '201099887766',
         ]);
 
         // 2. Incoming message update

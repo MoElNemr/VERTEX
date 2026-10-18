@@ -226,18 +226,6 @@ class ChannelController extends Controller
     }
 
     /**
-     * Generate or request WhatsApp connection QR code.
-     */
-    public function generateWhatsAppQr(Request $request, Business $business): \Illuminate\Http\JsonResponse
-    {
-        $this->authorizeBusiness($request, $business);
-
-        $result = app(\App\Services\Channels\WhatsAppChannelService::class)->requestQrCode($business);
-
-        return response()->json($result);
-    }
-
-    /**
      * Request 8-digit Pairing Code for WhatsApp connection.
      */
     public function requestWhatsAppPairingCode(Request $request, Business $business): \Illuminate\Http\JsonResponse

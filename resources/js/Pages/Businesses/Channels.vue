@@ -7,7 +7,6 @@ import axios from 'axios';
 import {
     CheckCircle2,
     ArrowRight,
-    QrCode,
     Send,
     MessageCircle,
     Loader2,
@@ -191,87 +190,12 @@ const saveIgCommentSettings = () => {
     });
 };
 
-const connectMode = ref('phone'); // default to phone pairing code
-const isGeneratingQr = ref(false);
-const qrCodeData = ref(props.whatsapp?.qr_code || null);
-const qrErrorMessage = ref('');
-
 // Phone pairing code state
 const phoneNumber = ref('');
 const pairingCode = ref('');
 const isRequestingPairingCode = ref(false);
 const pairingError = ref('');
 const codeCopied = ref(false);
-
-const computedQrImage = computed(() => {
-    if (!qrCodeData.value) return null;
-    if (qrCodeData.value.startsWith('data:image')) {
-        return qrCodeData.value;
-    }
-    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(qrCodeData.value)}`;
-});
-
-let autoRefreshTimer = null;
-
-const startAutoRefresh = () => {
-    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-    autoRefreshTimer = setInterval(async () => {
-        if (props.whatsapp?.status === 'connected' || connectMode.value !== 'qr' || !qrCodeData.value) {
-            return;
-        }
-        try {
-            const res = await axios.post(route('channels.whatsapp.qr', props.business.id));
-            if (res.data?.status === 'connected') {
-                clearInterval(autoRefreshTimer);
-                window.location.reload();
-            } else if (res.data?.qr_image) {
-                qrCodeData.value = res.data.qr_image;
-            } else if (res.data?.qr_code) {
-                qrCodeData.value = res.data.qr_code;
-            }
-        } catch (e) {}
-    }, 10000);
-};
-
-const generateWhatsAppQr = async () => {
-    isGeneratingQr.value = true;
-    qrErrorMessage.value = '';
-    try {
-        const response = await axios.post(route('channels.whatsapp.qr', props.business.id));
-        const resData = response.data || {};
-
-        if (resData.qr_image) {
-            qrCodeData.value = resData.qr_image;
-        } else if (resData.qr_code) {
-            qrCodeData.value = resData.qr_code;
-        }
-
-        // If session is still connecting and QR is not ready yet, poll up to 4 times
-        if (!qrCodeData.value && resData.status === 'connecting') {
-            for (let i = 0; i < 4; i++) {
-                await new Promise(r => setTimeout(r, 1200));
-                try {
-                    const pollRes = await axios.post(route('channels.whatsapp.qr', props.business.id));
-                    if (pollRes.data?.qr_image) {
-                        qrCodeData.value = pollRes.data.qr_image;
-                        break;
-                    } else if (pollRes.data?.qr_code) {
-                        qrCodeData.value = pollRes.data.qr_code;
-                        break;
-                    }
-                } catch (e) {}
-            }
-        }
-
-        if (qrCodeData.value) {
-            startAutoRefresh();
-        }
-    } catch (err) {
-        qrErrorMessage.value = err.response?.data?.message || 'تعذر توليد رمز QR، تأكد من تشغيل خادم واتساب.';
-    } finally {
-        isGeneratingQr.value = false;
-    }
-};
 
 const requestPairingCode = async () => {
     if (!phoneNumber.value) {
@@ -325,7 +249,6 @@ const copyPairingCode = () => {
 };
 
 onUnmounted(() => {
-    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
     if (statusPollTimer) clearInterval(statusPollTimer);
 });
 
@@ -462,7 +385,7 @@ const disconnect = (channel) => {
                                 </div>
                                 <div>
                                     <h3 class="font-bold text-base text-white">واتساب (WhatsApp)</h3>
-                                    <p class="text-xs text-slate-400">ربط مباشر برمز QR عبر مكتبة Baileys</p>
+                                    <p class="text-xs text-slate-400">ربط مباشر بكود الاقتران عبر مكتبة Baileys</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
@@ -485,26 +408,6 @@ const disconnect = (channel) => {
                             </div>
                         </div>
 
-                        <!-- Mode Switcher (If not connected) -->
-                        <div v-if="whatsapp?.status !== 'connected'" class="mt-4 flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-                            <button
-                                @click="connectMode = 'qr'"
-                                class="flex-1 py-2 px-3 rounded-lg font-bold transition flex items-center justify-center gap-1.5"
-                                :class="connectMode === 'qr' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'"
-                            >
-                                <QrCode class="w-3.5 h-3.5" />
-                                <span>مسح رمز QR</span>
-                            </button>
-                            <button
-                                @click="connectMode = 'phone'"
-                                class="flex-1 py-2 px-3 rounded-lg font-bold transition flex items-center justify-center gap-1.5"
-                                :class="connectMode === 'phone' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'"
-                            >
-                                <Smartphone class="w-3.5 h-3.5" />
-                                <span>كود الربط برقم الهاتف</span>
-                            </button>
-                        </div>
-
                         <!-- WhatsApp Body -->
                         <div class="mt-4 p-6 rounded-xl bg-slate-950 border border-slate-800/80 text-center">
                             <!-- State 1: Connected -->
@@ -516,39 +419,7 @@ const disconnect = (channel) => {
                                 <p class="text-xs text-slate-400 font-mono">{{ whatsapp.phone_number || 'الرقم متصل' }}</p>
                             </div>
 
-                            <!-- State 2: QR Mode -->
-                            <div v-else-if="connectMode === 'qr'">
-                                <div v-if="qrCodeData" class="space-y-3 py-1">
-                                    <div class="bg-white p-3 rounded-2xl inline-block shadow-lg border border-slate-700">
-                                        <img
-                                            :src="computedQrImage"
-                                            alt="WhatsApp QR Code"
-                                            class="w-48 h-48 object-contain rounded-xl"
-                                        />
-                                    </div>
-                                    <div class="flex items-center justify-center gap-2 text-[11px] text-emerald-400">
-                                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                                        <span>الكود نشط ويتجدد تلقائياً لضمان الصلاحية</span>
-                                    </div>
-                                    <p class="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
-                                        افتح تطبيق واتساب بهاتفك > <strong>الأجهزة المرتبطة</strong> > <strong>ربط جهاز</strong>، ثم وجّه الكاميرا نحو الشاشة.
-                                    </p>
-                                </div>
-
-                                <div v-else class="space-y-4 py-2">
-                                    <div class="inline-flex p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300">
-                                        <QrCode class="w-12 h-12 text-slate-300" />
-                                    </div>
-                                    <p class="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-                                        اضغط لتوليد رمز QR ومسحه من تطبيق واتساب بهاتفك في ثوانٍ دون الحاجة لموافقة ميتا أو رسوم اشتراك.
-                                    </p>
-                                    <p v-if="qrErrorMessage" class="text-xs text-rose-400 mt-2">
-                                        {{ qrErrorMessage }}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- State 3: Phone Pairing Code Mode -->
+                            <!-- State 2: Phone Pairing Code Mode -->
                             <div v-else class="space-y-4 py-1 text-right">
                                 <div v-if="pairingCode" class="space-y-4 text-center">
                                     <p class="text-xs text-slate-400">أدخل هذا الكود داخل تطبيق واتساب على هاتفك:</p>
@@ -593,22 +464,9 @@ const disconnect = (channel) => {
                     </div>
 
                     <div class="mt-6 pt-5 border-t border-slate-800 flex items-center justify-between">
-                        <!-- QR Mode Button -->
-                        <button
-                            v-if="whatsapp?.status !== 'connected' && connectMode === 'qr'"
-                            @click="generateWhatsAppQr"
-                            :disabled="isGeneratingQr"
-                            class="cursor-pointer w-full py-3 px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white transition flex items-center justify-center gap-2 shadow-sm"
-                        >
-                            <Loader2 v-if="isGeneratingQr" class="w-4 h-4 animate-spin" />
-                            <RefreshCw v-else-if="qrCodeData" class="w-4 h-4" />
-                            <QrCode v-else class="w-4 h-4" />
-                            <span>{{ isGeneratingQr ? 'جاري الاتصال وتوليد الرمز...' : (qrCodeData ? 'تحديث رمز الـ QR يدوياً' : 'توليد كود الـ QR للربط') }}</span>
-                        </button>
-
                         <!-- Phone Mode Button -->
                         <button
-                            v-else-if="whatsapp?.status !== 'connected' && connectMode === 'phone'"
+                            v-if="whatsapp?.status !== 'connected'"
                             @click="requestPairingCode"
                             :disabled="isRequestingPairingCode"
                             class="cursor-pointer w-full py-3 px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white transition flex items-center justify-center gap-2 shadow-sm"

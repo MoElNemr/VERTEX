@@ -116,7 +116,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
     }
 
     /**
-     * Handle Baileys connection status updates and QR code generation.
+     * Handle Baileys connection status updates.
      */
     protected function handleConnectionUpdate(Business $business, array $data): array
     {
@@ -124,7 +124,6 @@ class WhatsAppChannelService implements ChannelServiceInterface
         if ($status === 'qr') {
             $status = 'connecting';
         }
-        $qrCode = $data['qr_code'] ?? null;
         $phoneNumber = $data['phone_number'] ?? null;
 
         $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
@@ -132,7 +131,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         ], [
             'session_id' => $data['session_id'] ?? ('session_' . $business->id),
             'status' => $status,
-            'qr_code' => $qrCode,
+            'qr_code' => null,
             'phone_number' => $phoneNumber,
             'last_connected_at' => ($status === 'connected') ? now() : null,
         ]);
@@ -282,64 +281,6 @@ class WhatsAppChannelService implements ChannelServiceInterface
             'conversation_id' => $primaryConversationId,
             'message_id' => $primaryMessageId,
             'synced_businesses' => $businessIds,
-        ];
-    }
-
-    /**
-     * Request QR Code generation for a business.
-     */
-    public function requestQrCode(Business $business): array
-    {
-        $sessionId = 'session_' . $business->id;
-
-        try {
-            $response = Http::timeout(8)
-                ->withHeaders(WhatsAppTokenService::getRequestHeaders())
-                ->post("{$this->serviceUrl}/api/sessions/start", [
-                'business_id' => $business->id,
-                'session_id' => $sessionId,
-                'webhook_url' => route('webhooks.whatsapp', $business->id),
-            ]);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $qrCode = $data['qr_image'] ?? $data['qr_code'] ?? null;
-                $dbStatus = match ($data['status'] ?? '') {
-                    'connected' => 'connected',
-                    'disconnected' => 'disconnected',
-                    default => 'connecting',
-                };
-
-                $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
-                    'business_id' => $business->id,
-                ], [
-                    'session_id' => $sessionId,
-                    'status' => $dbStatus,
-                    'qr_code' => $qrCode,
-                ]);
-
-                return $data;
-            }
-        } catch (\Throwable $e) {
-            Log::info('Baileys microservice offline for QR generation, generating mock QR: ' . $e->getMessage());
-        }
-
-        // Mock QR code data string for visual testing
-        $mockQr = 'https://wa.me/settings/linked_devices?auth=vertex_' . $business->id . '_' . time();
-
-        $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
-            'business_id' => $business->id,
-        ], [
-            'session_id' => $sessionId,
-            'status' => 'connecting',
-            'qr_code' => $mockQr,
-        ]);
-
-        return [
-            'status' => 'qr_ready',
-            'qr_code' => $mockQr,
-            'qr_image' => null,
-            'simulated' => true,
         ];
     }
 

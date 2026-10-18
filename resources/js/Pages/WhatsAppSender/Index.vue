@@ -20,7 +20,7 @@ import {
     X,
     ExternalLink,
     Zap,
-    QrCode,
+    Smartphone,
     Wallet,
     Coins,
 } from 'lucide-vue-next';
@@ -265,7 +265,7 @@ onUnmounted(() => {
                     <div>
                         <div class="font-bold flex items-center gap-2">
                             <span>حالة رقم الواتساب:</span>
-                            <span class="font-mono">{{ whatsappAccount?.status === 'connected' ? 'متصل وجاهز للإرسال' : 'غير متصل أو يتطلب مسح الرمز' }}</span>
+                            <span class="font-mono">{{ whatsappAccount?.status === 'connected' ? 'متصل وجاهز للإرسال' : 'غير متصل أو يتطلب ربط الهاتف' }}</span>
                             <span v-if="whatsappAccount?.phone_number" class="text-[11px] font-mono text-slate-300">
                                 ({{ whatsappAccount.phone_number }})
                             </span>
@@ -281,8 +281,8 @@ onUnmounted(() => {
                     :href="route('channels.index', business.id)"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition self-start sm:self-auto"
                 >
-                    <QrCode class="w-3.5 h-3.5" />
-                    <span>ربط الواتساب عبر QR</span>
+                    <Smartphone class="w-3.5 h-3.5" />
+                    <span>ربط رقم الواتساب</span>
                 </Link>
             </div>
 

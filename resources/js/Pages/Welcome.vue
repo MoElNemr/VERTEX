@@ -272,7 +272,7 @@ const faqs = [
                         </div>
                         <h3 class="font-bold text-sm text-white">واتساب (WhatsApp)</h3>
                         <p class="text-xs text-slate-400 leading-relaxed">
-                            ربط سريع بـ QR Code أو كود الاقتران. إرسال جماعي CSV، وحملات متزامنة، مع خوارزمية ذكية تمنع الحظر.
+                            ربط سريع ومباشر بكود الاقتران. إرسال جماعي CSV، وحملات متزامنة، مع خوارزمية ذكية تمنع الحظر.
                         </p>
                     </div>
 
@@ -408,7 +408,7 @@ const faqs = [
                         </div>
                         <h3 class="font-bold text-sm text-white">أنشئ حسابك واربط قنواتك</h3>
                         <p class="text-xs text-slate-400 leading-relaxed">
-                            امسح الـ QR Code لربط واتساب وأدخل توكن تيليجرام وميتا في واجهة تحكم موحدة وسهلة.
+                            اربط واتساب بكود الاقتران وأدخل توكن تيليجرام وميتا في واجهة تحكم موحدة وسهلة.
                         </p>
                     </div>
 

@@ -13,7 +13,6 @@ import {
     MessageCircle,
     Send,
     Smartphone,
-    QrCode,
     Key,
     ShieldCheck,
     Layers,
@@ -411,40 +410,25 @@ const closeModal = () => {
                     <div class="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-200 flex items-start gap-3">
                         <MessageCircle class="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                         <div class="text-xs space-y-1">
-                            <p class="font-bold">طريقتان سهلتان لربط رقم واتساب:</p>
+                            <p class="font-bold">ربط رقم واتساب عبر كود الاقتران الرقمي:</p>
                             <p class="text-emerald-300/90 leading-relaxed">
-                                يمكنك الربط إما بمسح رمز QR بكاميرا الهاتف، أو باستخدام كود الربط الرقمي المكون من 8 خانات بدون الحاجة للكاميرا.
+                                يمكنك ربط رقم الواتساب الخاص بك بكل سهولة باستخدام كود الربط الرقمي المكون من 8 خانات مباشرة من هاتفك بدون الحاجة لكاميرا.
                             </p>
                         </div>
                     </div>
 
-                    <!-- Method A: QR Scan -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                        <div class="flex items-center gap-2">
-                            <QrCode class="w-5 h-5 text-emerald-400" />
-                            <h3 class="font-bold text-white text-sm">الطريقة الأولى: مسح رمز QR</h3>
-                        </div>
-                        <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                            <li>في بطاقة واتساب، اضغط على زر <span class="text-white font-bold">مسح رمز QR</span> ثم <span class="text-blue-400 font-bold">توليد رمز QR جديد</span>.</li>
-                            <li>افتح تطبيق واتساب على هاتفك الشخصي أو هاتف المتجر.</li>
-                            <li>اذهب إلى <span class="text-white font-bold">الإعدادات</span> (أو القائمة ⋮ ثلاث نقاط في أندرويد) &gt; <span class="text-emerald-400 font-bold">الأجهزة المرتبطة (Linked Devices)</span>.</li>
-                            <li>اضغط على <span class="text-white font-bold">ربط جهاز (Link a device)</span> ثم وجه كاميرا الهاتف نحو الرمز على الشاشة.</li>
-                            <li>سيتم الربط وتحديث الصفحة تلقائياً خلال ثوانٍ.</li>
-                        </ol>
-                    </div>
-
-                    <!-- Method B: Pairing Code -->
+                    <!-- Pairing Code Guide -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                         <div class="flex items-center gap-2">
                             <Smartphone class="w-5 h-5 text-emerald-400" />
-                            <h3 class="font-bold text-white text-sm">الطريقة الثانية: كود الربط برقم الهاتف (بدون كاميرا)</h3>
+                            <h3 class="font-bold text-white text-sm">خطوات ربط الحساب بكود الاقتران</h3>
                         </div>
-                        <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                            <li>اختر تبويب <span class="text-white font-bold">كود الربط برقم الهاتف</span> في بطاقة واتساب.</li>
-                            <li>أدخل رقم الهاتف مسبوقاً بمفتاح الدولة بدون أصفار إضافية (مثال لمصر: <code class="text-emerald-400 font-mono">201012345678</code> أو للسعودية: <code class="text-emerald-400 font-mono">9665xxxxxxxx</code>).</li>
-                            <li>اضغط <span class="text-blue-400 font-bold">الحصول على كود الربط</span> وسيظهر لك كود مكون من 8 خانات.</li>
-                            <li>افتح واتساب على هاتفك &gt; الأجهزة المرتبطة &gt; ربط جهاز &gt; اضغط بالأسفل على <span class="text-white font-bold">الربط برقم الهاتف بدلاً من ذلك (Link with phone number instead)</span>.</li>
-                            <li>أدخل الكود الظاهر على شاشة فيرتكس ليتم الاتصال مباشرة.</li>
+                        <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
+                            <li>أدخل رقم الهاتف مسبوقاً بمفتاح الدولة بدون أي أصفار في البداية (مثال لمصر: <code class="text-emerald-400 font-mono">201012345678</code> أو للسعودية: <code class="text-emerald-400 font-mono">9665xxxxxxxx</code>).</li>
+                            <li>اضغط على زر <span class="text-blue-400 font-bold">الحصول على كود الربط</span> وسيظهر لك كود مكون من 8 خانات فوراً.</li>
+                            <li>افتح تطبيق واتساب على هاتفك &gt; اذهب إلى <span class="text-white font-bold">الإعدادات</span> (أو القائمة ⋮ ثلاث نقاط في أندرويد) &gt; <span class="text-emerald-400 font-bold">الأجهزة المرتبطة (Linked Devices)</span>.</li>
+                            <li>اضغط على <span class="text-white font-bold">ربط جهاز (Link a device)</span> ثم اختر بالأسفل <span class="text-white font-bold">الربط برقم الهاتف بدلاً من ذلك (Link with phone number instead)</span>.</li>
+                            <li>اكتب الكود الظاهر على شاشة فيرتكس ليتم تأكيد الاتصال وتفعيل القناة فوراً.</li>
                         </ol>
                     </div>
                 </div>

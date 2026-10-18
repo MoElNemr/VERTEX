@@ -31,7 +31,6 @@ Route::middleware(['auth:web,team', 'active_subscription'])->group(function () {
     Route::post('/businesses/{business}/channels/telegram', [\App\Http\Controllers\ChannelController::class, 'connectTelegram'])->name('channels.telegram.connect');
     Route::post('/businesses/{business}/channels/facebook', [\App\Http\Controllers\ChannelController::class, 'connectFacebook'])->name('channels.facebook.connect');
     Route::post('/businesses/{business}/channels/instagram', [\App\Http\Controllers\ChannelController::class, 'connectInstagram'])->name('channels.instagram.connect');
-    Route::post('/businesses/{business}/channels/whatsapp/qr', [\App\Http\Controllers\ChannelController::class, 'generateWhatsAppQr'])->name('channels.whatsapp.qr');
     Route::post('/businesses/{business}/channels/whatsapp/pairing-code', [\App\Http\Controllers\ChannelController::class, 'requestWhatsAppPairingCode'])->name('channels.whatsapp.pairing-code');
     Route::get('/businesses/{business}/channels/whatsapp/status', [\App\Http\Controllers\ChannelController::class, 'checkWhatsAppStatus'])->name('channels.whatsapp.status');
     Route::post('/businesses/{business}/channels/comment-settings', [\App\Http\Controllers\ChannelController::class, 'updateCommentSettings'])->name('channels.comment-settings.update');
