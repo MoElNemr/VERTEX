@@ -18,11 +18,20 @@ class Conversation extends Model
         'unread_count',
         'assigned_to',
         'last_message_at',
+        'first_response_at',
+        'resolved_at',
+        'sla_due_at',
+        'sla_breached',
+        'channel_connection_id',
     ];
 
     protected $casts = [
         'unread_count' => 'integer',
         'last_message_at' => 'datetime',
+        'first_response_at' => 'datetime',
+        'resolved_at' => 'datetime',
+        'sla_due_at' => 'datetime',
+        'sla_breached' => 'boolean',
     ];
 
     public function contact()
@@ -43,5 +52,10 @@ class Conversation extends Model
     public function latestMessage()
     {
         return $this->hasOne(Message::class)->latestOfMany();
+    }
+
+    public function notes()
+    {
+        return $this->hasMany(ConversationNote::class);
     }
 }

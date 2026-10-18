@@ -46,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'active_subscription' => \App\Http\Middleware\EnsureActiveSubscription::class,
+            'business_access' => \App\Http\Middleware\EnsureBusinessAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

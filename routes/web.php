@@ -26,15 +26,17 @@ Route::middleware(['auth:web,team', 'active_subscription'])->group(function () {
     Route::post('/businesses', [\App\Http\Controllers\BusinessController::class, 'store'])->name('businesses.store');
     Route::post('/businesses/{business}/switch', [\App\Http\Controllers\BusinessController::class, 'switch'])->name('businesses.switch');
 
-    // Channels
-    Route::get('/businesses/{business}/channels', [\App\Http\Controllers\ChannelController::class, 'index'])->name('channels.index');
-    Route::post('/businesses/{business}/channels/telegram', [\App\Http\Controllers\ChannelController::class, 'connectTelegram'])->name('channels.telegram.connect');
-    Route::post('/businesses/{business}/channels/facebook', [\App\Http\Controllers\ChannelController::class, 'connectFacebook'])->name('channels.facebook.connect');
-    Route::post('/businesses/{business}/channels/instagram', [\App\Http\Controllers\ChannelController::class, 'connectInstagram'])->name('channels.instagram.connect');
-    Route::post('/businesses/{business}/channels/whatsapp/pairing-code', [\App\Http\Controllers\ChannelController::class, 'requestWhatsAppPairingCode'])->name('channels.whatsapp.pairing-code');
-    Route::get('/businesses/{business}/channels/whatsapp/status', [\App\Http\Controllers\ChannelController::class, 'checkWhatsAppStatus'])->name('channels.whatsapp.status');
-    Route::post('/businesses/{business}/channels/comment-settings', [\App\Http\Controllers\ChannelController::class, 'updateCommentSettings'])->name('channels.comment-settings.update');
-    Route::delete('/businesses/{business}/channels/{channel}', [\App\Http\Controllers\ChannelController::class, 'disconnect'])->name('channels.disconnect');
+    // Channels — business_access enforces tenant ownership
+    Route::middleware('business_access')->group(function () {
+        Route::get('/businesses/{business}/channels', [\App\Http\Controllers\ChannelController::class, 'index'])->name('channels.index');
+        Route::post('/businesses/{business}/channels/telegram', [\App\Http\Controllers\ChannelController::class, 'connectTelegram'])->name('channels.telegram.connect');
+        Route::post('/businesses/{business}/channels/facebook', [\App\Http\Controllers\ChannelController::class, 'connectFacebook'])->name('channels.facebook.connect');
+        Route::post('/businesses/{business}/channels/instagram', [\App\Http\Controllers\ChannelController::class, 'connectInstagram'])->name('channels.instagram.connect');
+        Route::post('/businesses/{business}/channels/whatsapp/pairing-code', [\App\Http\Controllers\ChannelController::class, 'requestWhatsAppPairingCode'])->name('channels.whatsapp.pairing-code');
+        Route::get('/businesses/{business}/channels/whatsapp/status', [\App\Http\Controllers\ChannelController::class, 'checkWhatsAppStatus'])->name('channels.whatsapp.status');
+        Route::post('/businesses/{business}/channels/comment-settings', [\App\Http\Controllers\ChannelController::class, 'updateCommentSettings'])->name('channels.comment-settings.update');
+        Route::delete('/businesses/{business}/channels/{channel}', [\App\Http\Controllers\ChannelController::class, 'disconnect'])->name('channels.disconnect');
+    });
 
     // Unified Inbox
     Route::get('/inbox', [\App\Http\Controllers\InboxController::class, 'index'])->name('inbox.index');
@@ -45,10 +47,14 @@ Route::middleware(['auth:web,team', 'active_subscription'])->group(function () {
     Route::post('/inbox/{conversation}/transfer', [\App\Http\Controllers\InboxController::class, 'transfer'])->name('inbox.transfer');
     Route::post('/inbox/{conversation}/ai-suggest', [\App\Http\Controllers\InboxController::class, 'suggestReply'])->name('inbox.ai-suggest');
     Route::post('/inbox/{conversation}/summarize', [\App\Http\Controllers\InboxController::class, 'summarize'])->name('inbox.summarize');
+    Route::post('/inbox/{conversation}/notes', [\App\Http\Controllers\InboxController::class, 'addNote'])->name('inbox.notes.store');
+    Route::delete('/inbox/{conversation}/notes/{note}', [\App\Http\Controllers\InboxController::class, 'deleteNote'])->name('inbox.notes.destroy');
 
-    // AI Settings
-    Route::get('/businesses/{business}/ai-settings', [\App\Http\Controllers\AiSettingController::class, 'show'])->name('ai-settings.show');
-    Route::post('/businesses/{business}/ai-settings', [\App\Http\Controllers\AiSettingController::class, 'update'])->name('ai-settings.update');
+    // AI Settings — business_access enforces tenant ownership
+    Route::middleware('business_access')->group(function () {
+        Route::get('/businesses/{business}/ai-settings', [\App\Http\Controllers\AiSettingController::class, 'show'])->name('ai-settings.show');
+        Route::post('/businesses/{business}/ai-settings', [\App\Http\Controllers\AiSettingController::class, 'update'])->name('ai-settings.update');
+    });
 
     // Team Management
     Route::get('/team', [\App\Http\Controllers\TeamMemberController::class, 'index'])->name('team.index');

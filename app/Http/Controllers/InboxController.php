@@ -8,6 +8,7 @@ use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\ConversationNote;
 use App\Models\QuickReply;
 use App\Models\TeamMember;
 use Illuminate\Http\JsonResponse;
@@ -342,5 +343,54 @@ class InboxController extends Controller
         $summary = app(\App\Services\AiService::class)->summarize($conversation, $setting);
 
         return response()->json(['summary' => $summary]);
+    }
+
+    /**
+     * Add an internal note to a conversation.
+     */
+    public function addNote(Request $request, Conversation $conversation): RedirectResponse
+    {
+        $this->authorizeConversationAccess($request, $conversation);
+
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $webUser  = $request->user('web');
+        $teamUser = $request->user('team');
+
+        ConversationNote::create([
+            'conversation_id' => $conversation->id,
+            'business_id'     => $conversation->business_id,
+            'author_id'       => $webUser ? $webUser->id : $teamUser->id,
+            'author_type'     => $webUser ? 'user' : 'team_member',
+            'body'            => $validated['body'],
+        ]);
+
+        return back()->with('success', 'تمت إضافة الملاحظة الداخلية.');
+    }
+
+    /**
+     * Delete an internal note from a conversation.
+     */
+    public function deleteNote(Request $request, Conversation $conversation, ConversationNote $note): RedirectResponse
+    {
+        $this->authorizeConversationAccess($request, $conversation);
+
+        if ($note->conversation_id !== $conversation->id) {
+            abort(404);
+        }
+
+        $note->delete();
+
+        return back()->with('success', 'تم حذف الملاحظة.');
+    }
+
+    /**
+     * Authorize access to a conversation scoped to the current business.
+     */
+    protected function authorizeConversationAccess(Request $request, Conversation $conversation): void
+    {
+        $this->authorizeConversation($request, $conversation);
     }
 }
