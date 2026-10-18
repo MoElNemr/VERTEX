@@ -83,9 +83,9 @@ const closeModal = () => {
 
 <template>
     <Modal :show="show" @close="closeModal" maxWidth="3xl">
-        <div class="bg-slate-900 border border-slate-800 text-slate-100 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="flex flex-col h-[85vh] max-h-[85vh] overflow-hidden text-slate-100">
             <!-- Header -->
-            <div class="px-6 py-5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
+            <div class="shrink-0 px-6 py-5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div
                         class="w-10 h-10 rounded-xl flex items-center justify-center font-bold border"
@@ -121,7 +121,7 @@ const closeModal = () => {
             </div>
 
             <!-- Channel Selector Tabs -->
-            <div class="px-6 pt-3 bg-slate-950/40 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
+            <div class="shrink-0 px-6 pt-3 bg-slate-950/40 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
                 <button
                     type="button"
                     @click="selectedChannel = 'facebook'"
@@ -176,7 +176,7 @@ const closeModal = () => {
             </div>
 
             <!-- Body / Steps -->
-            <div class="px-6 py-6 overflow-y-auto space-y-6 text-sm">
+            <div class="flex-1 min-h-0 px-6 py-6 overflow-y-auto space-y-6 text-sm">
 
                 <!-- ================== FACEBOOK GUIDE ================== -->
                 <div v-if="selectedChannel === 'facebook'" class="space-y-6">
@@ -513,7 +513,7 @@ const closeModal = () => {
             </div>
 
             <!-- Footer -->
-            <div class="px-6 py-4 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between">
+            <div class="shrink-0 px-6 py-4 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between">
                 <span class="text-xs text-slate-400">
                     متجر: <span class="text-white font-bold">{{ business.name }}</span>
                 </span>
