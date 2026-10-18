@@ -455,4 +455,50 @@ class ChannelWebhooksTest extends TestCase
             'platform_sender_id' => 'sim_12345',
         ]);
     }
+
+    public function test_webhook_simulator_creates_facebook_message_and_bypasses_signature_in_testing(): void
+    {
+        config(['services.meta.app_secret' => 'meta_secret_active_123']);
+
+        $response = $this->postJson(route('webhooks.simulate.facebook', $this->business->id), [
+            'sender_id' => 'sim_fb_777',
+            'sender_name' => 'Simulated FB User',
+            'text' => 'رسالة محاكاة فيسبوك مع تفعيل السيكرت',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'simulated_platform' => 'facebook',
+            'result' => ['status' => 'success'],
+        ]);
+
+        $this->assertDatabaseHas('contacts', [
+            'business_id' => $this->business->id,
+            'platform' => 'facebook',
+            'platform_sender_id' => 'sim_fb_777',
+        ]);
+    }
+
+    public function test_webhook_simulator_creates_whatsapp_message_and_bypasses_token_in_testing(): void
+    {
+        config(['services.whatsapp.secret' => 'wa_secret_active_456']);
+
+        $response = $this->postJson(route('webhooks.simulate.whatsapp', $this->business->id), [
+            'phone' => '201099881122',
+            'sender_name' => 'Simulated WA User',
+            'text' => 'رسالة محاكاة واتساب بدون توكن',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'simulated_platform' => 'whatsapp',
+            'result' => ['status' => 'success'],
+        ]);
+
+        $this->assertDatabaseHas('contacts', [
+            'business_id' => $this->business->id,
+            'platform' => 'whatsapp',
+            'phone' => '201099881122',
+        ]);
+    }
 }

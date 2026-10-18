@@ -67,8 +67,8 @@ cd ../JS-server
 # Install dependencies
 npm install
 
-# Configure environment variables
-# Set SHARED_SECRET matching vertex .env (WHATSAPP_SERVICE_SECRET)
+# Configure environment variables (.env)
+# Set SHARED_SECRET matching vertex .env (WHATSAPP_SERVER_SECRET)
 npm start
 ```
 
