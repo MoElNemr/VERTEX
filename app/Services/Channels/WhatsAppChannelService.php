@@ -200,6 +200,11 @@ class WhatsAppChannelService implements ChannelServiceInterface
             return ['status' => 'ignored', 'error' => 'No sender JID.'];
         }
 
+        // Ignore group messages, broadcast channels, and newsletters
+        if (str_ends_with($fromJid, '@g.us') || str_ends_with($fromJid, '@newsletter') || str_ends_with($fromJid, '@broadcast')) {
+            return ['status' => 'ignored', 'message' => 'Group, broadcast, or newsletter message ignored.'];
+        }
+
         // Clean phone number from JID (e.g. "201012345678@s.whatsapp.net" -> "201012345678")
         $phone = explode('@', $fromJid)[0];
         $name = $pushName ?: ('عميل واتساب +' . $phone);

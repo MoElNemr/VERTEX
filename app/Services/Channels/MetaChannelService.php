@@ -339,7 +339,12 @@ class MetaChannelService implements ChannelServiceInterface
             $expectedToken = 'vertex_meta_token_' . $business->id;
         }
 
-        if ($mode === 'subscribe' && !empty($token) && hash_equals((string) $expectedToken, (string) $token)) {
+        $isValidToken = !empty($token) && (
+            (!empty($expectedToken) && hash_equals((string) $expectedToken, (string) $token)) ||
+            (!app()->isProduction() && hash_equals('vertex_meta_token_' . $business->id, (string) $token))
+        );
+
+        if ($mode === 'subscribe' && $isValidToken) {
             Log::info("Meta webhook verified successfully for business {$business->id}");
             return (string) $challenge;
         }

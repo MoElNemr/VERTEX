@@ -153,14 +153,20 @@ class InboxController extends Controller
             'last_message_at' => now(),
         ]);
 
-        broadcast(new MessageSent($conversation, $message));
-
-        // إرسال الرسالة إلى المنصة الخارجية المناسبة (تيليجرام، واتساب، فيسبوك، إنستجرام)
+        // 1. إرسال الرسالة إلى المنصة الخارجية أولاً (واتساب، تيليجرام، فيسبوك، إنستجرام)
         try {
             app(\App\Services\Channels\ChannelManager::class)->sendMessage($conversation, $message);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Outbound message dispatch error: ' . $e->getMessage());
         }
+
+        // 2. إرسال الإشعار اللحظي عبر WebSockets (مغلف لمنع تعطيل الإرسال إذا كان Reverb متوقفاً)
+        try {
+            broadcast(new MessageSent($conversation, $message));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Broadcast failed for outbound message: ' . $e->getMessage());
+        }
+
         return response()->json([
             'status' => 'success',
             'message' => $message->load('senderAgent:id,name'),
