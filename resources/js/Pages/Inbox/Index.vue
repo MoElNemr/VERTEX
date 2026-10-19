@@ -204,7 +204,9 @@ const sendMessage = async () => {
         });
 
         if (res.data.status === 'success') {
-            messages.value.push(res.data.message);
+            if (!messages.value.find(m => m.id === res.data.message.id)) {
+                messages.value.push(res.data.message);
+            }
             activeConv.value.last_message_at = new Date().toISOString();
             if (activeConv.value.latest_message) {
                 activeConv.value.latest_message.body = text;

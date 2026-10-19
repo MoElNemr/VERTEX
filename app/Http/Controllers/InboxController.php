@@ -162,7 +162,7 @@ class InboxController extends Controller
 
         // 2. إرسال الإشعار اللحظي عبر WebSockets (مغلف لمنع تعطيل الإرسال إذا كان Reverb متوقفاً)
         try {
-            broadcast(new MessageSent($conversation, $message));
+            broadcast(new MessageSent($conversation, $message))->toOthers();
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Broadcast failed for outbound message: ' . $e->getMessage());
         }
