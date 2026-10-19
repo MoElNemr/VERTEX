@@ -98,8 +98,8 @@ const fbPermissions = fbPermissionsList.map(p => p.key).join(', ');
 const igPermissions = igPermissionsList.map(p => p.key).join(', ');
 
 const fbQuery = 'me/accounts?fields=name,id,access_token';
-const igQuery = 'me/accounts?fields=name,access_token,instagram_business_account';
-const fbWebhookFields = 'feed, messages';
+const igQuery = 'me/accounts?fields=name,access_token,instagram_business_account{id,username}';
+const fbWebhookFields = 'messages, messaging_postbacks, feed';
 const igWebhookFields = 'messages, comments, live_comments';
 
 const closeModal = () => {
@@ -217,30 +217,30 @@ const closeModal = () => {
                         </div>
                     </div>
 
-                    <!-- Step 1: Permanent Token via Graph API Explorer -->
+                    <!-- Step 1: Permanent Token & Page ID via Graph API Explorer -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">1</span>
-                            <h3 class="font-bold text-white text-sm">استخراج التوكن الدائم (Page Access Token) عبر Graph API Explorer</h3>
+                            <h3 class="font-bold text-white text-sm">استخراج معرّف الصفحة (Page ID) والتوكن الدائم (Page Access Token)</h3>
                         </div>
 
                         <!-- Prerequisite Alert -->
                         <div class="p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-blue-200 text-xs space-y-1.5">
                             <div class="flex items-center gap-2 font-bold text-blue-300">
                                 <ShieldCheck class="w-4 h-4 text-blue-400 shrink-0" />
-                                <span>شرط أساسي مسبق في Meta for Developers:</span>
+                                <span>شرط مسبق بسيط:</span>
                             </div>
                             <p class="text-slate-300 leading-relaxed text-[11px] ps-6">
-                                يجب أن يكون لديك تطبيق من نوع <strong class="text-white font-bold">Business</strong> على منصة
+                                يجب أن يكون لديك تطبيق على منصة
                                 <a href="https://developers.facebook.com/apps" target="_blank" class="text-blue-400 underline font-bold inline-flex items-center gap-1 mx-1">
                                     <span>Meta for Developers</span>
                                     <ExternalLink class="w-3 h-3" />
                                 </a>
-                                ومضاف بداخله منتجات <strong class="text-white font-mono">Messenger</strong> و <strong class="text-white font-mono">Webhooks</strong>.
+                                (إذا لم يكن لديك تطبيق، اضغط <strong>Create App</strong> واختر حالة الاستخدام <strong>Engage with customers on Messenger</strong> أو <strong>Other &gt; Business</strong>).
                             </p>
                         </div>
 
-                        <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
+                        <ol class="list-decimal list-inside space-y-2.5 text-xs text-slate-300 leading-relaxed">
                             <li>
                                 افتح أداة
                                 <a href="https://developers.facebook.com/tools/explorer" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
@@ -249,13 +249,13 @@ const closeModal = () => {
                                 </a>
                             </li>
                             <li>
-                                من القائمة العلوية اليمنى <span class="text-white font-bold font-mono">Meta App</span>، اختر التطبيق الخاص بك.
+                                من القائمة العلوية اليمنى <span class="text-white font-bold font-mono">Meta App</span>: اختر التطبيق الخاص بك.
                             </li>
                             <li>
-                                من قائمة <span class="text-white font-bold font-mono">User or Page</span>، اختر صفحة الفيسبوك التي تريد ربطها (تأكد من اختيار الصفحة تحت قسم <span class="text-blue-300 font-bold">Page Access Tokens</span>).
+                                في خانة <span class="text-white font-bold font-mono">User or Page</span>: اتركها كما هي على خيار <span class="text-blue-300 font-bold">User Token</span>.
                             </li>
                             <li>
-                                في قسم <span class="text-white font-bold">Permissions</span>، أضف الصلاحيات التالية:
+                                في قسم <span class="text-white font-bold">Permissions</span> (الصلاحيات): أضف الصلاحيات الأربعة المطلوبة لإدارة الرسائل والصفحات:
                             </li>
                         </ol>
 
@@ -297,38 +297,19 @@ const closeModal = () => {
                             </div>
                         </div>
 
-                        <p class="text-xs text-slate-300 pt-1">
-                            اضغط على زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span> ووافق على منح الصلاحيات لصفحتك.
-                        </p>
-                    </div>
-
-                    <!-- Step 2: Convert to Permanent (Never Expires) -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">2</span>
-                            <h3 class="font-bold text-white text-sm">تحويل التوكن إلى دائم (Never Expires)</h3>
-                        </div>
-
-                        <ol class="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
+                        <ol start="5" class="list-decimal list-inside space-y-2.5 text-xs text-slate-300 leading-relaxed pt-1">
                             <li>
-                                انسخ التوكن الذي ظهر لك، ثم افتح أداة
-                                <a href="https://developers.facebook.com/tools/debug/accesstoken" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold inline-flex items-center gap-1 mx-1">
-                                    <span>Access Token Debugger</span>
-                                    <ExternalLink class="w-3 h-3" />
-                                </a>
+                                اضغط على زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span> ووافق في نافذة فيسبوك المنبثقة على منح الصلاحيات لصفحاتك.
                             </li>
                             <li>
-                                الصق التوكن واضغط <span class="text-white font-bold">Debug</span>، ثم انزل لأسفل الصفحة واضغط زر <span class="text-emerald-400 font-bold">Extend Access Token</span>.
-                            </li>
-                            <li>
-                                انسخ التوكن الجديد الممدد من الأسفل، أو استخرجه عبر طلب <code class="text-blue-400 font-mono font-bold">GET</code> للمسار التالي في الـ Explorer لضمان عدم انتهائه أبداً:
+                                في شريط الاستعلام بالأعلى بجوار زر <span class="text-emerald-400 font-mono font-bold">GET</span>، الصق المسار التالي ثم اضغط زر <span class="text-white font-bold bg-blue-600 px-2 py-0.5 rounded text-[11px]">Submit</span>:
                             </li>
                         </ol>
 
                         <!-- Query Path Badge with Copy -->
-                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+                        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
                             <div class="flex items-center justify-between text-[11px] text-slate-400">
-                                <span>مسار الاستعلام لجلب التوكن الدائم ومعرف الصفحة:</span>
+                                <span class="font-bold text-slate-200">مسار الاستعلام لجلب معرف الصفحة والتوكن الدائم:</span>
                                 <button
                                     type="button"
                                     @click="copyToClipboard(fbQuery, 'fb_query_btn')"
@@ -339,31 +320,56 @@ const closeModal = () => {
                                     <span>{{ copiedKey === 'fb_query_btn' ? 'تم النسخ' : 'نسخ المسار' }}</span>
                                 </button>
                             </div>
-                            <div class="p-2 rounded bg-slate-950 font-mono text-xs text-blue-300 select-all break-all">
+                            <div class="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-blue-300 select-all break-all border border-slate-800">
                                 {{ fbQuery }}
                             </div>
-                            <p class="text-[11px] text-slate-500">
-                                سيعطيك هذا الطلب الـ <code class="text-slate-300">id</code> الخاص بالصفحة، والـ <code class="text-slate-300">access_token</code> الدائم الخاص بها.
-                            </p>
+                            <div class="text-[11px] text-slate-400 leading-relaxed space-y-1">
+                                <p>
+                                    سيعرض لك Meta في مربع الاستجابة بالأسفل قائمة بصفحاتك، انسخ منها التالي:
+                                </p>
+                                <ul class="list-disc list-inside ps-2 space-y-0.5 text-slate-300">
+                                    <li>قيمة حقل <code class="text-blue-400 font-mono font-bold">"id"</code>: ضعها في خانة <strong>معرف الصفحة (Page ID)</strong> هنا.</li>
+                                    <li>قيمة حقل <code class="text-emerald-400 font-mono font-bold">"access_token"</code>: ضعها في خانة <strong>رمز الوصول (Page Access Token)</strong> هنا.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Permanent Token Guarantee Callout -->
+                        <div class="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 text-xs flex items-start gap-2.5">
+                            <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <div class="space-y-0.5 leading-relaxed">
+                                <p class="font-bold text-emerald-200">توكن دائم لا ينتهي أبداً (Never Expires):</p>
+                                <p class="text-[11px] text-emerald-300/90">
+                                    رمز الوصول المستخرج بهذه الطريقة هو توكن دائم للصفحة، ولا يحتاج لأي تمديد يدوي. كما يقوم نظام فيرتكس بالاشتراك في صفحتك وتأكيد الربط فور النقر على زر الحفظ.
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Step 3: Webhooks Setup -->
+                    <!-- Step 2: Webhooks Setup -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">3</span>
-                            <h3 class="font-bold text-white text-sm">تفعيل استقبال الرسائل والتعليقات (Webhooks)</h3>
+                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">2</span>
+                            <h3 class="font-bold text-white text-sm">تفعيل استقبال الرسائل والتعليقات (Webhooks) في لوحة Meta</h3>
                         </div>
 
-                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-2 leading-relaxed">
                             <p class="text-slate-300 font-medium">
-                                💡 <strong class="text-white">ملاحظة هامة:</strong> التوكن وحده يُستخدم للإرسال فقط؛ لاستقبال الرسائل والتعليقات لحظياً يجب ضبط الـ Webhooks في لوحة تحكم تطبيقك في Meta:
+                                💡 <strong class="text-white">خطوات ضبط الويب هوك في تطبيقك على Meta:</strong>
                             </p>
-                            <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px] pt-1">
-                                <li>ادخل إلى تطبيقك في <a href="https://developers.facebook.com/apps" target="_blank" class="text-blue-400 underline font-bold">Meta for Developers</a> &gt; قسم <span class="text-white font-bold">Webhooks</span>.</li>
-                                <li>اضبط الـ <span class="text-white font-bold">Callback URL</span> و الـ <span class="text-white font-bold">Verify Token</span> بالبيانات الموضحة أدناه.</li>
-                                <li>اشترك في أحداث الصفحة (<span class="text-white font-bold font-mono">Page</span>): فعّل الحقل <code class="text-blue-300 font-mono font-bold">feed</code> (لاستقبال الكومنتات) والحقل <code class="text-blue-300 font-mono font-bold">messages</code> (لاستقبال الرسائل).</li>
-                                <li>من إعدادات <span class="text-white font-bold">Messenger &gt; Settings</span> داخل التطبيق، تأكد من عمل <span class="text-white font-bold">Subscribe</span> للصفحة.</li>
+                            <ol class="list-decimal list-inside space-y-1.5 text-slate-400 text-[11px] pt-1">
+                                <li>
+                                    ادخل إلى تطبيقك في <a href="https://developers.facebook.com/apps" target="_blank" class="text-blue-400 underline font-bold inline-flex items-center gap-0.5">Meta for Developers <ExternalLink class="w-2.5 h-2.5" /></a>.
+                                </li>
+                                <li>
+                                    من القائمة الجانبية: اضغط على <span class="text-white font-bold font-mono">Webhooks</span> (أو اذهب إلى <span class="text-white font-bold">Use cases</span> ثم اضغط <span class="text-blue-300 font-bold">Customize</span> بجوار <span class="text-white font-bold">Engage with customers on Messenger</span>).
+                                </li>
+                                <li>
+                                    اضغط على زر <span class="text-white font-bold">Add callback URL</span> أو <span class="text-white font-bold">Edit callback URL</span>، وأدخل الرابط والرمز الموضحين أدناه ثم اضغط <span class="text-emerald-400 font-bold">Verify and save</span>.
+                                </li>
+                                <li>
+                                    في جدول حقول الصفحة بالأسفل، فعّل الاشتراك في الحقول: <code class="text-blue-300 font-mono font-bold">messages</code> و <code class="text-blue-300 font-mono font-bold">messaging_postbacks</code> و <code class="text-blue-300 font-mono font-bold">feed</code>.
+                                </li>
                             </ol>
                         </div>
 
@@ -407,7 +413,7 @@ const closeModal = () => {
 
                             <div>
                                 <div class="flex items-center justify-between text-[11px] mb-1 font-bold text-slate-300">
-                                    <span>الحقول المشترك بها في Meta Page Webhook:</span>
+                                    <span>الحقول المشترك بها في Meta Webhook:</span>
                                     <button
                                         type="button"
                                         @click="copyToClipboard(fbWebhookFields, 'fb_webhook_fields')"
@@ -418,10 +424,11 @@ const closeModal = () => {
                                         <span>{{ copiedKey === 'fb_webhook_fields' ? 'تم النسخ' : 'نسخ الحقول' }}</span>
                                     </button>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-blue-300">feed</span>
+                                <div class="flex flex-wrap items-center gap-2">
                                     <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-blue-300">messages</span>
-                                    <span class="text-[11px] text-slate-400">(feed للكومنتات، messages للرسائل)</span>
+                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-blue-300">messaging_postbacks</span>
+                                    <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-blue-300">feed</span>
+                                    <span class="text-[11px] text-slate-400">(messages للرسائل، feed للتعليقات والرد التلقائي)</span>
                                 </div>
                             </div>
                         </div>
@@ -460,21 +467,28 @@ const closeModal = () => {
                         </ol>
                     </div>
 
-                    <!-- Step 2: Permissions in Graph API Explorer -->
+                    <!-- Step 2: Extract Instagram Business ID & Permanent Token via Graph API Explorer -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">2</span>
-                            <h3 class="font-bold text-white text-sm">الصلاحيات المطلوبة في Graph API Explorer</h3>
+                            <h3 class="font-bold text-white text-sm">استخراج معرّف إنستجرام (Instagram Business ID) والتوكن الدائم</h3>
                         </div>
 
-                        <p class="text-xs text-slate-300 leading-relaxed">
-                            اتبع نفس خطوات فيسبوك في أداة
-                            <a href="https://developers.facebook.com/tools/explorer" target="_blank" class="text-pink-400 hover:text-pink-300 underline font-bold inline-flex items-center gap-1 mx-1">
-                                <span>Meta Graph API Explorer</span>
-                                <ExternalLink class="w-3 h-3" />
-                            </a>
-                            وأضف الصلاحيات التالية إلى جانب صلاحيات الصفحة:
-                        </p>
+                        <ol class="list-decimal list-inside space-y-2.5 text-xs text-slate-300 leading-relaxed">
+                            <li>
+                                افتح أداة
+                                <a href="https://developers.facebook.com/tools/explorer" target="_blank" class="text-pink-400 hover:text-pink-300 underline font-bold inline-flex items-center gap-1 mx-1">
+                                    <span>Meta Graph API Explorer</span>
+                                    <ExternalLink class="w-3 h-3" />
+                                </a>
+                            </li>
+                            <li>
+                                اختر تطبيقك من قائمة <span class="text-white font-bold font-mono">Meta App</span>.
+                            </li>
+                            <li>
+                                في قسم <span class="text-white font-bold">Permissions</span>: أضف صلاحيات إنستجرام والصفحة المطلوبة لإدارة الرسائل والتعليقات:
+                            </li>
+                        </ol>
 
                         <!-- Instagram Permissions Badges Grid -->
                         <div class="space-y-2">
@@ -514,27 +528,19 @@ const closeModal = () => {
                             </div>
                         </div>
 
-                        <ul class="list-disc list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed pt-1">
-                            <li>اضغط <span class="text-white font-bold bg-pink-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span>، وتأكد في نافذة الموافقة من <strong class="text-white">تحديد صفحة الفيسبوك وحساب إنستجرام المرتبط بها معاً</strong>.</li>
-                            <li>قم بتمديد التوكن بنفس الطريقة عبر <a href="https://developers.facebook.com/tools/debug/accesstoken" target="_blank" class="text-pink-400 underline font-bold">Access Token Debugger</a> للحصول على التوكن الممتد الدائم.</li>
-                        </ul>
-                    </div>
-
-                    <!-- Step 3: Extract Instagram Business Account ID -->
-                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">3</span>
-                            <h3 class="font-bold text-white text-sm">استخراج معرف حساب إنستجرام للأعمال (Instagram Business Account ID)</h3>
-                        </div>
-
-                        <p class="text-xs text-slate-300 leading-relaxed">
-                            في أداة Graph API Explorer، نفّذ طلب <code class="text-pink-400 font-mono font-bold">GET</code> على المسار التالي:
-                        </p>
+                        <ol start="4" class="list-decimal list-inside space-y-2.5 text-xs text-slate-300 leading-relaxed pt-1">
+                            <li>
+                                اضغط <span class="text-white font-bold bg-pink-600 px-2 py-0.5 rounded text-[11px]">Generate Access Token</span>، وتأكد في نافذة الموافقة من <strong class="text-white">تحديد صفحة الفيسبوك وحساب إنستجرام المرتبط بها معاً</strong>.
+                            </li>
+                            <li>
+                                في شريط الاستعلام بالأعلى بجوار زر <span class="text-emerald-400 font-mono font-bold">GET</span>، الصق المسار التالي ثم اضغط <span class="text-white font-bold bg-pink-600 px-2 py-0.5 rounded text-[11px]">Submit</span>:
+                            </li>
+                        </ol>
 
                         <!-- Path Badge with Copy -->
-                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+                        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
                             <div class="flex items-center justify-between text-[11px] text-slate-400">
-                                <span>مسار الاستعلام لجلب معرف إنستجرام والتوكن:</span>
+                                <span class="font-bold text-slate-200">مسار الاستعلام لجلب معرف إنستجرام والتوكن الدائم:</span>
                                 <button
                                     type="button"
                                     @click="copyToClipboard(igQuery, 'ig_query_btn')"
@@ -545,30 +551,56 @@ const closeModal = () => {
                                     <span>{{ copiedKey === 'ig_query_btn' ? 'تم النسخ' : 'نسخ المسار' }}</span>
                                 </button>
                             </div>
-                            <div class="p-2 rounded bg-slate-950 font-mono text-xs text-pink-300 select-all break-all">
+                            <div class="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-pink-300 select-all break-all border border-slate-800">
                                 {{ igQuery }}
                             </div>
-                            <p class="text-[11px] text-slate-400">
-                                سيظهر لك الـ <code class="text-pink-300 font-mono">id</code> الخاص بحساب إنستجرام تحت حقل <code class="text-slate-200 font-mono">instagram_business_account</code>، بالإضافة إلى التوكن الخاص بالصفحة الذي يُستخدم لإدارة الحسابين.
-                            </p>
+                            <div class="text-[11px] text-slate-400 leading-relaxed space-y-1">
+                                <p>
+                                    سيعرض لك Meta في مربع الاستجابة بالأسفل بيانات الحساب، انسخ منها التالي:
+                                </p>
+                                <ul class="list-disc list-inside ps-2 space-y-0.5 text-slate-300">
+                                    <li>قيمة <code class="text-pink-400 font-mono font-bold">"id"</code> داخل قسم <code class="text-white font-mono">instagram_business_account</code>: ضعها في خانة <strong>Instagram Business Account ID</strong>.</li>
+                                    <li>قيمة <code class="text-emerald-400 font-mono font-bold">"access_token"</code> الخاصة بالصفحة: ضعها في خانة <strong>Instagram Access Token</strong>.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Permanent Token Guarantee Callout -->
+                        <div class="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 text-xs flex items-start gap-2.5">
+                            <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <div class="space-y-0.5 leading-relaxed">
+                                <p class="font-bold text-emerald-200">توكن دائم لا ينتهي أبداً:</p>
+                                <p class="text-[11px] text-emerald-300/90">
+                                    التوكن الناتج عن هذا الاستعلام دائم ولا يتطلب أي خطوات تمديد إضافية، ويعمل على إدارة رسائل وتعليقات إنستجرام بسلاسة كاملة.
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Step 4: Instagram Webhooks -->
+                    <!-- Step 3: Instagram Webhooks -->
                     <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                         <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">4</span>
-                            <h3 class="font-bold text-white text-sm">تفعيل الـ Webhooks لإنستجرام</h3>
+                            <span class="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">3</span>
+                            <h3 class="font-bold text-white text-sm">تفعيل استقبال الرسائل والتعليقات (Webhooks) لإنستجرام</h3>
                         </div>
 
-                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                        <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-2 leading-relaxed">
                             <p class="text-slate-300 font-medium">
-                                💡 <strong class="text-white">خطوات ضبط ويب هوك إنستجرام في تطبيق Meta:</strong>
+                                💡 <strong class="text-white">خطوات ضبط ويب هوك إنستجرام في تطبيقك على Meta:</strong>
                             </p>
-                            <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px] pt-1">
-                                <li>من لوحة تحكم تطبيق Meta &gt; قسم <span class="text-white font-bold">Webhooks</span>، اختر من القائمة المنسدلة <strong class="text-pink-400 font-bold font-mono">Instagram</strong> (وليس Page).</li>
-                                <li>ضع نفس رابط الـ <span class="text-white font-bold">Callback URL</span> والـ <span class="text-white font-bold">Verify Token</span>.</li>
-                                <li>فعّل الاشتراك (Subscribe) في الحقول الموضحة أدناه: <code class="text-pink-300 font-mono">messages</code> و <code class="text-pink-300 font-mono">comments</code> و <code class="text-pink-300 font-mono">live_comments</code>.</li>
+                            <ol class="list-decimal list-inside space-y-1.5 text-slate-400 text-[11px] pt-1">
+                                <li>
+                                    من لوحة تحكم تطبيقك في <a href="https://developers.facebook.com/apps" target="_blank" class="text-pink-400 underline font-bold inline-flex items-center gap-0.5">Meta for Developers <ExternalLink class="w-2.5 h-2.5" /></a> &gt; اضغط على <span class="text-white font-bold">Webhooks</span> من القائمة الجانبية.
+                                </li>
+                                <li>
+                                    من القائمة المنسدلة في أعلى الصفحة (التي تختار نوع الكائن): اختر <strong class="text-pink-400 font-bold font-mono">Instagram</strong> (وليس Page).
+                                </li>
+                                <li>
+                                    اضغط على <span class="text-white font-bold">Add callback URL</span> أو <span class="text-white font-bold">Edit callback URL</span>، وأدخل الرابط ورمز التحقق الموضحين أدناه ثم اضغط <span class="text-emerald-400 font-bold">Verify and save</span>.
+                                </li>
+                                <li>
+                                    في جدول حقول إنستجرام بالأسفل، فعّل الاشتراك (Subscribe) في الحقول: <code class="text-pink-300 font-mono font-bold">messages</code> و <code class="text-pink-300 font-mono font-bold">comments</code> و <code class="text-pink-300 font-mono font-bold">live_comments</code>.
+                                </li>
                             </ol>
                         </div>
 
@@ -623,10 +655,11 @@ const closeModal = () => {
                                         <span>{{ copiedKey === 'ig_webhook_fields' ? 'تم النسخ' : 'نسخ الحقول' }}</span>
                                     </button>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-pink-300">messages</span>
                                     <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-pink-300">comments</span>
                                     <span class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-xs text-pink-300">live_comments</span>
+                                    <span class="text-[11px] text-slate-400">(messages للدايركت DM، comments لتعليقات البوستات والريلز)</span>
                                 </div>
                             </div>
                         </div>
