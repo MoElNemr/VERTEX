@@ -8,7 +8,14 @@ import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
 
-if (import.meta.env.VITE_REVERB_APP_KEY) {
+if (import.meta.env.VITE_PUSHER_APP_KEY) {
+    window.Echo = new Echo({
+        broadcaster: 'pusher',
+        key: import.meta.env.VITE_PUSHER_APP_KEY,
+        cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER ?? 'eu',
+        forceTLS: true,
+    });
+} else if (import.meta.env.VITE_REVERB_APP_KEY) {
     window.Echo = new Echo({
         broadcaster: 'reverb',
         key: import.meta.env.VITE_REVERB_APP_KEY,
@@ -19,7 +26,7 @@ if (import.meta.env.VITE_REVERB_APP_KEY) {
         enabledTransports: ['ws', 'wss'],
     });
 } else {
-    // Dummy Echo fallback to prevent crashing client bundles when Reverb is not configured
+    // Dummy Echo fallback to prevent crashing client bundles when no broadcaster is configured
     window.Echo = null;
 }
 
