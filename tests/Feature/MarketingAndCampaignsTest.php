@@ -7,6 +7,7 @@ use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\User;
 use App\Models\WhatsappAccount;
+use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -16,6 +17,7 @@ class MarketingAndCampaignsTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected Business $business;
 
     protected function setUp(): void
@@ -32,7 +34,7 @@ class MarketingAndCampaignsTest extends TestCase
 
         WhatsappAccount::create([
             'business_id' => $this->business->id,
-            'session_id' => 'session_' . $this->business->id,
+            'session_id' => 'session_'.$this->business->id,
             'status' => 'connected',
             'phone_number' => '+201000000000',
         ]);
@@ -45,12 +47,11 @@ class MarketingAndCampaignsTest extends TestCase
             ->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertInertia(fn ($page) =>
-            $page->component('Dashboard')
-                ->has('marketing.roi_multiplier')
-                ->has('marketing.platform_distribution')
-                ->has('marketing.time_series')
-                ->has('marketing.delivery_rate')
+        $response->assertInertia(fn ($page) => $page->component('Dashboard')
+            ->has('marketing.roi_multiplier')
+            ->has('marketing.platform_distribution')
+            ->has('marketing.time_series')
+            ->has('marketing.delivery_rate')
         );
     }
 
@@ -91,13 +92,12 @@ class MarketingAndCampaignsTest extends TestCase
             ->get(route('retargeting.index'));
 
         $response->assertOk();
-        $response->assertInertia(fn ($page) =>
-            $page->component('Retargeting/Index')
-                ->where('audience.total', 4)
-                ->where('audience.by_platform.whatsapp', 1)
-                ->where('audience.by_platform.facebook', 1)
-                ->where('audience.by_platform.instagram', 1)
-                ->where('audience.by_platform.telegram', 1)
+        $response->assertInertia(fn ($page) => $page->component('Retargeting/Index')
+            ->where('audience.total', 4)
+            ->where('audience.by_platform.whatsapp', 1)
+            ->where('audience.by_platform.facebook', 1)
+            ->where('audience.by_platform.instagram', 1)
+            ->where('audience.by_platform.telegram', 1)
         );
     }
 
@@ -185,7 +185,7 @@ class MarketingAndCampaignsTest extends TestCase
             'auto_start' => true,
         ];
 
-        $walletService = app(\App\Services\WalletService::class);
+        $walletService = app(WalletService::class);
         $walletService->creditWallet($this->user, 50.00, 20, null, 'Test top-up for bulk send');
 
         $response = $this->actingAs($this->user)

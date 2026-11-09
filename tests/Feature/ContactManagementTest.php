@@ -14,7 +14,9 @@ class ContactManagementTest extends TestCase
     use RefreshDatabase;
 
     protected User $owner;
+
     protected Business $business;
+
     protected Contact $contact;
 
     protected function setUp(): void

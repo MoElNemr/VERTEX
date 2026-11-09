@@ -35,7 +35,7 @@ class WebhookSimulatorController extends Controller
                 'from' => [
                     'id' => $senderId,
                     'first_name' => $senderName,
-                    'username' => 'user_' . substr($senderId, -4),
+                    'username' => 'user_'.substr($senderId, -4),
                 ],
                 'chat' => [
                     'id' => $senderId,
@@ -65,7 +65,7 @@ class WebhookSimulatorController extends Controller
             'text' => ['required', 'string'],
         ]);
 
-        $senderId = $validated['sender_id'] ?? ('fb_psid_' . rand(100000, 999999));
+        $senderId = $validated['sender_id'] ?? ('fb_psid_'.rand(100000, 999999));
 
         $fakeRequest = new Request([
             'object' => 'page',
@@ -78,7 +78,7 @@ class WebhookSimulatorController extends Controller
                             'sender' => ['id' => $senderId],
                             'recipient' => ['id' => 'page_12345'],
                             'message' => [
-                                'mid' => 'mid.' . uniqid(),
+                                'mid' => 'mid.'.uniqid(),
                                 'text' => $validated['text'],
                             ],
                         ],
@@ -106,9 +106,9 @@ class WebhookSimulatorController extends Controller
             'text' => ['required', 'string'],
         ]);
 
-        $senderId = $validated['sender_id'] ?? ('fb_user_' . rand(100000, 999999));
+        $senderId = $validated['sender_id'] ?? ('fb_user_'.rand(100000, 999999));
         $senderName = $validated['sender_name'] ?? 'معلق فيسبوك تجريبي';
-        $commentId = 'fb_cmt_' . rand(100000, 999999);
+        $commentId = 'fb_cmt_'.rand(100000, 999999);
 
         $fakeRequest = new Request([
             'object' => 'page',
@@ -123,7 +123,7 @@ class WebhookSimulatorController extends Controller
                                 'item' => 'comment',
                                 'verb' => 'add',
                                 'comment_id' => $commentId,
-                                'post_id' => 'post_' . rand(1000, 9999),
+                                'post_id' => 'post_'.rand(1000, 9999),
                                 'from' => [
                                     'id' => $senderId,
                                     'name' => $senderName,
@@ -155,7 +155,7 @@ class WebhookSimulatorController extends Controller
             'text' => ['required', 'string'],
         ]);
 
-        $senderId = $validated['sender_id'] ?? ('ig_id_' . rand(100000, 999999));
+        $senderId = $validated['sender_id'] ?? ('ig_id_'.rand(100000, 999999));
 
         $fakeRequest = new Request([
             'object' => 'instagram',
@@ -168,7 +168,7 @@ class WebhookSimulatorController extends Controller
                             'sender' => ['id' => $senderId],
                             'recipient' => ['id' => 'ig_12345'],
                             'message' => [
-                                'mid' => 'mid.' . uniqid(),
+                                'mid' => 'mid.'.uniqid(),
                                 'text' => $validated['text'],
                             ],
                         ],
@@ -196,9 +196,9 @@ class WebhookSimulatorController extends Controller
             'text' => ['required', 'string'],
         ]);
 
-        $senderId = $validated['sender_id'] ?? ('ig_user_' . rand(100000, 999999));
-        $username = $validated['username'] ?? ('insta_buyer_' . rand(100, 999));
-        $commentId = 'ig_cmt_' . rand(100000, 999999);
+        $senderId = $validated['sender_id'] ?? ('ig_user_'.rand(100000, 999999));
+        $username = $validated['username'] ?? ('insta_buyer_'.rand(100, 999));
+        $commentId = 'ig_cmt_'.rand(100000, 999999);
 
         $fakeRequest = new Request([
             'object' => 'instagram',
@@ -217,7 +217,7 @@ class WebhookSimulatorController extends Controller
                                     'username' => $username,
                                 ],
                                 'media' => [
-                                    'id' => 'media_' . rand(1000, 9999),
+                                    'id' => 'media_'.rand(1000, 9999),
                                 ],
                             ],
                         ],
@@ -245,15 +245,15 @@ class WebhookSimulatorController extends Controller
             'text' => ['required', 'string'],
         ]);
 
-        $phone = $validated['phone'] ?? ('2010' . rand(10000000, 99999999));
+        $phone = $validated['phone'] ?? ('2010'.rand(10000000, 99999999));
         $name = $validated['sender_name'] ?? 'عميل واتساب تجريبي';
 
         $fakeRequest = new Request([
             'event' => 'messages.upsert',
             'data' => [
-                'from' => $phone . '@s.whatsapp.net',
+                'from' => $phone.'@s.whatsapp.net',
                 'push_name' => $name,
-                'message_id' => 'BAE5_' . strtoupper(bin2hex(random_bytes(6))),
+                'message_id' => 'BAE5_'.strtoupper(bin2hex(random_bytes(6))),
                 'text' => $validated['text'],
                 'timestamp' => time(),
             ],

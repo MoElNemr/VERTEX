@@ -91,7 +91,7 @@ class ChannelWebhooksTest extends TestCase
         $response = $this->get(route('webhooks.meta.verify', [
             'business' => $this->business->id,
             'hub_mode' => 'subscribe',
-            'hub_verify_token' => 'vertex_meta_token_' . $this->business->id,
+            'hub_verify_token' => 'vertex_meta_token_'.$this->business->id,
             'hub_challenge' => $challenge,
         ]));
 
@@ -199,7 +199,7 @@ class ChannelWebhooksTest extends TestCase
         $connPayload = [
             'event' => 'connection.update',
             'data' => [
-                'session_id' => 'session_' . $this->business->id,
+                'session_id' => 'session_'.$this->business->id,
                 'status' => 'qr',
                 'qr_code' => '2@mock_qr_string_data',
             ],
@@ -261,7 +261,7 @@ class ChannelWebhooksTest extends TestCase
 
         WhatsappAccount::create([
             'business_id' => $this->business->id,
-            'session_id' => 'session_' . $this->business->id,
+            'session_id' => 'session_'.$this->business->id,
             'phone_number' => '+201012345678',
             'status' => 'connected',
         ]);

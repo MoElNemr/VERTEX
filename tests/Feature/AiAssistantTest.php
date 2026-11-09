@@ -17,7 +17,9 @@ class AiAssistantTest extends TestCase
     use RefreshDatabase;
 
     protected User $owner;
+
     protected Business $business;
+
     protected Conversation $conversation;
 
     protected function setUp(): void

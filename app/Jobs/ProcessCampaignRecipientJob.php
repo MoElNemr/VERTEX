@@ -11,11 +11,12 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Spatie\Multitenancy\Jobs\NotTenantAware;
 
-class ProcessCampaignRecipientJob implements ShouldQueue, NotTenantAware
+class ProcessCampaignRecipientJob implements NotTenantAware, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
+
     public int $timeout = 60;
 
     public function __construct(
@@ -26,7 +27,7 @@ class ProcessCampaignRecipientJob implements ShouldQueue, NotTenantAware
     {
         $recipient = CampaignRecipient::find($this->recipientId);
 
-        if (!$recipient || $recipient->status !== 'pending') {
+        if (! $recipient || $recipient->status !== 'pending') {
             return;
         }
 

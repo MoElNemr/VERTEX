@@ -4,7 +4,6 @@ namespace App\Events;
 
 use App\Models\Conversation;
 use App\Models\Message;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -15,7 +14,7 @@ use Spatie\Multitenancy\Jobs\NotTenantAware;
 /**
  * حدث بث إرسال أو استقبال رسالة جديدة في المحادثة عبر WebSockets
  */
-class MessageSent implements ShouldBroadcastNow, NotTenantAware
+class MessageSent implements NotTenantAware, ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -27,7 +26,7 @@ class MessageSent implements ShouldBroadcastNow, NotTenantAware
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('business.' . $this->conversation->business_id),
+            new PrivateChannel('business.'.$this->conversation->business_id),
         ];
     }
 

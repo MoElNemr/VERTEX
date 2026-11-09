@@ -86,7 +86,7 @@ class WalletController extends Controller
 
         $transaction = PaymentTransaction::where('reference_number', $validated['reference_number'])->firstOrFail();
 
-        $this->fawryService->handleSuccessfulPayment($transaction, 'SIM_' . rand(10000000, 99999999));
+        $this->fawryService->handleSuccessfulPayment($transaction, 'SIM_'.rand(10000000, 99999999));
 
         return response()->json([
             'status' => 'success',

@@ -2,6 +2,7 @@
 
 namespace App\Services\Channels;
 
+use App\Events\MessageSent;
 use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class TelegramChannelService implements ChannelServiceInterface
 {
     use HandlesAiAutoReply;
+
     /**
      * Send an outbound message to Telegram.
      */
@@ -24,8 +26,9 @@ class TelegramChannelService implements ChannelServiceInterface
             ->where('business_id', $conversation->business_id)
             ->first();
 
-        if (!$account || !$account->bot_token || $account->status !== 'connected') {
+        if (! $account || ! $account->bot_token || $account->status !== 'connected') {
             Log::warning("Telegram account not connected for business {$conversation->business_id}");
+
             return [
                 'status' => 'failed',
                 'error' => 'Telegram account is not connected.',
@@ -34,7 +37,7 @@ class TelegramChannelService implements ChannelServiceInterface
 
         $chatId = $conversation->contact?->platform_sender_id;
 
-        if (!$chatId) {
+        if (! $chatId) {
             return [
                 'status' => 'failed',
                 'error' => 'No platform sender ID found for contact.',
@@ -75,7 +78,7 @@ class TelegramChannelService implements ChannelServiceInterface
                 'error' => $response->json('description', 'Unknown Telegram API error'),
             ];
         } catch (\Throwable $e) {
-            Log::error('Telegram sendMessage exception: ' . $e->getMessage());
+            Log::error('Telegram sendMessage exception: '.$e->getMessage());
 
             $message->update(['status' => 'failed']);
 
@@ -96,7 +99,7 @@ class TelegramChannelService implements ChannelServiceInterface
         // Check for regular message or edited message
         $telegramMessage = $data['message'] ?? $data['edited_message'] ?? null;
 
-        if (!$telegramMessage) {
+        if (! $telegramMessage) {
             return [
                 'status' => 'ignored',
                 'message' => 'No supported message payload found in update.',
@@ -107,7 +110,7 @@ class TelegramChannelService implements ChannelServiceInterface
         $from = $telegramMessage['from'] ?? [];
         $fromId = (string) ($from['id'] ?? $chat['id'] ?? null);
 
-        if (!$fromId) {
+        if (! $fromId) {
             return [
                 'status' => 'ignored',
                 'error' => 'No sender ID in Telegram payload.',
@@ -115,9 +118,9 @@ class TelegramChannelService implements ChannelServiceInterface
         }
 
         // Construct contact name
-        $name = trim(($from['first_name'] ?? '') . ' ' . ($from['last_name'] ?? ''));
+        $name = trim(($from['first_name'] ?? '').' '.($from['last_name'] ?? ''));
         if (empty($name)) {
-            $name = $from['username'] ?? 'عميل تيليجرام ' . substr($fromId, -4);
+            $name = $from['username'] ?? 'عميل تيليجرام '.substr($fromId, -4);
         }
 
         $text = $telegramMessage['text'] ?? $telegramMessage['caption'] ?? '[مرفق بدون نص]';
@@ -189,7 +192,7 @@ class TelegramChannelService implements ChannelServiceInterface
                 return $response->json('result');
             }
         } catch (\Throwable $e) {
-            Log::error('Telegram getMe error: ' . $e->getMessage());
+            Log::error('Telegram getMe error: '.$e->getMessage());
         }
 
         return null;
@@ -210,7 +213,8 @@ class TelegramChannelService implements ChannelServiceInterface
 
             return $response->successful() && $response->json('ok');
         } catch (\Throwable $e) {
-            Log::error('Telegram setWebhook error: ' . $e->getMessage());
+            Log::error('Telegram setWebhook error: '.$e->getMessage());
+
             return false;
         }
     }
@@ -221,9 +225,9 @@ class TelegramChannelService implements ChannelServiceInterface
     protected function dispatchRealtimeEvent(Message $message): void
     {
         try {
-            broadcast(new \App\Events\MessageSent($message->conversation, $message));
+            broadcast(new MessageSent($message->conversation, $message));
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Broadcast failed in Telegram message: ' . $e->getMessage());
+            Log::warning('Broadcast failed in Telegram message: '.$e->getMessage());
         }
     }
 }

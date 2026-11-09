@@ -17,7 +17,7 @@ class EnsureActiveSubscription
         $user = $request->user('web');
 
         // Unauthenticated guests, team guard members, and super admins pass freely
-        if (!$user || $user->is_super_admin) {
+        if (! $user || $user->is_super_admin) {
             return $next($request);
         }
 
@@ -32,7 +32,7 @@ class EnsureActiveSubscription
         }
 
         // If user has no active subscription (active or trial), block and redirect to payment
-        if (!$user->activeSubscription()->exists()) {
+        if (! $user->activeSubscription()->exists()) {
             return redirect()->route('subscription.index')->with(
                 'error',
                 'يرجى سداد الباقة المختارة لتفعيل حسابك والبدء في استخدام كافة خدمات المنصة.'

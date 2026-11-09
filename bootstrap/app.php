@@ -1,24 +1,29 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveSubscription;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetCurrentBusiness;
+use App\Http\Middleware\SuperAdminMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 
 // Prepend worktree autoloader for App and Database namespaces
 spl_autoload_register(function ($class) {
     if (str_starts_with($class, 'App\\')) {
-        $file = __DIR__ . '/../app/' . str_replace('\\', '/', substr($class, 4)) . '.php';
+        $file = __DIR__.'/../app/'.str_replace('\\', '/', substr($class, 4)).'.php';
         if (file_exists($file)) {
             require_once $file;
         }
     } elseif (str_starts_with($class, 'Database\\Seeders\\')) {
-        $file = __DIR__ . '/../database/seeders/' . str_replace('\\', '/', substr($class, 17)) . '.php';
+        $file = __DIR__.'/../database/seeders/'.str_replace('\\', '/', substr($class, 17)).'.php';
         if (file_exists($file)) {
             require_once $file;
         }
     } elseif (str_starts_with($class, 'Database\\Factories\\')) {
-        $file = __DIR__ . '/../database/factories/' . str_replace('\\', '/', substr($class, 19)) . '.php';
+        $file = __DIR__.'/../database/factories/'.str_replace('\\', '/', substr($class, 19)).'.php';
         if (file_exists($file)) {
             require_once $file;
         }
@@ -34,18 +39,19 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
-            \App\Http\Middleware\SetCurrentBusiness::class,
-            \App\Http\Middleware\HandleInertiaRequests::class,
-            \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            SetCurrentBusiness::class,
+            HandleInertiaRequests::class,
+            AddLinkHeadersForPreloadedAssets::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [
             'webhooks/*',
+            'meta/data-deletion',
         ]);
 
         $middleware->alias([
-            'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
-            'active_subscription' => \App\Http\Middleware\EnsureActiveSubscription::class,
+            'super_admin' => SuperAdminMiddleware::class,
+            'active_subscription' => EnsureActiveSubscription::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

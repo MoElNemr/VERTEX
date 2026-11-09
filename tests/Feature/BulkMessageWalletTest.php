@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\BulkMessageTransaction;
-use App\Models\BulkMessageWallet;
 use App\Models\PaymentTransaction;
 use App\Models\Plan;
 use App\Models\SystemSetting;
@@ -86,12 +84,12 @@ class BulkMessageWalletTest extends TestCase
     public function test_fawry_webhook_credits_user_wallet_when_paid(): void
     {
         $user = User::factory()->create();
-        $refNumber = 'WALLET-' . time() . '-TEST';
+        $refNumber = 'WALLET-'.time().'-TEST';
 
         $tx = PaymentTransaction::create([
             'user_id' => $user->id,
             'reference_number' => $refNumber,
-            'fawry_reference_number' => 'FAWRY-' . time(),
+            'fawry_reference_number' => 'FAWRY-'.time(),
             'type' => 'bulk_credit',
             'amount' => 450.00,
             'currency' => 'EGP',

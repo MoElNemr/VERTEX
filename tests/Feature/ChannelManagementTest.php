@@ -15,6 +15,7 @@ class ChannelManagementTest extends TestCase
     use RefreshDatabase;
 
     protected User $owner;
+
     protected Business $business;
 
     protected function setUp(): void

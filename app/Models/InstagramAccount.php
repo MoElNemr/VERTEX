@@ -8,13 +8,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class InstagramAccount extends Model
 {
-    use HasFactory, BelongsToBusiness;
+    use BelongsToBusiness, HasFactory;
 
     protected $fillable = [
         'business_id',
         'instagram_business_id',
         'username',
+        'meta_user_id',
+        'linked_facebook_page_id',
         'access_token',
+        'token_type',
+        'token_expires_at',
+        'avatar_url',
+        'granted_scopes',
         'status',
         'comment_reply_enabled',
         'comment_reply_text',
@@ -29,5 +35,7 @@ class InstagramAccount extends Model
     protected $casts = [
         'comment_reply_enabled' => 'boolean',
         'comment_keywords' => 'array',
+        'granted_scopes' => 'array',
+        'token_expires_at' => 'datetime',
     ];
 }

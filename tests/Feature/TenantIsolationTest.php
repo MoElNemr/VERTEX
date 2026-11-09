@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
-use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -15,10 +14,15 @@ class TenantIsolationTest extends TestCase
     use RefreshDatabase;
 
     protected User $ownerA;
+
     protected User $ownerB;
+
     protected Business $businessA;
+
     protected Business $businessB;
+
     protected Contact $contactB;
+
     protected Conversation $conversationB;
 
     protected function setUp(): void

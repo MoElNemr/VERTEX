@@ -28,33 +28,36 @@ class FawryWebhookController extends Controller
         $orderStatus = strtoupper($payload['orderStatus'] ?? '');
         $fawryRefNumber = $payload['fawryRefNumber'] ?? null;
 
-        if (!$merchantRefNum) {
+        if (! $merchantRefNum) {
             return response()->json(['error' => 'Missing merchantRefNum'], 400);
         }
 
         $transaction = PaymentTransaction::where('reference_number', $merchantRefNum)->first();
 
-        if (!$transaction) {
+        if (! $transaction) {
             return response()->json(['error' => 'Transaction not found'], 404);
         }
 
         // Verify signature in live mode
         $config = $this->fawryService->getConfig();
         if ($config['mode'] === 'live') {
-            if (!$this->fawryService->verifyWebhookSignature($payload)) {
-                Log::warning('Fawry Webhook invalid signature for transaction: ' . $merchantRefNum);
+            if (! $this->fawryService->verifyWebhookSignature($payload)) {
+                Log::warning('Fawry Webhook invalid signature for transaction: '.$merchantRefNum);
+
                 return response()->json(['error' => 'Invalid signature'], 403);
             }
         }
 
         if (in_array($orderStatus, ['PAID', 'SUCCESS'])) {
             $this->fawryService->handleSuccessfulPayment($transaction, $fawryRefNumber);
+
             return response()->json(['status' => 'success', 'message' => 'Payment processed']);
         }
 
         if (in_array($orderStatus, ['FAILED', 'CANCELLED', 'EXPIRED'])) {
             $transaction->update(['status' => strtolower($orderStatus)]);
-            return response()->json(['status' => 'updated', 'message' => 'Status set to ' . $orderStatus]);
+
+            return response()->json(['status' => 'updated', 'message' => 'Status set to '.$orderStatus]);
         }
 
         return response()->json(['status' => 'acknowledged']);

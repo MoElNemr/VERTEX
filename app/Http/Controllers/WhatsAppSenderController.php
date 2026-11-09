@@ -28,7 +28,7 @@ class WhatsAppSenderController extends Controller
     {
         $currentBusinessId = session('current_business_id');
 
-        if (!$currentBusinessId) {
+        if (! $currentBusinessId) {
             $user = $request->user('web') ?: $request->user('team');
             $firstBusiness = $user ? $user->businesses()->first() : null;
             if ($firstBusiness) {
@@ -100,8 +100,9 @@ class WhatsAppSenderController extends Controller
         if (($handle = fopen($path, 'r')) !== false) {
             // Read first line (header)
             $rawHeader = fgetcsv($handle);
-            if (!$rawHeader) {
+            if (! $rawHeader) {
                 fclose($handle);
+
                 return response()->json(['error' => 'ملف CSV فارغ أو غير صالح.'], 422);
             }
 
@@ -159,7 +160,7 @@ class WhatsAppSenderController extends Controller
                     'name' => trim($rawName),
                     'phone' => $cleanPhone ?: trim($rawPhone),
                     'raw_phone' => trim($rawPhone),
-                    'wa_link' => $isValid ? ('https://wa.me/' . $cleanPhone) : null,
+                    'wa_link' => $isValid ? ('https://wa.me/'.$cleanPhone) : null,
                     'is_valid' => $isValid,
                 ];
 
@@ -248,9 +249,10 @@ class WhatsAppSenderController extends Controller
         $recipientCount = count($validated['recipients']);
 
         // HARD BALANCE GATE: Do not start if user balance cannot afford campaign
-        if ($user && !$this->walletService->hasSufficientCredits($user, $recipientCount)) {
+        if ($user && ! $this->walletService->hasSufficientCredits($user, $recipientCount)) {
             $wallet = $user->getOrCreateWallet();
             $missing = $recipientCount - $wallet->credits;
+
             return response()->json([
                 'error' => "رصيد المحفظة غير كافٍ لإرسال الحملة. رصيدك الحالي: {$wallet->credits} رسالة، والمطلوب: {$recipientCount} رسالة (ينقصك {$missing} رسالة). يرجى شحن المحفظة أولاً.",
                 'wallet' => [
@@ -263,7 +265,7 @@ class WhatsAppSenderController extends Controller
 
         $campaign = $this->campaignService->createWhatsAppBulkCampaign($business, $validated);
 
-        if (!empty($validated['auto_start']) && $campaign->total_recipients > 0) {
+        if (! empty($validated['auto_start']) && $campaign->total_recipients > 0) {
             $this->campaignService->launchCampaign($campaign);
         }
 

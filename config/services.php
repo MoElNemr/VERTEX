@@ -56,4 +56,14 @@ return [
         'merchant_wallet' => env('FAWRY_MERCHANT_WALLET', ''),
     ],
 
+    'meta' => [
+        'app_id' => env('META_APP_ID', env('FACEBOOK_CLIENT_ID')),
+        'client_id' => env('META_CLIENT_ID', env('META_APP_ID', env('FACEBOOK_CLIENT_ID'))),
+        'app_secret' => env('META_APP_SECRET', env('FACEBOOK_CLIENT_SECRET')),
+        'client_secret' => env('META_CLIENT_SECRET', env('META_APP_SECRET', env('FACEBOOK_CLIENT_SECRET'))),
+        'redirect_uri' => env('META_REDIRECT_URI', env('FACEBOOK_REDIRECT_URI')),
+        'verify_token' => env('META_VERIFY_TOKEN'),
+        'scopes' => env('META_SCOPES'),
+    ],
+
 ];

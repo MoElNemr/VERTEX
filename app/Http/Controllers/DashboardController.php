@@ -26,7 +26,7 @@ class DashboardController extends Controller
     {
         $currentBusinessId = session('current_business_id');
 
-        if (!$currentBusinessId) {
+        if (! $currentBusinessId) {
             $user = $request->user('web') ?: $request->user('team');
             $firstBusiness = $user ? $user->businesses()->first() : null;
             if ($firstBusiness) {

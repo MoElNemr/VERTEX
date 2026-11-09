@@ -19,11 +19,17 @@ class InboxFeatureTest extends TestCase
     use RefreshDatabase;
 
     protected User $owner;
+
     protected Business $businessA;
+
     protected Business $businessB;
+
     protected TeamMember $agentA;
+
     protected TeamMember $agentB;
+
     protected Contact $contactA;
+
     protected Conversation $conversationA;
 
     protected function setUp(): void

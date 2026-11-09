@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\Campaign;
-use App\Models\CampaignRecipient;
 use App\Models\Contact;
 use App\Services\CampaignService;
 use Illuminate\Http\JsonResponse;
@@ -26,7 +25,7 @@ class RetargetingController extends Controller
     {
         $currentBusinessId = session('current_business_id');
 
-        if (!$currentBusinessId) {
+        if (! $currentBusinessId) {
             $user = $request->user('web') ?: $request->user('team');
             $firstBusiness = $user ? $user->businesses()->first() : null;
             if ($firstBusiness) {
@@ -126,7 +125,7 @@ class RetargetingController extends Controller
 
         $campaign = $this->campaignService->createRetargetingCampaign($business, $validated);
 
-        if (!empty($validated['auto_start']) && $campaign->total_recipients > 0) {
+        if (! empty($validated['auto_start']) && $campaign->total_recipients > 0) {
             $this->campaignService->launchCampaign($campaign);
         }
 

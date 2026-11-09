@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Models\BusinessAiSetting;
+use App\Services\Channels\WhatsAppChannelService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -21,7 +25,7 @@ class ChannelController extends Controller
 
         session(['current_business_id' => $business->id]);
 
-        $aiSetting = \App\Models\BusinessAiSetting::withoutGlobalScopes()->firstOrCreate(
+        $aiSetting = BusinessAiSetting::withoutGlobalScopes()->firstOrCreate(
             ['business_id' => $business->id],
             [
                 'ai_enabled' => false,
@@ -29,7 +33,7 @@ class ChannelController extends Controller
                 'provider' => 'groq',
                 'ai_model' => 'llama-3.3-70b-versatile',
                 'model' => 'llama-3.3-70b-versatile',
-                'ai_personality' => 'أنت ممثل مبيعات وخدمة عملاء ودود واحترافي لمتجر ' . $business->name . '، تتحدث بلباقة وترحب بالعميل دائمًا.',
+                'ai_personality' => 'أنت ممثل مبيعات وخدمة عملاء ودود واحترافي لمتجر '.$business->name.'، تتحدث بلباقة وترحب بالعميل دائمًا.',
                 'ai_instructions' => '',
                 'system_prompt' => '',
                 'working_hours_only' => false,
@@ -43,7 +47,7 @@ class ChannelController extends Controller
         $ownerId = auth('web')->user() ? auth('web')->id() : $business->user_id;
         $sharedApiKey = null;
         if ($ownerId) {
-            $otherSetting = \App\Models\BusinessAiSetting::withoutGlobalScopes()
+            $otherSetting = BusinessAiSetting::withoutGlobalScopes()
                 ->whereIn('business_id', Business::where('user_id', $ownerId)->where('id', '!=', $business->id)->pluck('id'))
                 ->whereNotNull('api_key')
                 ->where('api_key', '!=', '')
@@ -61,6 +65,8 @@ class ChannelController extends Controller
             'telegram' => $business->telegramAccount,
             'aiSetting' => $aiSetting,
             'sharedApiKey' => $sharedApiKey,
+            'metaAccounts' => session('meta_oauth_accounts'),
+            'showMetaModal' => (bool) ($request->boolean('select_meta_asset') && session()->has('meta_oauth_accounts')),
             'initialTab' => $request->query('tab', 'channels'),
         ]);
     }
@@ -82,7 +88,7 @@ class ChannelController extends Controller
         try {
             $response = Http::timeout(10)->get("https://api.telegram.org/bot{$token}/getMe");
 
-            if (!$response->successful() || !$response->json('ok')) {
+            if (! $response->successful() || ! $response->json('ok')) {
                 return back()->withErrors(['bot_token' => 'توكن البوت غير صحيح أو غير متاح في تيليجرام.']);
             }
 
@@ -108,7 +114,7 @@ class ChannelController extends Controller
 
             return back()->with('success', 'تم ربط بوت تيليجرام بنجاح!');
         } catch (\Exception $e) {
-            return back()->withErrors(['bot_token' => 'تعذر الاتصال بخوادم تيليجرام: ' . $e->getMessage()]);
+            return back()->withErrors(['bot_token' => 'تعذر الاتصال بخوادم تيليجرام: '.$e->getMessage()]);
         }
     }
 
@@ -134,8 +140,9 @@ class ChannelController extends Controller
                 'access_token' => $token,
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $errorMsg = $response->json('error.message') ?? 'معرف الصفحة أو التوكن غير صحيح.';
+
                 return back()->withErrors(['page_access_token' => $errorMsg]);
             }
 
@@ -159,7 +166,7 @@ class ChannelController extends Controller
 
             return back()->with('success', 'تم ربط صفحة فيسبوك بنجاح!');
         } catch (\Exception $e) {
-            return back()->withErrors(['page_access_token' => 'خطأ أثناء الاتصال بميتا: ' . $e->getMessage()]);
+            return back()->withErrors(['page_access_token' => 'خطأ أثناء الاتصال بميتا: '.$e->getMessage()]);
         }
     }
 
@@ -184,8 +191,9 @@ class ChannelController extends Controller
                 'access_token' => $token,
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $errorMsg = $response->json('error.message') ?? 'معرف إنستجرام أو التوكن غير صحيح.';
+
                 return back()->withErrors(['access_token' => $errorMsg]);
             }
 
@@ -203,7 +211,7 @@ class ChannelController extends Controller
 
             return back()->with('success', 'تم ربط حساب إنستجرام بنجاح!');
         } catch (\Exception $e) {
-            return back()->withErrors(['access_token' => 'خطأ أثناء الاتصال بإنستجرام: ' . $e->getMessage()]);
+            return back()->withErrors(['access_token' => 'خطأ أثناء الاتصال بإنستجرام: '.$e->getMessage()]);
         }
     }
 
@@ -218,7 +226,11 @@ class ChannelController extends Controller
             'telegram' => $business->telegramAccount()?->delete(),
             'facebook' => $business->facebookAccount()?->delete(),
             'instagram' => $business->instagramAccount()?->delete(),
-            'whatsapp' => app(\App\Services\Channels\WhatsAppChannelService::class)->disconnect($business),
+            'both', 'meta' => DB::transaction(function () use ($business) {
+                $business->facebookAccount()?->delete();
+                $business->instagramAccount()?->delete();
+            }),
+            'whatsapp' => app(WhatsAppChannelService::class)->disconnect($business),
             default => null,
         };
 
@@ -228,11 +240,11 @@ class ChannelController extends Controller
     /**
      * Generate or request WhatsApp connection QR code.
      */
-    public function generateWhatsAppQr(Request $request, Business $business): \Illuminate\Http\JsonResponse
+    public function generateWhatsAppQr(Request $request, Business $business): JsonResponse
     {
         $this->authorizeBusiness($request, $business);
 
-        $result = app(\App\Services\Channels\WhatsAppChannelService::class)->requestQrCode($business);
+        $result = app(WhatsAppChannelService::class)->requestQrCode($business);
 
         return response()->json($result);
     }
@@ -240,7 +252,7 @@ class ChannelController extends Controller
     /**
      * Request 8-digit Pairing Code for WhatsApp connection.
      */
-    public function requestWhatsAppPairingCode(Request $request, Business $business): \Illuminate\Http\JsonResponse
+    public function requestWhatsAppPairingCode(Request $request, Business $business): JsonResponse
     {
         $this->authorizeBusiness($request, $business);
 
@@ -248,7 +260,7 @@ class ChannelController extends Controller
             'phone_number' => ['required', 'string', 'min:8', 'max:20'],
         ]);
 
-        $result = app(\App\Services\Channels\WhatsAppChannelService::class)->requestPairingCode($business, $validated['phone_number']);
+        $result = app(WhatsAppChannelService::class)->requestPairingCode($business, $validated['phone_number']);
 
         return response()->json($result);
     }
@@ -256,7 +268,7 @@ class ChannelController extends Controller
     /**
      * Check current WhatsApp connection status.
      */
-    public function checkWhatsAppStatus(Request $request, Business $business): \Illuminate\Http\JsonResponse
+    public function checkWhatsAppStatus(Request $request, Business $business): JsonResponse
     {
         $this->authorizeBusiness($request, $business);
 
@@ -285,7 +297,7 @@ class ChannelController extends Controller
         ]);
 
         $keywords = null;
-        if (!empty($validated['comment_keywords'])) {
+        if (! empty($validated['comment_keywords'])) {
             if (is_string($validated['comment_keywords'])) {
                 $keywords = array_values(array_filter(array_map('trim', explode(',', $validated['comment_keywords']))));
             } elseif (is_array($validated['comment_keywords'])) {
@@ -295,7 +307,7 @@ class ChannelController extends Controller
 
         if ($validated['platform'] === 'facebook') {
             $account = $business->facebookAccount;
-            if (!$account) {
+            if (! $account) {
                 return back()->with('error', 'يرجى ربط صفحة فيسبوك أولاً قبل ضبط إعدادات الرد على التعليقات.');
             }
 
@@ -311,7 +323,7 @@ class ChannelController extends Controller
 
         if ($validated['platform'] === 'instagram') {
             $account = $business->instagramAccount;
-            if (!$account) {
+            if (! $account) {
                 return back()->with('error', 'يرجى ربط حساب إنستجرام أولاً قبل ضبط إعدادات الرد على التعليقات.');
             }
 
@@ -350,7 +362,7 @@ class ChannelController extends Controller
                 }
             })->exists();
 
-        if (!$hasAccess) {
+        if (! $hasAccess) {
             abort(403, 'غير مصرح لك بالوصول لهذا البيزنس.');
         }
     }

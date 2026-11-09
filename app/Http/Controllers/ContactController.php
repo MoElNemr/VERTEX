@@ -24,7 +24,7 @@ class ContactController extends Controller
         $currentBusinessId = session('current_business_id');
         $user = auth('web')->user() ?? auth('team')->user();
 
-        if (!$user) {
+        if (! $user) {
             abort(401);
         }
 
@@ -40,7 +40,7 @@ class ContactController extends Controller
     {
         $currentBusinessId = session('current_business_id');
 
-        if (!$currentBusinessId) {
+        if (! $currentBusinessId) {
             return redirect()->route('businesses.index');
         }
 
@@ -55,12 +55,12 @@ class ContactController extends Controller
                 $q->latest('last_message_at')->limit(1)->select(['id', 'contact_id', 'platform', 'status', 'last_message_at']);
             }]);
 
-        if (!empty($search)) {
+        if (! empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('platform_sender_id', 'like', "%{$search}%");
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('platform_sender_id', 'like', "%{$search}%");
             });
         }
 
@@ -160,7 +160,7 @@ class ContactController extends Controller
     {
         $currentBusinessId = session('current_business_id');
 
-        if (!$currentBusinessId) {
+        if (! $currentBusinessId) {
             return redirect()->route('businesses.index');
         }
 
@@ -172,10 +172,10 @@ class ContactController extends Controller
 
         if ($channel && in_array($channel, $validChannels)) {
             $query->where('platform', $channel);
-            $filename = 'contacts-' . $channel . '-' . $business->id . '-' . date('Y-m-d') . '.csv';
+            $filename = 'contacts-'.$channel.'-'.$business->id.'-'.date('Y-m-d').'.csv';
         } else {
             $channel = null;
-            $filename = 'contacts-all-' . $business->id . '-' . date('Y-m-d') . '.csv';
+            $filename = 'contacts-all-'.$business->id.'-'.date('Y-m-d').'.csv';
         }
 
         $headers = [
@@ -189,7 +189,7 @@ class ContactController extends Controller
         $callback = function () use ($query) {
             $file = fopen('php://output', 'w');
             // Write UTF-8 BOM for proper Arabic display in Excel
-            fputs($file, "\xEF\xBB\xBF");
+            fwrite($file, "\xEF\xBB\xBF");
 
             // CSV Header
             fputcsv($file, [

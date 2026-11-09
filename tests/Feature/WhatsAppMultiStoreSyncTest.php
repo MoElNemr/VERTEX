@@ -16,7 +16,9 @@ class WhatsAppMultiStoreSyncTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected Business $businessA;
+
     protected Business $businessB;
 
     protected function setUp(): void

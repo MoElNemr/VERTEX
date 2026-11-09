@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Business;
+use App\Models\BusinessAiSetting;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -45,8 +48,8 @@ class HandleInertiaRequests extends Middleware
                 $currentBusiness = $businesses->firstWhere('id', $currentBusinessId);
 
                 // Support Super Admin impersonation of any tenant business
-                if (!$currentBusiness && $request->user('web')?->is_super_admin) {
-                    $impersonated = \App\Models\Business::select(['id', 'name', 'logo'])->find($currentBusinessId);
+                if (! $currentBusiness && $request->user('web')?->is_super_admin) {
+                    $impersonated = Business::select(['id', 'name', 'logo'])->find($currentBusinessId);
                     if ($impersonated) {
                         $currentBusiness = $impersonated;
                         $businesses->prepend($impersonated);
@@ -55,7 +58,7 @@ class HandleInertiaRequests extends Middleware
             }
 
             // Auto-fallback: if no business is selected in session, default to the first business
-            if (!$currentBusiness && $businesses->isNotEmpty()) {
+            if (! $currentBusiness && $businesses->isNotEmpty()) {
                 $currentBusiness = $businesses->first();
                 session(['current_business_id' => $currentBusiness->id]);
             }
@@ -67,7 +70,7 @@ class HandleInertiaRequests extends Middleware
 
         $hasAi = false;
         if ($currentBusiness) {
-            $aiSetting = \App\Models\BusinessAiSetting::withoutGlobalScopes()
+            $aiSetting = BusinessAiSetting::withoutGlobalScopes()
                 ->where('business_id', $currentBusiness->id)
                 ->first();
             $hasAi = $aiSetting?->has_api_key ?? false;
@@ -89,7 +92,7 @@ class HandleInertiaRequests extends Middleware
             'currentBusiness' => $currentBusiness,
             'businesses' => $businesses,
             'has_ai' => $hasAi,
-            'bulk_wallet' => $user instanceof \App\Models\User ? [
+            'bulk_wallet' => $user instanceof User ? [
                 'balance' => (float) ($user->bulkWallet?->balance ?? 0),
                 'credits' => (int) ($user->bulkWallet?->credits ?? 0),
                 'currency' => $user->bulkWallet?->currency ?? 'EGP',

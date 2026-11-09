@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\TeamMember;
 use App\Models\User;
 
 return [
@@ -55,7 +56,7 @@ return [
         ],
         'team_members' => [
             'driver' => 'eloquent',
-            'model' => \App\Models\TeamMember::class,
+            'model' => TeamMember::class,
         ],
     ],
 

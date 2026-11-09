@@ -2,6 +2,7 @@
 
 namespace App\Services\Channels;
 
+use App\Events\MessageSent;
 use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class WhatsAppChannelService implements ChannelServiceInterface
 {
     use HandlesAiAutoReply;
+
     protected string $serviceUrl;
 
     public function __construct()
@@ -31,8 +33,9 @@ class WhatsAppChannelService implements ChannelServiceInterface
             ->where('business_id', $conversation->business_id)
             ->first();
 
-        if (!$account || $account->status !== 'connected') {
+        if (! $account || $account->status !== 'connected') {
             Log::warning("WhatsApp account not connected for business {$conversation->business_id}");
+
             return [
                 'status' => 'failed',
                 'error' => 'WhatsApp account is not connected.',
@@ -41,7 +44,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
 
         $recipient = $conversation->contact?->platform_sender_id ?: $conversation->contact?->phone;
 
-        if (!$recipient) {
+        if (! $recipient) {
             return [
                 'status' => 'failed',
                 'error' => 'No recipient found for WhatsApp contact.',
@@ -59,7 +62,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
 
             if ($response->successful()) {
                 $data = $response->json();
-                $waMsgId = $data['message_id'] ?? 'WA_' . uniqid();
+                $waMsgId = $data['message_id'] ?? 'WA_'.uniqid();
 
                 $message->update([
                     'platform_message_id' => (string) $waMsgId,
@@ -77,7 +80,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         }
 
         // Fallback simulation mode for testing without active Node daemon
-        $mockMsgId = 'BAE5_' . strtoupper(bin2hex(random_bytes(6)));
+        $mockMsgId = 'BAE5_'.strtoupper(bin2hex(random_bytes(6)));
         $message->update([
             'platform_message_id' => $mockMsgId,
             'status' => 'delivered',
@@ -109,7 +112,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
 
         return [
             'status' => 'ignored',
-            'message' => 'Unhandled WhatsApp event: ' . $event,
+            'message' => 'Unhandled WhatsApp event: '.$event,
         ];
     }
 
@@ -128,7 +131,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
             'business_id' => $business->id,
         ], [
-            'session_id' => $data['session_id'] ?? ('session_' . $business->id),
+            'session_id' => $data['session_id'] ?? ('session_'.$business->id),
             'status' => $status,
             'qr_code' => $qrCode,
             'phone_number' => $phoneNumber,
@@ -149,28 +152,28 @@ class WhatsAppChannelService implements ChannelServiceInterface
     {
         $fromJid = $data['from'] ?? null;
         $text = $data['text'] ?? '[رسالة وسائط]';
-        $messageId = (string) ($data['message_id'] ?? ('WA_' . uniqid()));
+        $messageId = (string) ($data['message_id'] ?? ('WA_'.uniqid()));
         $pushName = $data['push_name'] ?? null;
-        $isFromMe = !empty($data['is_from_me']);
+        $isFromMe = ! empty($data['is_from_me']);
         $accountPhoneNumber = $data['account_phone_number'] ?? $business->whatsappAccount?->phone_number;
 
-        if (!$fromJid) {
+        if (! $fromJid) {
             return ['status' => 'ignored', 'error' => 'No sender JID.'];
         }
 
         // Clean phone number from JID (e.g. "201012345678@s.whatsapp.net" -> "201012345678")
         $phone = explode('@', $fromJid)[0];
-        $name = $pushName ?: ('عميل واتساب +' . $phone);
+        $name = $pushName ?: ('عميل واتساب +'.$phone);
 
         // Find all businesses sharing this WhatsApp phone number to prevent confusion and sync history
         $businessIds = [$business->id];
-        if (!empty($accountPhoneNumber)) {
+        if (! empty($accountPhoneNumber)) {
             $cleanAccountPhone = preg_replace('/[^0-9]/', '', (string) $accountPhoneNumber);
             $sharedBusinessIds = WhatsappAccount::withoutGlobalScopes()
                 ->where('status', 'connected')
                 ->where(function ($q) use ($accountPhoneNumber, $cleanAccountPhone) {
                     $q->where('phone_number', $accountPhoneNumber)
-                      ->orWhereRaw("REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = ?", [$cleanAccountPhone]);
+                        ->orWhereRaw("REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = ?", [$cleanAccountPhone]);
                 })
                 ->pluck('business_id')
                 ->toArray();
@@ -183,15 +186,17 @@ class WhatsAppChannelService implements ChannelServiceInterface
 
         foreach ($businessIds as $bizId) {
             $biz = ($bizId === $business->id) ? $business : Business::find($bizId);
-            if (!$biz) continue;
+            if (! $biz) {
+                continue;
+            }
 
             // 1. Find or create Contact in this business preserving full JID
             $contact = Contact::withoutGlobalScopes()->where('business_id', $biz->id)
                 ->where('platform', 'whatsapp')
                 ->where(function ($q) use ($fromJid, $phone) {
                     $q->where('platform_sender_id', $fromJid)
-                      ->orWhere('platform_sender_id', $phone)
-                      ->orWhere('phone', $phone);
+                        ->orWhere('platform_sender_id', $phone)
+                        ->orWhere('phone', $phone);
                 })
                 ->first();
 
@@ -227,7 +232,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
                 ->where('platform_message_id', $messageId)
                 ->first();
 
-            if (!$existingMessage) {
+            if (! $existingMessage) {
                 $senderType = $isFromMe ? 'agent' : 'contact';
 
                 $message = Message::create([
@@ -244,7 +249,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
                 ]);
 
                 // 4. Update Conversation stats
-                if (!$isFromMe) {
+                if (! $isFromMe) {
                     $conversation->increment('unread_count');
                 }
                 $conversation->update([
@@ -258,13 +263,13 @@ class WhatsAppChannelService implements ChannelServiceInterface
 
                 // 5. Trigger Realtime event
                 try {
-                    broadcast(new \App\Events\MessageSent($conversation, $message));
+                    broadcast(new MessageSent($conversation, $message));
                 } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::warning('Broadcast failed for WhatsApp message: ' . $e->getMessage());
+                    Log::warning('Broadcast failed for WhatsApp message: '.$e->getMessage());
                 }
 
                 // 6. Check AI auto-reply
-                if (!$isFromMe) {
+                if (! $isFromMe) {
                     $this->handleAiAutoReply($conversation, $text);
                 }
             } else {
@@ -288,7 +293,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
      */
     public function requestQrCode(Business $business): array
     {
-        $sessionId = 'session_' . $business->id;
+        $sessionId = 'session_'.$business->id;
 
         try {
             $response = Http::timeout(8)->post("{$this->serviceUrl}/api/sessions/start", [
@@ -317,11 +322,11 @@ class WhatsAppChannelService implements ChannelServiceInterface
                 return $data;
             }
         } catch (\Throwable $e) {
-            Log::info('Baileys microservice offline for QR generation, generating mock QR: ' . $e->getMessage());
+            Log::info('Baileys microservice offline for QR generation, generating mock QR: '.$e->getMessage());
         }
 
         // Mock QR code data string for visual testing
-        $mockQr = 'https://wa.me/settings/linked_devices?auth=vertex_' . $business->id . '_' . time();
+        $mockQr = 'https://wa.me/settings/linked_devices?auth=vertex_'.$business->id.'_'.time();
 
         $account = WhatsappAccount::withoutGlobalScopes()->updateOrCreate([
             'business_id' => $business->id,
@@ -344,7 +349,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
      */
     public function requestPairingCode(Business $business, string $phoneNumber): array
     {
-        $sessionId = 'session_' . $business->id;
+        $sessionId = 'session_'.$business->id;
         $cleanPhone = preg_replace('/[^0-9]/', '', $phoneNumber);
 
         try {
@@ -364,10 +369,11 @@ class WhatsAppChannelService implements ChannelServiceInterface
                 'message' => $response->json('error') ?? 'فشل الحصول على كود الربط من خادم واتساب.',
             ];
         } catch (\Throwable $e) {
-            Log::warning('Pairing code request error: ' . $e->getMessage());
+            Log::warning('Pairing code request error: '.$e->getMessage());
+
             return [
                 'status' => 'failed',
-                'message' => 'تعذر الاتصال بخادم واتساب: ' . $e->getMessage(),
+                'message' => 'تعذر الاتصال بخادم واتساب: '.$e->getMessage(),
             ];
         }
     }
@@ -379,13 +385,14 @@ class WhatsAppChannelService implements ChannelServiceInterface
     {
         $account = $business->whatsappAccount;
         if ($account) {
-            $sessionId = $account->session_id ?: ('session_' . $business->id);
+            $sessionId = $account->session_id ?: ('session_'.$business->id);
             try {
                 Http::timeout(5)->delete("{$this->serviceUrl}/api/sessions/{$sessionId}");
             } catch (\Throwable $e) {
                 Log::warning("Failed to notify WhatsApp microservice of disconnect: {$e->getMessage()}");
             }
             $account->delete();
+
             return true;
         }
 

@@ -33,7 +33,7 @@ class CampaignService
 
             $campaign = Campaign::create([
                 'business_id' => $business->id,
-                'name' => $data['name'] ?? ('حملة إعادة استهداف - ' . now()->format('Y/m/d H:i')),
+                'name' => $data['name'] ?? ('حملة إعادة استهداف - '.now()->format('Y/m/d H:i')),
                 'type' => 'retargeting',
                 'platforms' => $platforms,
                 'message' => $data['message'] ?? '',
@@ -53,7 +53,7 @@ class CampaignService
                 ->where('business_id', $business->id)
                 ->whereIn('platform', $platforms);
 
-            if (!empty($data['tags']) && is_array($data['tags'])) {
+            if (! empty($data['tags']) && is_array($data['tags'])) {
                 $contactsQuery->where(function ($q) use ($data) {
                     foreach ($data['tags'] as $tag) {
                         $q->orWhereJsonContains('tags', $tag);
@@ -89,7 +89,7 @@ class CampaignService
                 ];
             }
 
-            if (!empty($recipientsData)) {
+            if (! empty($recipientsData)) {
                 // Bulk insert in chunks of 500
                 foreach (array_chunk($recipientsData, 500) as $chunk) {
                     CampaignRecipient::insert($chunk);
@@ -111,11 +111,11 @@ class CampaignService
     {
         return DB::transaction(function () use ($business, $data) {
             $rawRecipients = $data['recipients'] ?? [];
-            $saveToContacts = !empty($data['save_to_contacts']);
+            $saveToContacts = ! empty($data['save_to_contacts']);
 
             $campaign = Campaign::create([
                 'business_id' => $business->id,
-                'name' => $data['name'] ?? ('إرسال واتساب جماعي - ' . now()->format('Y/m/d H:i')),
+                'name' => $data['name'] ?? ('إرسال واتساب جماعي - '.now()->format('Y/m/d H:i')),
                 'type' => 'whatsapp_bulk',
                 'platforms' => ['whatsapp'],
                 'message' => $data['message'] ?? '',
@@ -135,7 +135,7 @@ class CampaignService
 
             foreach ($rawRecipients as $row) {
                 $phone = $this->cleanPhoneNumber($row['phone'] ?? $row['number'] ?? '');
-                if (!$phone) {
+                if (! $phone) {
                     continue;
                 }
 
@@ -178,7 +178,7 @@ class CampaignService
                 ];
             }
 
-            if (!empty($recipientsData)) {
+            if (! empty($recipientsData)) {
                 foreach (array_chunk($recipientsData, 500) as $chunk) {
                     CampaignRecipient::insert($chunk);
                 }
@@ -200,12 +200,12 @@ class CampaignService
         return DB::transaction(function () use ($business, $platform, $data) {
             $rawRecipients = $data['recipients'] ?? [];
             $targetAudience = $data['target_audience'] ?? 'csv';
-            $saveToContacts = !empty($data['save_to_contacts']);
+            $saveToContacts = ! empty($data['save_to_contacts']);
             $platformLabel = $this->getPlatformLabel($platform);
 
             $campaign = Campaign::create([
                 'business_id' => $business->id,
-                'name' => $data['name'] ?? ("إرسال {$platformLabel} جماعي - " . now()->format('Y/m/d H:i')),
+                'name' => $data['name'] ?? ("إرسال {$platformLabel} جماعي - ".now()->format('Y/m/d H:i')),
                 'type' => "{$platform}_bulk",
                 'platforms' => [$platform],
                 'message' => $data['message'] ?? '',
@@ -258,7 +258,7 @@ class CampaignService
                         $rawId = trim((string) $rawId);
                     }
 
-                    if (!$rawId) {
+                    if (! $rawId) {
                         continue;
                     }
 
@@ -300,7 +300,7 @@ class CampaignService
                 }
             }
 
-            if (!empty($recipientsData)) {
+            if (! empty($recipientsData)) {
                 foreach (array_chunk($recipientsData, 500) as $chunk) {
                     CampaignRecipient::insert($chunk);
                 }
@@ -324,7 +324,7 @@ class CampaignService
             $user = $campaign->business?->user;
             if ($user) {
                 $pendingCount = $campaign->recipients()->where('status', 'pending')->count();
-                if (!$this->walletService->hasSufficientCredits($user, $pendingCount)) {
+                if (! $this->walletService->hasSufficientCredits($user, $pendingCount)) {
                     $wallet = $user->getOrCreateWallet();
                     throw new \RuntimeException("رصيد الرسائل غير كافٍ لإطلاق الحملة. رصيدك الحالي: {$wallet->credits} رسالة، والمطلوب: {$pendingCount} رسالة.");
                 }
@@ -364,7 +364,7 @@ class CampaignService
         // For bulk sender campaigns, ensure user has at least 1 credit remaining
         if ($campaign->type !== 'retargeting') {
             $user = $campaign->business?->user;
-            if ($user && !$this->walletService->hasSufficientCredits($user, 1)) {
+            if ($user && ! $this->walletService->hasSufficientCredits($user, 1)) {
                 $campaign->update(['status' => 'paused']);
                 throw new \RuntimeException('رصيد الرسائل نفد. تم إيقاف الحملة مؤقتاً حتى إعادة شحن المحفظة.');
             }
@@ -377,11 +377,12 @@ class CampaignService
                 ->first();
         });
 
-        if (!$recipient) {
+        if (! $recipient) {
             $campaign->update([
                 'status' => 'completed',
                 'completed_at' => now(),
             ]);
+
             return null;
         }
 
@@ -440,7 +441,8 @@ class CampaignService
                         'sent_at' => now(),
                     ]);
                     $campaign->increment('failed_count');
-                    Log::warning("Campaign {$campaign->id} paused due to empty wallet balance: " . $e->getMessage());
+                    Log::warning("Campaign {$campaign->id} paused due to empty wallet balance: ".$e->getMessage());
+
                     return false;
                 }
             }
@@ -449,7 +451,7 @@ class CampaignService
         try {
             // Find or create Contact if not linked
             $contact = $recipient->contact;
-            if (!$contact) {
+            if (! $contact) {
                 $contact = Contact::withoutGlobalScopes()->firstOrCreate(
                     [
                         'business_id' => $businessId,
@@ -514,7 +516,7 @@ class CampaignService
 
             return $status === 'sent';
         } catch (\Throwable $e) {
-            Log::error("Campaign {$campaign->id} Recipient {$recipient->id} Send Failed: " . $e->getMessage());
+            Log::error("Campaign {$campaign->id} Recipient {$recipient->id} Send Failed: ".$e->getMessage());
 
             $recipient->update([
                 'status' => 'failed',
@@ -523,6 +525,7 @@ class CampaignService
             ]);
 
             $campaign->increment('failed_count');
+
             return false;
         }
     }
@@ -536,10 +539,10 @@ class CampaignService
         $replace = [];
 
         foreach ($variables as $key => $val) {
-            $search[] = '{' . $key . '}';
+            $search[] = '{'.$key.'}';
             $replace[] = (string) $val;
 
-            $search[] = '{{' . $key . '}}';
+            $search[] = '{{'.$key.'}}';
             $replace[] = (string) $val;
         }
 
@@ -555,11 +558,11 @@ class CampaignService
 
         // If local Egyptian number e.g. 010... -> 2010...
         if (str_starts_with($clean, '01') && strlen($clean) === 11) {
-            $clean = '2' . $clean;
+            $clean = '2'.$clean;
         }
         // If local Saudi number e.g. 05... -> 9665...
         elseif (str_starts_with($clean, '05') && strlen($clean) === 10) {
-            $clean = '966' . substr($clean, 1);
+            $clean = '966'.substr($clean, 1);
         }
 
         return $clean;

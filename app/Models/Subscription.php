@@ -35,6 +35,6 @@ class Subscription extends Model
     public function isActive(): bool
     {
         return in_array($this->status, ['active', 'trial']) &&
-            (!$this->ends_at || $this->ends_at->isFuture());
+            (! $this->ends_at || $this->ends_at->isFuture());
     }
 }

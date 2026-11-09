@@ -5,14 +5,17 @@ namespace App\Http\Controllers;
 use App\Events\ConversationUpdated;
 use App\Events\MessageSent;
 use App\Models\Business;
+use App\Models\BusinessAiSetting;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\QuickReply;
-use App\Models\TeamMember;
+use App\Services\AiService;
+use App\Services\Channels\ChannelManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,14 +31,14 @@ class InboxController extends Controller
         $teamMember = $request->user('team');
 
         $convBusiness = Business::find($conversation->business_id);
-        if (!$convBusiness) {
+        if (! $convBusiness) {
             abort(404, 'المتجر غير موجود.');
         }
 
         $isOwner = $user && ($convBusiness->user_id === $user->id || (bool) $user->is_super_admin);
         $isTeam = $teamMember && $convBusiness->teamMembers()->where('team_members.id', $teamMember->id)->exists();
 
-        if (!$isOwner && !$isTeam) {
+        if (! $isOwner && ! $isTeam) {
             abort(403, 'غير مصرح لك بالوصول لمحادثات هذا المتجر.');
         }
 
@@ -58,7 +61,7 @@ class InboxController extends Controller
     {
         $currentBusinessId = session('current_business_id');
 
-        if (!$currentBusinessId) {
+        if (! $currentBusinessId) {
             return redirect()->route('businesses.index');
         }
 
@@ -156,10 +159,11 @@ class InboxController extends Controller
 
         // إرسال الرسالة إلى المنصة الخارجية المناسبة (تيليجرام، واتساب، فيسبوك، إنستجرام)
         try {
-            app(\App\Services\Channels\ChannelManager::class)->sendMessage($conversation, $message);
+            app(ChannelManager::class)->sendMessage($conversation, $message);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Outbound message dispatch error: ' . $e->getMessage());
+            Log::warning('Outbound message dispatch error: '.$e->getMessage());
         }
+
         return response()->json([
             'status' => 'success',
             'message' => $message->load('senderAgent:id,name'),
@@ -212,14 +216,14 @@ class InboxController extends Controller
             'assigned_to' => ['nullable', 'integer'],
         ]);
 
-        if (!empty($validated['assigned_to'])) {
+        if (! empty($validated['assigned_to'])) {
             // التحقق من أن العضو ينتمي لنفس المتجر (عزل المستأجرين)
             $business = Business::findOrFail($currentBusinessId);
             $belongsToBusiness = $business->teamMembers()
                 ->where('team_members.id', $validated['assigned_to'])
                 ->exists();
 
-            if (!$belongsToBusiness) {
+            if (! $belongsToBusiness) {
                 abort(422, 'العضو المحدد لا ينتمي لهذا المتجر.');
             }
         }
@@ -287,7 +291,7 @@ class InboxController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'تم نقل وتفعيل المحادثة في متجر ' . $targetBusiness->name . ' بنجاح.',
+                'message' => 'تم نقل وتفعيل المحادثة في متجر '.$targetBusiness->name.' بنجاح.',
                 'target_conversation_id' => $existingTargetConversation->id,
             ]);
         }
@@ -302,7 +306,7 @@ class InboxController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'تم تحويل المحادثة إلى متجر ' . $targetBusiness->name . ' بنجاح.',
+            'message' => 'تم تحويل المحادثة إلى متجر '.$targetBusiness->name.' بنجاح.',
             'target_conversation_id' => $conversation->id,
         ]);
     }
@@ -314,12 +318,12 @@ class InboxController extends Controller
     {
         $this->authorizeConversation($request, $conversation);
 
-        $setting = \App\Models\BusinessAiSetting::where('business_id', $conversation->business_id)->first();
-        if (!$setting || !$setting->ai_enabled) {
+        $setting = BusinessAiSetting::where('business_id', $conversation->business_id)->first();
+        if (! $setting || ! $setting->ai_enabled) {
             return response()->json(['error' => 'المساعد الذكي غير مفعّل لهذا المتجر.'], 422);
         }
 
-        $suggestion = app(\App\Services\AiService::class)->suggestReply($conversation, $setting);
+        $suggestion = app(AiService::class)->suggestReply($conversation, $setting);
 
         return response()->json(['suggestion' => $suggestion]);
     }
@@ -331,15 +335,15 @@ class InboxController extends Controller
     {
         $this->authorizeConversation($request, $conversation);
 
-        $setting = \App\Models\BusinessAiSetting::where('business_id', $conversation->business_id)->first();
-        if (!$setting) {
-            $setting = new \App\Models\BusinessAiSetting([
+        $setting = BusinessAiSetting::where('business_id', $conversation->business_id)->first();
+        if (! $setting) {
+            $setting = new BusinessAiSetting([
                 'ai_model' => 'gpt-4o-mini',
                 'ai_personality' => '',
             ]);
         }
 
-        $summary = app(\App\Services\AiService::class)->summarize($conversation, $setting);
+        $summary = app(AiService::class)->summarize($conversation, $setting);
 
         return response()->json(['summary' => $summary]);
     }

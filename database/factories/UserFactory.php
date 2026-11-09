@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -39,8 +40,8 @@ class UserFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (User $user) {
-            if (!$user->subscriptions()->exists()) {
-                $plan = \App\Models\Plan::first() ?? \App\Models\Plan::create([
+            if (! $user->subscriptions()->exists()) {
+                $plan = Plan::first() ?? Plan::create([
                     'name' => 'Standard Unlimited',
                     'type' => 'standard',
                     'price_monthly' => 29.00,

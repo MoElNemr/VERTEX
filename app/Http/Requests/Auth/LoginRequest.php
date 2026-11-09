@@ -48,12 +48,14 @@ class LoginRequest extends FormRequest
         // أولاً نجرب كصاحب حساب (User)
         if (Auth::guard('web')->attempt($credentials, $remember)) {
             RateLimiter::clear($this->throttleKey());
+
             return;
         }
 
         // ثانياً نجرب كعضو فريق (TeamMember)
         if (Auth::guard('team')->attempt($credentials, $remember)) {
             RateLimiter::clear($this->throttleKey());
+
             return;
         }
 

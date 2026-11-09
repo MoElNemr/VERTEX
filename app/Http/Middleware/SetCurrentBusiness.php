@@ -12,7 +12,7 @@ class SetCurrentBusiness
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -53,7 +53,7 @@ class SetCurrentBusiness
             }
 
             // إذا لا يوجد بيزنس في الجلسة، اختر أول بيزنس متاح تلقائياً
-            if (!session('current_business_id')) {
+            if (! session('current_business_id')) {
                 $firstBusiness = $isOwner
                     ? Business::where('user_id', $user->id)->first()
                     : $user->businesses()->where('is_active', true)->first();

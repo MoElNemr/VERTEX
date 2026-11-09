@@ -40,12 +40,13 @@ class MakeSuperAdminCommand extends Command
         $email = $this->option('email') ?: $this->ask('Enter Super Admin Email', 'admin@vertex.app');
         $password = $this->option('password');
 
-        if (!$password) {
+        if (! $password) {
             $password = $this->secret('Enter Password (minimum 8 characters, or press enter for "password123")') ?: 'password123';
         }
 
         if (strlen($password) < 6) {
             $this->error('Password must be at least 6 characters.');
+
             return self::FAILURE;
         }
 
@@ -118,6 +119,7 @@ class MakeSuperAdminCommand extends Command
         );
 
         $this->info('Super Admin created and configured successfully!');
+
         return self::SUCCESS;
     }
 }

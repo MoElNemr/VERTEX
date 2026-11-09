@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\BulkMessageTransaction;
 use App\Models\BulkMessageWallet;
 use App\Models\PaymentTransaction;
-use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -71,7 +70,7 @@ class WalletService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$wallet) {
+            if (! $wallet) {
                 $wallet = BulkMessageWallet::create([
                     'user_id' => $user->id,
                     'balance' => 0.00,
@@ -122,8 +121,12 @@ class WalletService
             $wallet->balance += $amount;
             $wallet->credits += $credits;
 
-            if ($wallet->balance < 0) $wallet->balance = 0.00;
-            if ($wallet->credits < 0) $wallet->credits = 0;
+            if ($wallet->balance < 0) {
+                $wallet->balance = 0.00;
+            }
+            if ($wallet->credits < 0) {
+                $wallet->credits = 0;
+            }
 
             $wallet->save();
 
@@ -154,6 +157,7 @@ class WalletService
     public function hasSufficientCredits(User $user, int $requiredCredits = 1): bool
     {
         $wallet = $user->getOrCreateWallet();
+
         return $wallet->credits >= $requiredCredits;
     }
 
@@ -173,7 +177,7 @@ class WalletService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$wallet || $wallet->credits < 1) {
+            if (! $wallet || $wallet->credits < 1) {
                 throw new \RuntimeException('رصيد الرسائل غير كافٍ لإتمام عملية الإرسال.');
             }
 
@@ -198,4 +202,3 @@ class WalletService
         });
     }
 }
-

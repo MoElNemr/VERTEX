@@ -27,6 +27,7 @@ class AiService
         $messages = $conversation->messages()->oldest()->limit(20)->get();
         $history = $this->buildHistory($messages, $setting);
         $history[] = ['role' => 'user', 'content' => 'اقترح ردًا مناسبًا للوكيل للرسالة الأخيرة من العميل. أجب بالرد فقط دون شرح.'];
+
         return $this->callGroq($history, $setting->ai_model ?: 'llama-3.3-70b-versatile', $setting->api_key);
     }
 
@@ -38,6 +39,7 @@ class AiService
         $messages = $conversation->messages()->oldest()->get();
         $history = $this->buildHistory($messages, $setting);
         $history[] = ['role' => 'user', 'content' => 'لخص هذه المحادثة في فقرة قصيرة تشمل المشكلة والحل المقترح.'];
+
         return $this->callGroq($history, $setting->ai_model ?: 'llama-3.3-70b-versatile', $setting->api_key);
     }
 
@@ -49,6 +51,7 @@ class AiService
         $messages = $conversation->messages()->oldest()->limit(10)->get();
         $history = $this->buildHistory($messages, $setting);
         $history[] = ['role' => 'user', 'content' => $inboundMessage];
+
         return $this->callGroq($history, $setting->ai_model ?: 'llama-3.3-70b-versatile', $setting->api_key);
     }
 
@@ -56,7 +59,7 @@ class AiService
     {
         $system = $setting->ai_personality ?: 'أنت مساعد دعم عملاء مفيد ومهذب.';
         if ($setting->ai_instructions) {
-            $system .= "\n" . $setting->ai_instructions;
+            $system .= "\n".$setting->ai_instructions;
         }
         $history = [['role' => 'system', 'content' => $system]];
         foreach ($messages as $msg) {
@@ -65,6 +68,7 @@ class AiService
                 'content' => $msg->body,
             ];
         }
+
         return $history;
     }
 
@@ -92,6 +96,7 @@ class AiService
         $resolvedKey = trim((string) ($apiKey ?? ''));
         if (empty($resolvedKey)) {
             Log::warning('AI request blocked: business has no GROQ API key configured.');
+
             return null;
         }
 
@@ -100,7 +105,7 @@ class AiService
         try {
             $response = Http::withToken($resolvedKey)
                 ->timeout(30)
-                ->post(rtrim($this->apiUrl, '/') . '/chat/completions', [
+                ->post(rtrim($this->apiUrl, '/').'/chat/completions', [
                     'model' => $resolvedModel,
                     'messages' => $messages,
                     'max_tokens' => 500,
@@ -111,9 +116,9 @@ class AiService
                 return $response->json('choices.0.message.content');
             }
 
-            Log::warning('Groq API error: ' . $response->body());
+            Log::warning('Groq API error: '.$response->body());
         } catch (\Throwable $e) {
-            Log::error('Groq service error: ' . $e->getMessage());
+            Log::error('Groq service error: '.$e->getMessage());
         }
 
         return null;

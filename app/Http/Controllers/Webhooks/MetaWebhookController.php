@@ -34,6 +34,27 @@ class MetaWebhookController extends Controller
      */
     public function handle(Request $request, Business $business): Response|JsonResponse
     {
+        $appSecret = config('services.meta.app_secret')
+            ?: config('services.meta.client_secret');
+
+        if (! empty($appSecret)) {
+            $signatureHeader = $request->header('X-Hub-Signature-256');
+
+            if (! $signatureHeader) {
+                return response('Signature missing', 403);
+            }
+
+            $providedSignature = str_starts_with($signatureHeader, 'sha256=')
+                ? substr($signatureHeader, 7)
+                : $signatureHeader;
+
+            $expectedSignature = hash_hmac('sha256', $request->getContent(), $appSecret);
+
+            if (! hash_equals($expectedSignature, $providedSignature)) {
+                return response('Invalid signature', 403);
+            }
+        }
+
         $result = $this->metaService->handleWebhook($business, $request);
 
         if ($request->expectsJson()) {

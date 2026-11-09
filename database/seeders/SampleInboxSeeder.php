@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
-use App\Models\Message;
 use App\Models\QuickReply;
 use Illuminate\Database\Seeder;
 
@@ -14,7 +13,9 @@ class SampleInboxSeeder extends Seeder
     public function run(): void
     {
         $business = Business::first();
-        if (!$business) return;
+        if (! $business) {
+            return;
+        }
 
         // 1. Quick Replies
         QuickReply::firstOrCreate(

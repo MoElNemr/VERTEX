@@ -13,7 +13,7 @@ trait BelongsToBusiness
             $currentBusinessId = session('current_business_id');
 
             if ($currentBusinessId) {
-                $builder->where($builder->getModel()->getTable() . '.business_id', $currentBusinessId);
+                $builder->where($builder->getModel()->getTable().'.business_id', $currentBusinessId);
             }
         });
 

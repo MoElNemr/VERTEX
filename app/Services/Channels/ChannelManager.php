@@ -28,7 +28,7 @@ class ChannelManager
      */
     public function driver(string $platform): ChannelServiceInterface
     {
-        if (!isset($this->drivers[$platform])) {
+        if (! isset($this->drivers[$platform])) {
             throw new InvalidArgumentException("Unsupported channel driver: {$platform}");
         }
 

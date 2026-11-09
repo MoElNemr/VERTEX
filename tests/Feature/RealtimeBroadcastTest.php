@@ -18,8 +18,11 @@ class RealtimeBroadcastTest extends TestCase
     use RefreshDatabase;
 
     protected User $owner;
+
     protected Business $business;
+
     protected Contact $contact;
+
     protected Conversation $conversation;
 
     protected function setUp(): void
@@ -126,7 +129,7 @@ class RealtimeBroadcastTest extends TestCase
 
         $channels = $event->broadcastOn();
         $this->assertCount(1, $channels);
-        $this->assertEquals('private-business.' . $this->business->id, $channels[0]->name);
+        $this->assertEquals('private-business.'.$this->business->id, $channels[0]->name);
         $this->assertEquals('message.sent', $event->broadcastAs());
 
         $payload = $event->broadcastWith();

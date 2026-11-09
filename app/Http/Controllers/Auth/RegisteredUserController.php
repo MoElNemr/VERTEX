@@ -61,7 +61,7 @@ class RegisteredUserController extends Controller
 
         // Create initial default business
         $business = $user->businesses()->create([
-            'name' => $user->name . ' Store',
+            'name' => $user->name.' Store',
         ]);
         session(['current_business_id' => $business->id]);
 

@@ -42,7 +42,7 @@ class BusinessController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->canCreateBusiness()) {
+        if (! $user->canCreateBusiness()) {
             return back()->withErrors([
                 'name' => 'لقد وصلت للحد الأقصى لعدد البيزنسس المسموح بها في باقتك الحالية. يرجى الترقية للمتابعة.',
             ]);
@@ -67,12 +67,13 @@ class BusinessController extends Controller
     {
         $user = $request->user('web') ?: $request->user('team');
 
-        if (!$user) {
+        if (! $user) {
             abort(401);
         }
 
         if ($request->user('web') && (bool) $request->user('web')->is_super_admin) {
             session(['current_business_id' => $business->id]);
+
             return redirect()->route('dashboard')->with('success', "تم التحويل إلى متجر {$business->name}");
         }
 
@@ -88,7 +89,7 @@ class BusinessController extends Controller
                 }
             })->exists();
 
-        if (!$hasAccess) {
+        if (! $hasAccess) {
             abort(403, 'غير مصرح لك بالوصول لهذا المتجر.');
         }
 

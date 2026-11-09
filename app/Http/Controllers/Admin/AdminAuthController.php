@@ -43,7 +43,7 @@ class AdminAuthController extends Controller
             $user = Auth::user();
 
             // Strict Super Admin Verification
-            if (!$user->is_super_admin) {
+            if (! $user->is_super_admin) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

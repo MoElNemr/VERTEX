@@ -8,13 +8,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class FacebookAccount extends Model
 {
-    use HasFactory, BelongsToBusiness;
+    use BelongsToBusiness, HasFactory;
 
     protected $fillable = [
         'business_id',
         'page_id',
         'page_name',
+        'meta_user_id',
         'page_access_token',
+        'token_type',
+        'token_expires_at',
+        'avatar_url',
+        'granted_scopes',
         'status',
         'comment_reply_enabled',
         'comment_reply_text',
@@ -29,5 +34,7 @@ class FacebookAccount extends Model
     protected $casts = [
         'comment_reply_enabled' => 'boolean',
         'comment_keywords' => 'array',
+        'granted_scopes' => 'array',
+        'token_expires_at' => 'datetime',
     ];
 }

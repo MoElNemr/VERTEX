@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Plan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +19,7 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
-        $plan = \App\Models\Plan::create([
+        $plan = Plan::create([
             'name' => 'Standard Unlimited',
             'type' => 'standard',
             'price_monthly' => 0.00,

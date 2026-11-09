@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Business;
 use App\Models\BulkMessageTransaction;
-use App\Models\BulkMessageWallet;
+use App\Models\Business;
 use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\FacebookAccount;
@@ -17,6 +16,7 @@ use App\Models\SystemSetting;
 use App\Models\TelegramAccount;
 use App\Models\User;
 use App\Models\WhatsappAccount;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -176,7 +176,7 @@ class SuperAdminController extends Controller
     /**
      * Adjust User Bulk Message Wallet balance from Super Admin.
      */
-    public function adjustUserWallet(Request $request, User $user, \App\Services\WalletService $walletService): RedirectResponse
+    public function adjustUserWallet(Request $request, User $user, WalletService $walletService): RedirectResponse
     {
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0'],
@@ -241,7 +241,7 @@ class SuperAdminController extends Controller
         ]);
 
         // Assign plan if provided
-        if (!empty($validated['plan_id'])) {
+        if (! empty($validated['plan_id'])) {
             Subscription::create([
                 'user_id' => $user->id,
                 'plan_id' => $validated['plan_id'],
@@ -261,7 +261,7 @@ class SuperAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'password' => ['nullable', 'string', 'min:6'],
             'is_super_admin' => ['nullable', 'boolean'],
             'plan_id' => ['nullable', 'exists:plans,id'],
@@ -273,13 +273,13 @@ class SuperAdminController extends Controller
             'is_super_admin' => (bool) ($validated['is_super_admin'] ?? false),
         ];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
         }
 
         $user->update($updateData);
 
-        if (!empty($validated['plan_id'])) {
+        if (! empty($validated['plan_id'])) {
             Subscription::updateOrCreate(
                 ['user_id' => $user->id],
                 [
@@ -470,10 +470,11 @@ class SuperAdminController extends Controller
      */
     public function togglePlanActive(Plan $plan): RedirectResponse
     {
-        $plan->is_active = !$plan->is_active;
+        $plan->is_active = ! $plan->is_active;
         $plan->save();
 
         $status = $plan->is_active ? 'تفعيل' : 'تعطيل';
+
         return back()->with('success', "تم {$status} الباقة {$plan->name} بنجاح.");
     }
 
@@ -512,7 +513,7 @@ class SuperAdminController extends Controller
             }
         }
 
-        $user->is_super_admin = !$user->is_super_admin;
+        $user->is_super_admin = ! $user->is_super_admin;
         $user->save();
 
         return back()->with('success', "تم تحديث صلاحيات المستخدم {$user->name} بنجاح.");

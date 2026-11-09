@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BusinessAiSetting extends Model
 {
-    use HasFactory, BelongsToBusiness;
+    use BelongsToBusiness, HasFactory;
 
     protected $fillable = [
         'business_id',
@@ -52,6 +52,6 @@ class BusinessAiSetting extends Model
 
     public function getHasApiKeyAttribute(): bool
     {
-        return !empty($this->api_key);
+        return ! empty($this->api_key);
     }
 }

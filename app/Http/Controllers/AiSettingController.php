@@ -4,10 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\BusinessAiSetting;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Response;
 
 /**
  * وحدة التحكم بإعدادات المساعد الذكي للمتجر
@@ -85,7 +84,7 @@ class AiSettingController extends Controller
         );
 
         // Allow user to use this one Groq API key for all their stores if requested
-        if ($request->boolean('apply_to_all_stores') && !empty($setting->api_key)) {
+        if ($request->boolean('apply_to_all_stores') && ! empty($setting->api_key)) {
             $user = auth('web')->user() ?: auth('team')->user();
             $ownerId = auth('web')->user() ? $user->id : $business->user_id;
             $userStoreIds = Business::where('user_id', $ownerId)->pluck('id');
@@ -100,13 +99,13 @@ class AiSettingController extends Controller
             }
         }
 
-        return back()->with('success', 'تم حفظ إعدادات Groq للذكاء الاصطناعي لمتجر ' . $business->name . ' بنجاح.');
+        return back()->with('success', 'تم حفظ إعدادات Groq للذكاء الاصطناعي لمتجر '.$business->name.' بنجاح.');
     }
 
     protected function authorizeBusinessAccess(Business $business): void
     {
         $user = auth('web')->user() ?: auth('team')->user();
-        if (!$user) {
+        if (! $user) {
             abort(401);
         }
 
@@ -127,7 +126,7 @@ class AiSettingController extends Controller
                 }
             })->exists();
 
-        if (!$hasAccess) {
+        if (! $hasAccess) {
             abort(403, 'غير مصرح لك بالوصول لإعدادات هذا المتجر.');
         }
     }

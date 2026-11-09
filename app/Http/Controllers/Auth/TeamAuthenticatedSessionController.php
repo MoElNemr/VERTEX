@@ -43,13 +43,13 @@ class TeamAuthenticatedSessionController extends Controller
 
         $teamMember = TeamMember::where('email', $credentials['email'])->first();
 
-        if ($teamMember && !$teamMember->is_active) {
+        if ($teamMember && ! $teamMember->is_active) {
             throw ValidationException::withMessages([
                 'email' => 'حسابك معطل حالياً. يرجى التواصل مع إدارة المتجر.',
             ]);
         }
 
-        if (!Auth::guard('team')->attempt($credentials, $request->boolean('remember'))) {
+        if (! Auth::guard('team')->attempt($credentials, $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => 'بيانات الدخول غير صحيحة. يرجى التأكد من البريد وكلمة المرور.',
             ]);

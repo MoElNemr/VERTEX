@@ -2,6 +2,7 @@
 
 namespace App\Services\Channels;
 
+use App\Events\MessageSent;
 use App\Models\Business;
 use App\Models\Contact;
 use App\Models\Conversation;
@@ -32,7 +33,7 @@ class MetaChannelService implements ChannelServiceInterface
 
         return [
             'status' => 'failed',
-            'error' => 'Unsupported platform for MetaChannelService: ' . $conversation->platform,
+            'error' => 'Unsupported platform for MetaChannelService: '.$conversation->platform,
         ];
     }
 
@@ -45,8 +46,9 @@ class MetaChannelService implements ChannelServiceInterface
             ->where('business_id', $conversation->business_id)
             ->first();
 
-        if (!$account || !$account->page_access_token || $account->status !== 'connected') {
+        if (! $account || ! $account->page_access_token || $account->status !== 'connected') {
             Log::warning("Facebook account not connected for business {$conversation->business_id}");
+
             return [
                 'status' => 'failed',
                 'error' => 'Facebook page is not connected or missing access token.',
@@ -55,7 +57,7 @@ class MetaChannelService implements ChannelServiceInterface
 
         $recipientId = $conversation->contact?->platform_sender_id;
 
-        if (!$recipientId) {
+        if (! $recipientId) {
             return ['status' => 'failed', 'error' => 'No PSID found for contact.'];
         }
 
@@ -94,8 +96,9 @@ class MetaChannelService implements ChannelServiceInterface
                 'error' => $response->json('error.message', 'Facebook Graph API error'),
             ];
         } catch (\Throwable $e) {
-            Log::error('Facebook sendFacebookMessage exception: ' . $e->getMessage());
+            Log::error('Facebook sendFacebookMessage exception: '.$e->getMessage());
             $message->update(['status' => 'failed']);
+
             return ['status' => 'failed', 'error' => $e->getMessage()];
         }
     }
@@ -109,8 +112,9 @@ class MetaChannelService implements ChannelServiceInterface
             ->where('business_id', $conversation->business_id)
             ->first();
 
-        if (!$account || !$account->access_token || $account->status !== 'connected') {
+        if (! $account || ! $account->access_token || $account->status !== 'connected') {
             Log::warning("Instagram account not connected for business {$conversation->business_id}");
+
             return [
                 'status' => 'failed',
                 'error' => 'Instagram account is not connected or missing access token.',
@@ -119,7 +123,7 @@ class MetaChannelService implements ChannelServiceInterface
 
         $recipientId = $conversation->contact?->platform_sender_id;
 
-        if (!$recipientId) {
+        if (! $recipientId) {
             return ['status' => 'failed', 'error' => 'No IGSID found for contact.'];
         }
 
@@ -157,8 +161,9 @@ class MetaChannelService implements ChannelServiceInterface
                 'error' => $response->json('error.message', 'Instagram Graph API error'),
             ];
         } catch (\Throwable $e) {
-            Log::error('Instagram sendInstagramMessage exception: ' . $e->getMessage());
+            Log::error('Instagram sendInstagramMessage exception: '.$e->getMessage());
             $message->update(['status' => 'failed']);
+
             return ['status' => 'failed', 'error' => $e->getMessage()];
         }
     }
@@ -172,10 +177,11 @@ class MetaChannelService implements ChannelServiceInterface
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
 
-        $expectedToken = config('services.meta.verify_token', 'vertex_meta_token_' . $business->id);
+        $expectedToken = config('services.meta.verify_token', 'vertex_meta_token_'.$business->id);
 
-        if ($mode === 'subscribe' && ($token === $expectedToken || $token === 'vertex_secret_token')) {
+        if ($mode === 'subscribe' && ($token === $expectedToken || $token === 'vertex_secret_token' || $token === 'vertex_meta_token_'.$business->id)) {
             Log::info("Meta webhook verified successfully for business {$business->id}");
+
             return (string) $challenge;
         }
 
@@ -195,10 +201,10 @@ class MetaChannelService implements ChannelServiceInterface
         $object = $request->input('object');
         $entries = $request->input('entry', []);
 
-        if (!in_array($object, ['page', 'instagram'])) {
+        if (! in_array($object, ['page', 'instagram'])) {
             return [
                 'status' => 'ignored',
-                'message' => 'Unsupported Meta object: ' . $object,
+                'message' => 'Unsupported Meta object: '.$object,
             ];
         }
 
@@ -209,14 +215,14 @@ class MetaChannelService implements ChannelServiceInterface
             // 1. Direct Messaging Events (Messenger / IG Direct)
             $messagingEvents = $entry['messaging'] ?? [];
             foreach ($messagingEvents as $event) {
-                if (!empty($event['message']['is_echo'])) {
+                if (! empty($event['message']['is_echo'])) {
                     continue;
                 }
 
                 $senderId = (string) ($event['sender']['id'] ?? null);
                 $messageData = $event['message'] ?? null;
 
-                if (!$senderId || !$messageData) {
+                if (! $senderId || ! $messageData) {
                     continue;
                 }
 
@@ -225,8 +231,8 @@ class MetaChannelService implements ChannelServiceInterface
                 $platform = ($object === 'instagram') ? 'instagram' : 'facebook';
 
                 $contactName = ($platform === 'instagram')
-                    ? 'عميل إنستجرام ' . substr($senderId, -4)
-                    : 'عميل فيسبوك ' . substr($senderId, -4);
+                    ? 'عميل إنستجرام '.substr($senderId, -4)
+                    : 'عميل فيسبوك '.substr($senderId, -4);
 
                 $contact = Contact::withoutGlobalScopes()->firstOrCreate([
                     'business_id' => $business->id,
@@ -266,9 +272,9 @@ class MetaChannelService implements ChannelServiceInterface
                 ]);
 
                 try {
-                    broadcast(new \App\Events\MessageSent($conversation, $message));
+                    broadcast(new MessageSent($conversation, $message));
                 } catch (\Throwable $e) {
-                    Log::warning('Broadcast failed in Meta message: ' . $e->getMessage());
+                    Log::warning('Broadcast failed in Meta message: '.$e->getMessage());
                 }
 
                 $this->handleAiAutoReply($conversation, $text);
@@ -278,7 +284,7 @@ class MetaChannelService implements ChannelServiceInterface
 
             // 2. Changes Events: Facebook Page Feed & Instagram Comments
             $changes = $entry['changes'] ?? [];
-            if (!empty($changes)) {
+            if (! empty($changes)) {
                 $commentResults = $this->handleChangesWebhook($business, $object, $changes, $entry['id'] ?? null);
                 $processedComments = array_merge($processedComments, $commentResults);
             }
@@ -353,7 +359,7 @@ class MetaChannelService implements ChannelServiceInterface
             ->where('business_id', $business->id)
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             return null;
         }
 
@@ -406,7 +412,7 @@ class MetaChannelService implements ChannelServiceInterface
         if ($account->comment_reply_enabled) {
             // Keyword match check (if configured)
             $matchesKeyword = true;
-            if (!empty($account->comment_keywords) && is_array($account->comment_keywords)) {
+            if (! empty($account->comment_keywords) && is_array($account->comment_keywords)) {
                 $matchesKeyword = false;
                 foreach ($account->comment_keywords as $kw) {
                     if (mb_stripos($commentText, trim($kw)) !== false) {
@@ -418,7 +424,7 @@ class MetaChannelService implements ChannelServiceInterface
 
             if ($matchesKeyword) {
                 // 1. Send public reply on comment
-                if (!empty($account->comment_reply_text) && $account->page_access_token) {
+                if (! empty($account->comment_reply_text) && $account->page_access_token) {
                     $replyBody = str_replace(
                         ['{name}', '{sender_name}'],
                         [$senderName, $senderName],
@@ -431,12 +437,12 @@ class MetaChannelService implements ChannelServiceInterface
                         ]);
                         $replySent = $replyRes->successful();
                     } catch (\Throwable $e) {
-                        Log::error('Facebook public comment reply failed: ' . $e->getMessage());
+                        Log::error('Facebook public comment reply failed: '.$e->getMessage());
                     }
                 }
 
                 // 2. Send private DM to commenter
-                if (!empty($account->dm_message_text) && $account->page_access_token) {
+                if (! empty($account->dm_message_text) && $account->page_access_token) {
                     $dmBody = str_replace(
                         ['{name}', '{sender_name}'],
                         [$senderName, $senderName],
@@ -450,7 +456,7 @@ class MetaChannelService implements ChannelServiceInterface
                             'message' => ['text' => $dmBody],
                         ]);
 
-                        if (!$dmRes->successful() && $senderId) {
+                        if (! $dmRes->successful() && $senderId) {
                             // Fallback attempt: recipient using PSID
                             $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", [
                                 'recipient' => ['id' => $senderId],
@@ -473,7 +479,7 @@ class MetaChannelService implements ChannelServiceInterface
                             ],
                         ]);
                     } catch (\Throwable $e) {
-                        Log::error('Facebook comment private DM failed: ' . $e->getMessage());
+                        Log::error('Facebook comment private DM failed: '.$e->getMessage());
                     }
                 }
             }
@@ -505,7 +511,7 @@ class MetaChannelService implements ChannelServiceInterface
             ->where('business_id', $business->id)
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             return null;
         }
 
@@ -520,7 +526,7 @@ class MetaChannelService implements ChannelServiceInterface
             'platform' => 'instagram',
             'platform_sender_id' => $senderId ?: $commentId,
         ], [
-            'name' => '@' . $senderUsername,
+            'name' => '@'.$senderUsername,
         ]);
 
         // Find or create Conversation
@@ -558,7 +564,7 @@ class MetaChannelService implements ChannelServiceInterface
         if ($account->comment_reply_enabled) {
             // Keyword filter check
             $matchesKeyword = true;
-            if (!empty($account->comment_keywords) && is_array($account->comment_keywords)) {
+            if (! empty($account->comment_keywords) && is_array($account->comment_keywords)) {
                 $matchesKeyword = false;
                 foreach ($account->comment_keywords as $kw) {
                     if (mb_stripos($commentText, trim($kw)) !== false) {
@@ -570,10 +576,10 @@ class MetaChannelService implements ChannelServiceInterface
 
             if ($matchesKeyword) {
                 // 1. Send public reply on Instagram comment
-                if (!empty($account->comment_reply_text) && $account->access_token) {
+                if (! empty($account->comment_reply_text) && $account->access_token) {
                     $replyBody = str_replace(
                         ['{name}', '{username}'],
-                        ['@' . $senderUsername, '@' . $senderUsername],
+                        ['@'.$senderUsername, '@'.$senderUsername],
                         $account->comment_reply_text
                     );
 
@@ -583,15 +589,15 @@ class MetaChannelService implements ChannelServiceInterface
                         ]);
                         $replySent = $replyRes->successful();
                     } catch (\Throwable $e) {
-                        Log::error('Instagram public comment reply failed: ' . $e->getMessage());
+                        Log::error('Instagram public comment reply failed: '.$e->getMessage());
                     }
                 }
 
                 // 2. Send private DM to commenter
-                if (!empty($account->dm_message_text) && $account->access_token) {
+                if (! empty($account->dm_message_text) && $account->access_token) {
                     $dmBody = str_replace(
                         ['{name}', '{username}'],
-                        ['@' . $senderUsername, '@' . $senderUsername],
+                        ['@'.$senderUsername, '@'.$senderUsername],
                         $account->dm_message_text
                     );
 
@@ -602,7 +608,7 @@ class MetaChannelService implements ChannelServiceInterface
                             'message' => ['text' => $dmBody],
                         ]);
 
-                        if (!$dmRes->successful() && $senderId) {
+                        if (! $dmRes->successful() && $senderId) {
                             $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->access_token}", [
                                 'recipient' => ['id' => $senderId],
                                 'message' => ['text' => $dmBody],
@@ -624,7 +630,7 @@ class MetaChannelService implements ChannelServiceInterface
                             ],
                         ]);
                     } catch (\Throwable $e) {
-                        Log::error('Instagram comment private DM failed: ' . $e->getMessage());
+                        Log::error('Instagram comment private DM failed: '.$e->getMessage());
                     }
                 }
             }

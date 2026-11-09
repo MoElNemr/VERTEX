@@ -7,7 +7,6 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\FacebookAccount;
 use App\Models\InstagramAccount;
-use App\Models\Message;
 use App\Models\QuickReply;
 use App\Models\TelegramAccount;
 use App\Models\WhatsappAccount;
@@ -18,7 +17,9 @@ class RichDemoSeeder extends Seeder
     public function run(): void
     {
         $business = Business::first();
-        if (!$business) return;
+        if (! $business) {
+            return;
+        }
 
         // 1. Fake-connect all channels so the UI looks live and populated
         WhatsappAccount::updateOrCreate(
@@ -91,7 +92,7 @@ class RichDemoSeeder extends Seeder
                     ['sender' => 'agent', 'body' => 'مساء النور يا فندم! الباقة السنوية تشمل متاجر غير محدودة مع ربط كل القنوات بالكامل.', 'min' => 10],
                     ['sender' => 'contact', 'body' => 'ممتاز جداً، طب ينفع أسدد عن طريق فودافون كاش ولا لازم فيزا؟', 'min' => 5],
                     ['sender' => 'contact', 'body' => 'وهل التفعيل بيكون لحظي؟', 'min' => 4],
-                ]
+                ],
             ],
             [
                 'name' => 'سارة حسن الشريف',
@@ -105,7 +106,7 @@ class RichDemoSeeder extends Seeder
                     ['sender' => 'contact', 'body' => 'السلام عليكم، كنت شفت إعلان لحضراتكم عن ربط الواتساب مع فيسبوك في مكان واحد', 'min' => 40],
                     ['sender' => 'agent', 'body' => 'وعليكم السلام يا فندم! بالظبط، نظامنا بيوفرلك صندوق وارد موحد لكل الرسائل من واتساب، ماسنجر، إنستجرام وتيليجرام بدون أي تشتت.', 'min' => 35],
                     ['sender' => 'contact', 'body' => 'حلو أوي، محتاجة أجرب تجربة مجانية الأول لو متاح.', 'min' => 22],
-                ]
+                ],
             ],
             [
                 'name' => 'نور الهدى إبراهيم',
@@ -119,7 +120,7 @@ class RichDemoSeeder extends Seeder
                     ['sender' => 'contact', 'body' => 'هاي، التيشيرت الأسود أوفر سايز مقاس L متوفر منه كميات ولا خلص؟', 'min' => 80],
                     ['sender' => 'agent', 'body' => 'أهلاً بحضرتك يا فندم! متوفر آخر قطعتين بالمخزن للشحن الفوري.', 'min' => 70],
                     ['sender' => 'contact', 'body' => 'تمام احجزلي قطعة وهبعتلك العنوان دلوقتي على الخاص.', 'min' => 65],
-                ]
+                ],
             ],
             [
                 'name' => 'عمر خالد المنشاوي',
@@ -132,7 +133,7 @@ class RichDemoSeeder extends Seeder
                 'messages' => [
                     ['sender' => 'contact', 'body' => 'البوت بيرد بسرعة ما شاء الله، هل فيه أوبشن نربط بالـ CRM بتاعنا؟', 'min' => 160],
                     ['sender' => 'agent', 'body' => 'أهلاً بك يا أستاذ عمر! نعم، نوفر Webhooks و API كاملين للربط المباشر مع أي نظام خارجي.', 'min' => 140],
-                ]
+                ],
             ],
             [
                 'name' => 'كريم الدسوقي',
@@ -145,7 +146,7 @@ class RichDemoSeeder extends Seeder
                 'messages' => [
                     ['sender' => 'contact', 'body' => 'استلمت الشحنة النهاردة، شكراً جداً على سرعة التوصيل والأوردر تمام 👍', 'min' => 400],
                     ['sender' => 'agent', 'body' => 'العفو يا فندم، سعداء جداً بخدمتك وفي انتظارك دائماً!', 'min' => 360],
-                ]
+                ],
             ],
             [
                 'name' => 'فريدة زهران',
@@ -158,7 +159,7 @@ class RichDemoSeeder extends Seeder
                 'messages' => [
                     ['sender' => 'contact', 'body' => 'هل الكولكشن الجديد نزل على السايت؟', 'min' => 800],
                     ['sender' => 'agent', 'body' => 'نعم يا فندم، متاح الآن على الموقع مع كود خصم 10% بمناسبة الإطلاق.', 'min' => 720],
-                ]
+                ],
             ],
         ];
 

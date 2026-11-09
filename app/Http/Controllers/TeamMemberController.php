@@ -18,7 +18,7 @@ class TeamMemberController extends Controller
     {
         $user = $request->user('web') ?: $request->user('team');
 
-        if (!$user) {
+        if (! $user) {
             abort(401);
         }
 
@@ -29,6 +29,7 @@ class TeamMemberController extends Controller
                     return $currentBiz->user_id;
                 }
             }
+
             return $user->id;
         }
 
@@ -69,7 +70,7 @@ class TeamMemberController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -191,7 +192,7 @@ class TeamMemberController extends Controller
             'is_active' => $request->boolean('is_active', true),
         ];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $updateData['password'] = $validated['password'];
         }
 
@@ -217,10 +218,11 @@ class TeamMemberController extends Controller
         }
 
         $teamMember->update([
-            'is_active' => !$teamMember->is_active,
+            'is_active' => ! $teamMember->is_active,
         ]);
 
         $statusText = $teamMember->is_active ? 'تفعيل' : 'تعطيل';
+
         return redirect()->route('team.index')->with('success', "تم {$statusText} حساب العضو بنجاح.");
     }
 

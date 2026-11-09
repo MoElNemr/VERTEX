@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Business;
 use App\Models\Campaign;
-use App\Models\CampaignRecipient;
 use App\Models\Contact;
 use App\Models\Plan;
 use App\Models\User;

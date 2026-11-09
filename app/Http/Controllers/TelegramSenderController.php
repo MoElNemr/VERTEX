@@ -29,7 +29,7 @@ class TelegramSenderController extends Controller
     {
         $currentBusinessId = session('current_business_id');
 
-        if (!$currentBusinessId) {
+        if (! $currentBusinessId) {
             $user = $request->user('web') ?: $request->user('team');
             $firstBusiness = $user ? $user->businesses()->first() : null;
             if ($firstBusiness) {
@@ -105,8 +105,9 @@ class TelegramSenderController extends Controller
         $rows = [];
         if (($handle = fopen($path, 'r')) !== false) {
             $rawHeader = fgetcsv($handle);
-            if (!$rawHeader) {
+            if (! $rawHeader) {
                 fclose($handle);
+
                 return response()->json(['error' => 'ملف CSV فارغ أو غير صالح.'], 422);
             }
 
@@ -149,7 +150,7 @@ class TelegramSenderController extends Controller
                     $validCount++;
                     $rowItem = [
                         'recipient_id' => $rawId,
-                        'name' => $rawName ?: ('مستخدم ' . substr($rawId, -4)),
+                        'name' => $rawName ?: ('مستخدم '.substr($rawId, -4)),
                     ];
                     $allRows[] = $rowItem;
                     if (count($previewRows) < 5) {
@@ -240,9 +241,10 @@ class TelegramSenderController extends Controller
         }
 
         // HARD BALANCE GATE: Do not start if user balance cannot afford campaign
-        if ($user && !$this->walletService->hasSufficientCredits($user, $recipientCount)) {
+        if ($user && ! $this->walletService->hasSufficientCredits($user, $recipientCount)) {
             $wallet = $user->getOrCreateWallet();
             $missing = $recipientCount - $wallet->credits;
+
             return response()->json([
                 'error' => "رصيد المحفظة غير كافٍ لإرسال الحملة. رصيدك الحالي: {$wallet->credits} رسالة، والمطلوب: {$recipientCount} رسالة (ينقصك {$missing} رسالة). يرجى شحن المحفظة أولاً.",
                 'wallet' => [
@@ -255,7 +257,7 @@ class TelegramSenderController extends Controller
 
         $campaign = $this->campaignService->createChannelBulkCampaign($business, 'telegram', $validated);
 
-        if (!empty($validated['auto_start']) && $campaign->total_recipients > 0) {
+        if (! empty($validated['auto_start']) && $campaign->total_recipients > 0) {
             $this->campaignService->launchCampaign($campaign);
         }
 

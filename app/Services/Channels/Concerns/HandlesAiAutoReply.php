@@ -24,7 +24,7 @@ trait HandlesAiAutoReply
             ->first();
 
         if ($aiSetting && $aiSetting->ai_enabled) {
-            if (!$aiSetting->working_hours_only || $this->isWithinWorkingHours($aiSetting)) {
+            if (! $aiSetting->working_hours_only || $this->isWithinWorkingHours($aiSetting)) {
                 $reply = app(AiService::class)->autoReply($conversation, $aiSetting, $messageText);
                 if ($reply) {
                     $replyMsg = $conversation->messages()->create([
@@ -38,13 +38,13 @@ trait HandlesAiAutoReply
                     try {
                         app(ChannelManager::class)->sendMessage($conversation, $replyMsg);
                     } catch (\Throwable $e) {
-                        Log::warning('AI auto-reply outbound send error: ' . $e->getMessage());
+                        Log::warning('AI auto-reply outbound send error: '.$e->getMessage());
                     }
 
                     try {
                         broadcast(new MessageSent($conversation, $replyMsg));
                     } catch (\Throwable $e) {
-                        Log::warning('Broadcast failed in AI auto-reply: ' . $e->getMessage());
+                        Log::warning('Broadcast failed in AI auto-reply: '.$e->getMessage());
                     }
                 }
             }
@@ -59,6 +59,7 @@ trait HandlesAiAutoReply
         $hour = now()->hour;
         $start = $setting->work_start_hour ?? 9;
         $end = $setting->work_end_hour ?? 18;
+
         return $hour >= $start && $hour < $end;
     }
 }

@@ -42,6 +42,7 @@ class FawryService
     public function getBaseUrl(): string
     {
         $config = $this->getConfig();
+
         return $config['mode'] === 'live'
             ? 'https://www.atfawry.com'
             : 'https://atfawry.fawrystag.com';
@@ -57,8 +58,8 @@ class FawryService
         $securityKey = $config['security_key'];
 
         $amount = $billingCycle === 'yearly' ? (float) $plan->price_yearly : (float) $plan->price_monthly;
-        $merchantRefNum = 'SUB_' . $user->id . '_' . $plan->id . '_' . time() . '_' . rand(100, 999);
-        $returnUrl = url('/subscription/callback?ref=' . $merchantRefNum);
+        $merchantRefNum = 'SUB_'.$user->id.'_'.$plan->id.'_'.time().'_'.rand(100, 999);
+        $returnUrl = url('/subscription/callback?ref='.$merchantRefNum);
 
         // Record pending transaction
         $transaction = PaymentTransaction::create([
@@ -78,12 +79,12 @@ class FawryService
             ],
         ]);
 
-        $itemCode = 'PLAN_' . $plan->id;
+        $itemCode = 'PLAN_'.$plan->id;
         $quantity = 1;
         $formattedPrice = number_format($amount, 2, '.', '');
 
         // Fawry signature calculation
-        $signatureString = $merchantCode . $merchantRefNum . $user->id . $returnUrl . $itemCode . $quantity . $formattedPrice . $securityKey;
+        $signatureString = $merchantCode.$merchantRefNum.$user->id.$returnUrl.$itemCode.$quantity.$formattedPrice.$securityKey;
         $signature = hash('sha256', $signatureString);
 
         $chargePayload = [
@@ -103,7 +104,7 @@ class FawryService
                     'description' => "باقة {$plan->name}",
                     'price' => $amount,
                     'quantity' => 1,
-                ]
+                ],
             ],
             'returnUrl' => $returnUrl,
             'signature' => $signature,
@@ -114,7 +115,7 @@ class FawryService
         $checkoutUrl = null;
 
         try {
-            $apiUrl = $this->getBaseUrl() . '/ECommerceWeb/Fawry/payments/charge';
+            $apiUrl = $this->getBaseUrl().'/ECommerceWeb/Fawry/payments/charge';
             $response = Http::timeout(8)->post($apiUrl, $chargePayload);
 
             if ($response->successful()) {
@@ -127,12 +128,12 @@ class FawryService
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning('Fawry API charge connection error: ' . $e->getMessage());
+            Log::warning('Fawry API charge connection error: '.$e->getMessage());
         }
 
         // Fallback / Sandbox Reference Code generation if external endpoint is offline or sandbox testing
-        if (!$fawryRefNumber) {
-            $fawryRefNumber = '98' . rand(10000000, 99999999);
+        if (! $fawryRefNumber) {
+            $fawryRefNumber = '98'.rand(10000000, 99999999);
             $transaction->update(['fawry_reference_number' => $fawryRefNumber]);
         }
 
@@ -172,7 +173,7 @@ class FawryService
             return false;
         }
 
-        $expectedString = $merchantCode . $merchantRefNum . $fawryRefNumber . $paymentAmount . $orderStatus . $securityKey;
+        $expectedString = $merchantCode.$merchantRefNum.$fawryRefNumber.$paymentAmount.$orderStatus.$securityKey;
         $expectedSignature = hash('sha256', $expectedString);
 
         return hash_equals(strtolower($expectedSignature), strtolower($receivedSignature));
@@ -240,8 +241,8 @@ class FawryService
         $merchantCode = $config['merchant_code'];
         $securityKey = $config['security_key'];
 
-        $merchantRefNum = 'TOPUP_' . $user->id . '_' . time() . '_' . rand(100, 999);
-        $returnUrl = url('/wallet?ref=' . $merchantRefNum);
+        $merchantRefNum = 'TOPUP_'.$user->id.'_'.time().'_'.rand(100, 999);
+        $returnUrl = url('/wallet?ref='.$merchantRefNum);
 
         $transaction = PaymentTransaction::create([
             'user_id' => $user->id,
@@ -260,11 +261,11 @@ class FawryService
             ],
         ]);
 
-        $itemCode = 'BULK_' . $credits;
+        $itemCode = 'BULK_'.$credits;
         $quantity = 1;
         $formattedPrice = number_format($amount, 2, '.', '');
 
-        $signatureString = $merchantCode . $merchantRefNum . $user->id . $returnUrl . $itemCode . $quantity . $formattedPrice . $securityKey;
+        $signatureString = $merchantCode.$merchantRefNum.$user->id.$returnUrl.$itemCode.$quantity.$formattedPrice.$securityKey;
         $signature = hash('sha256', $signatureString);
 
         $chargePayload = [
@@ -283,7 +284,7 @@ class FawryService
                     'description' => "شحن {$credits} رسالة",
                     'price' => $amount,
                     'quantity' => 1,
-                ]
+                ],
             ],
             'returnUrl' => $returnUrl,
             'signature' => $signature,
@@ -293,7 +294,7 @@ class FawryService
         $checkoutUrl = null;
 
         try {
-            $apiUrl = $this->getBaseUrl() . '/ECommerceWeb/Fawry/payments/charge';
+            $apiUrl = $this->getBaseUrl().'/ECommerceWeb/Fawry/payments/charge';
             $response = Http::timeout(8)->post($apiUrl, $chargePayload);
 
             if ($response->successful()) {
@@ -306,11 +307,11 @@ class FawryService
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning('Fawry API wallet charge connection error: ' . $e->getMessage());
+            Log::warning('Fawry API wallet charge connection error: '.$e->getMessage());
         }
 
-        if (!$fawryRefNumber) {
-            $fawryRefNumber = '98' . rand(10000000, 99999999);
+        if (! $fawryRefNumber) {
+            $fawryRefNumber = '98'.rand(10000000, 99999999);
             $transaction->update(['fawry_reference_number' => $fawryRefNumber]);
         }
 

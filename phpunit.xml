@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="META_APP_SECRET" value=""/>
+        <env name="META_SCOPES" value=""/>
     </php>
 </phpunit>

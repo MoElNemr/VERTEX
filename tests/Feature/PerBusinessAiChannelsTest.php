@@ -9,7 +9,8 @@ use App\Models\Conversation;
 use App\Models\User;
 use App\Services\AiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery\MockInterface;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PerBusinessAiChannelsTest extends TestCase
@@ -17,7 +18,9 @@ class PerBusinessAiChannelsTest extends TestCase
     use RefreshDatabase;
 
     protected User $merchant;
+
     protected Business $shoesStore;
+
     protected Business $clothesStore;
 
     protected function setUp(): void
@@ -61,7 +64,7 @@ class PerBusinessAiChannelsTest extends TestCase
     public function test_each_store_maintains_independent_ai_prompts_and_settings(): void
     {
         // 1. Configure Shoes Store AI
-        $shoesPrompt = "قواعد متجر الأحذية: المقاسات أوروبية من 37 إلى 46، شحن 48 ساعة مع إمكانية المعاينة قبل الاستلام.";
+        $shoesPrompt = 'قواعد متجر الأحذية: المقاسات أوروبية من 37 إلى 46، شحن 48 ساعة مع إمكانية المعاينة قبل الاستلام.';
         $this->actingAs($this->merchant)
             ->post(route('ai-settings.update', $this->shoesStore->id), [
                 'ai_enabled' => true,
@@ -73,7 +76,7 @@ class PerBusinessAiChannelsTest extends TestCase
             ->assertRedirect();
 
         // 2. Configure Clothes Store AI
-        $clothesPrompt = "قواعد متجر الملابس: كولكشن الصيف مقاسات S إلى 3XL، قطن 100%، الاسترجاع مع وجود التيكت كارت.";
+        $clothesPrompt = 'قواعد متجر الملابس: كولكشن الصيف مقاسات S إلى 3XL، قطن 100%، الاسترجاع مع وجود التيكت كارت.';
         $this->actingAs($this->merchant)
             ->post(route('ai-settings.update', $this->clothesStore->id), [
                 'ai_enabled' => false,
@@ -183,8 +186,8 @@ class PerBusinessAiChannelsTest extends TestCase
 
     public function test_ai_service_makes_direct_call_to_groq_api_using_business_key(): void
     {
-        \Illuminate\Support\Facades\Http::fake([
-            'https://api.groq.com/openai/v1/chat/completions' => \Illuminate\Support\Facades\Http::response([
+        Http::fake([
+            'https://api.groq.com/openai/v1/chat/completions' => Http::response([
                 'choices' => [
                     [
                         'message' => [
@@ -224,7 +227,7 @@ class PerBusinessAiChannelsTest extends TestCase
 
         $this->assertEquals('مرحباً بك في متجر الأحذية! هذا رد تم توليده مباشرة عبر Groq.', $reply);
 
-        \Illuminate\Support\Facades\Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
+        Http::assertSent(function (Request $request) {
             return $request->url() === 'https://api.groq.com/openai/v1/chat/completions'
                 && $request->hasHeader('Authorization', 'Bearer gsk_test_groq_direct_endpoint_key')
                 && $request['model'] === 'llama-3.3-70b-versatile';

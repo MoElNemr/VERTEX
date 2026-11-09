@@ -72,4 +72,3 @@ class Business extends Model
         return $this->hasMany(Campaign::class);
     }
 }
-

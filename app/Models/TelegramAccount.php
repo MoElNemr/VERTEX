@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TelegramAccount extends Model
 {
-    use HasFactory, BelongsToBusiness;
+    use BelongsToBusiness, HasFactory;
 
     protected $fillable = [
         'business_id',

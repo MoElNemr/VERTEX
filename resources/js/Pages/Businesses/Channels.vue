@@ -34,6 +34,7 @@ import {
 } from 'lucide-vue-next';
 
 import ChannelGuideModal from '@/Components/ChannelGuideModal.vue';
+import MetaAssetSelectorModal from '@/Components/MetaAssetSelectorModal.vue';
 
 const props = defineProps({
     business: Object,
@@ -43,6 +44,14 @@ const props = defineProps({
     telegram: Object,
     aiSetting: Object,
     sharedApiKey: String,
+    metaAccounts: {
+        type: Array,
+        default: () => [],
+    },
+    showMetaModal: {
+        type: Boolean,
+        default: false,
+    },
     initialTab: {
         type: String,
         default: 'channels',
@@ -53,6 +62,11 @@ const activeTab = ref(props.initialTab || 'channels');
 const showApiKey = ref(false);
 const showGuideModal = ref(false);
 const activeGuideChannel = ref('facebook');
+const showMetaAssetModal = ref(Boolean(props.showMetaModal && props.metaAccounts && props.metaAccounts.length > 0));
+
+const connectMetaOAuth = () => {
+    window.location.href = route('meta.redirect', props.business.id);
+};
 
 const openGuideModal = (channel) => {
     activeGuideChannel.value = channel;
@@ -712,8 +726,8 @@ const disconnect = (channel) => {
                     <div>
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex items-center gap-3.5">
-                                <div class="w-12 h-12 rounded-xl bg-slate-800 text-slate-200 flex items-center justify-center font-bold border border-slate-700">
-                                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <div class="w-12 h-12 rounded-xl bg-[#1877F2]/10 text-[#1877F2] flex items-center justify-center font-bold border border-[#1877F2]/20">
+                                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
                                         <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                                     </svg>
                                 </div>
@@ -723,15 +737,6 @@ const disconnect = (channel) => {
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    @click="openGuideModal('facebook')"
-                                    class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition"
-                                    title="شرح وخطوات ربط فيسبوك"
-                                >
-                                    <HelpCircle class="w-3.5 h-3.5 text-blue-400" />
-                                    <span>طريقة الربط</span>
-                                </button>
                                 <span
                                     class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
                                     :class="facebook?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
@@ -742,19 +747,76 @@ const disconnect = (channel) => {
                             </div>
                         </div>
 
-                        <!-- Facebook Form -->
+                        <!-- Facebook Connected Status Card or Meta OAuth CTA -->
                         <div class="mt-6">
-                            <div v-if="facebook?.status === 'connected'" class="p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div v-if="facebook?.status === 'connected'" class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <img
+                                            v-if="facebook.avatar_url"
+                                            :src="facebook.avatar_url"
+                                            :alt="facebook.page_name"
+                                            class="w-11 h-11 rounded-full object-cover border border-blue-500/40 bg-slate-800"
+                                        />
+                                        <div
+                                            v-else
+                                            class="w-11 h-11 rounded-full bg-blue-600/20 text-[#1877F2] flex items-center justify-center font-bold text-base border border-blue-500/30"
+                                        >
+                                            {{ facebook.page_name?.charAt(0) || 'F' }}
+                                        </div>
+                                        <div>
+                                            <span class="text-[11px] text-slate-500 block">الصفحة المربوطة:</span>
+                                            <span class="font-bold text-sm text-blue-400">{{ facebook.page_name }}</span>
+                                            <span class="text-[10px] text-slate-500 block font-mono">ID: {{ facebook.page_id }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-950/80 text-blue-300 border border-blue-800">
+                                        <ShieldCheck class="w-3 h-3 text-blue-400" />
+                                        <span>Active - Permanent Token</span>
+                                    </span>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-3 border-t border-slate-800/80 text-xs">
+                                    <button
+                                        type="button"
+                                        @click="connectMetaOAuth"
+                                        class="cursor-pointer font-bold text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1.5"
+                                    >
+                                        <RefreshCw class="w-3.5 h-3.5" />
+                                        <span>Re-authorize / Change Page</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="disconnect('facebook')"
+                                        class="cursor-pointer font-bold text-rose-400 hover:underline"
+                                    >
+                                        Disconnect
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Primary Integration Card: Meta OAuth Login -->
+                            <div v-else class="p-6 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-4">
+                                <div class="w-12 h-12 mx-auto rounded-full bg-[#1877F2]/10 text-[#1877F2] flex items-center justify-center">
+                                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                    </svg>
+                                </div>
                                 <div>
-                                    <span class="text-xs text-slate-500 block">الصفحة المربوطة:</span>
-                                    <span class="font-bold text-sm text-blue-400">{{ facebook.page_name }}</span>
-                                    <span class="text-[10px] text-slate-500 block font-mono">ID: {{ facebook.page_id }}</span>
+                                    <h4 class="text-sm font-bold text-white">ربط فيسبوك عبر Meta OAuth 2.0</h4>
+                                    <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                                        Connect your official Facebook Page and linked Instagram Business account securely with 1-click.
+                                    </p>
                                 </div>
                                 <button
-                                    @click="disconnect('facebook')"
-                                    class="cursor-pointer text-xs font-bold text-rose-400 hover:underline"
+                                    type="button"
+                                    @click="connectMetaOAuth"
+                                    class="cursor-pointer w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#1877F2] hover:bg-[#166fe5] active:bg-[#1465d2] transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
                                 >
-                                    فصل الصفحة
+                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                    </svg>
+                                    <span>Connect Facebook & Instagram with Meta</span>
                                 </button>
                             </div>
 
@@ -822,58 +884,6 @@ const disconnect = (channel) => {
                                     </button>
                                 </form>
                             </div>
-
-                            <form v-else @submit.prevent="connectFacebook" class="space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[11px] text-slate-400">تحتاج مساعدة في استخراج المعرف والتوكن؟</span>
-                                    <button
-                                        type="button"
-                                        @click="openGuideModal('facebook')"
-                                        class="cursor-pointer inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 font-bold"
-                                    >
-                                        <HelpCircle class="w-3.5 h-3.5" />
-                                        <span>عرض الخطوات بالتفصيل</span>
-                                    </button>
-                                </div>
-                                <div>
-                                    <label for="page_id" class="block text-xs font-bold text-slate-300">
-                                        معرف الصفحة (Page ID)
-                                    </label>
-                                    <input
-                                        id="page_id"
-                                        v-model="facebookForm.page_id"
-                                        type="text"
-                                        dir="ltr"
-                                        autocomplete="new-password"
-                                        class="mt-1.5 block w-full rounded-xl text-xs font-mono px-3.5 py-3 !bg-slate-950 border border-slate-800 !text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                                        placeholder="104523984578..."
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label for="page_access_token" class="block text-xs font-bold text-slate-300">
-                                        Page Access Token / System User Token
-                                    </label>
-                                    <input
-                                        id="page_access_token"
-                                        v-model="facebookForm.page_access_token"
-                                        type="password"
-                                        dir="ltr"
-                                        autocomplete="new-password"
-                                        class="mt-1.5 block w-full rounded-xl text-xs font-mono px-3.5 py-3 !bg-slate-950 border border-slate-800 !text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                                        placeholder="EAA..."
-                                        required
-                                    />
-                                    <InputError class="mt-1.5" :message="facebookForm.errors.page_access_token" />
-                                </div>
-                                <button
-                                    type="submit"
-                                    :disabled="facebookForm.processing"
-                                    class="cursor-pointer w-full justify-center bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white py-3 rounded-xl text-xs font-bold transition shadow-sm mt-2"
-                                >
-                                    ربط الصفحة وتفعيل الاستقبال
-                                </button>
-                            </form>
                         </div>
                     </div>
                 </div>
@@ -883,8 +893,8 @@ const disconnect = (channel) => {
                     <div>
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex items-center gap-3.5">
-                                <div class="w-12 h-12 rounded-xl bg-slate-800 text-slate-200 flex items-center justify-center font-bold border border-slate-700">
-                                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <div class="w-12 h-12 rounded-xl bg-pink-500/10 text-pink-400 flex items-center justify-center font-bold border border-pink-500/20">
+                                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
                                         <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                                     </svg>
                                 </div>
@@ -894,15 +904,6 @@ const disconnect = (channel) => {
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    @click="openGuideModal('instagram')"
-                                    class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition"
-                                    title="شرح وخطوات ربط إنستجرام"
-                                >
-                                    <HelpCircle class="w-3.5 h-3.5 text-pink-400" />
-                                    <span>طريقة الربط</span>
-                                </button>
                                 <span
                                     class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
                                     :class="instagram?.status === 'connected' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'"
@@ -913,18 +914,76 @@ const disconnect = (channel) => {
                             </div>
                         </div>
 
-                        <!-- Instagram Form -->
+                        <!-- Instagram Connected Status Card or Meta OAuth CTA -->
                         <div class="mt-6">
-                            <div v-if="instagram?.status === 'connected'" class="p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div v-if="instagram?.status === 'connected'" class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <img
+                                            v-if="instagram.avatar_url"
+                                            :src="instagram.avatar_url"
+                                            :alt="instagram.username"
+                                            class="w-11 h-11 rounded-full object-cover border border-pink-500/40 bg-slate-800"
+                                        />
+                                        <div
+                                            v-else
+                                            class="w-11 h-11 rounded-full bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs"
+                                        >
+                                            IG
+                                        </div>
+                                        <div>
+                                            <span class="text-[11px] text-slate-500 block">الحساب المربوط:</span>
+                                            <span class="font-bold text-sm text-pink-400">@{{ instagram.username || instagram.instagram_business_id }}</span>
+                                            <span class="text-[10px] text-slate-500 block font-mono">ID: {{ instagram.instagram_business_id }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-pink-950/80 text-pink-300 border border-pink-800">
+                                        <ShieldCheck class="w-3 h-3 text-pink-400" />
+                                        <span>Active - Permanent Token</span>
+                                    </span>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-3 border-t border-slate-800/80 text-xs">
+                                    <button
+                                        type="button"
+                                        @click="connectMetaOAuth"
+                                        class="cursor-pointer font-bold text-pink-400 hover:text-pink-300 hover:underline flex items-center gap-1.5"
+                                    >
+                                        <RefreshCw class="w-3.5 h-3.5" />
+                                        <span>Re-authorize / Change Page</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="disconnect('instagram')"
+                                        class="cursor-pointer font-bold text-rose-400 hover:underline"
+                                    >
+                                        Disconnect
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Primary Integration Card: Meta OAuth Login -->
+                            <div v-else class="p-6 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-4">
+                                <div class="w-12 h-12 mx-auto rounded-full bg-pink-500/10 text-pink-400 flex items-center justify-center">
+                                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                                    </svg>
+                                </div>
                                 <div>
-                                    <span class="text-xs text-slate-500 block">الحساب المربوط:</span>
-                                    <span class="font-bold text-sm text-blue-400">@{{ instagram.username || instagram.instagram_business_id }}</span>
+                                    <h4 class="text-sm font-bold text-white">ربط إنستجرام للأعمال عبر Meta OAuth 2.0</h4>
+                                    <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                                        Connect your official Facebook Page and linked Instagram Business account securely with 1-click.
+                                    </p>
                                 </div>
                                 <button
-                                    @click="disconnect('instagram')"
-                                    class="cursor-pointer text-xs font-bold text-rose-400 hover:underline"
+                                    type="button"
+                                    @click="connectMetaOAuth"
+                                    class="cursor-pointer w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#1877F2] hover:bg-[#166fe5] active:bg-[#1465d2] transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
                                 >
-                                    فصل الحساب
+                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                    </svg>
+                                    <span>Connect Facebook & Instagram with Meta</span>
                                 </button>
                             </div>
 
@@ -992,58 +1051,6 @@ const disconnect = (channel) => {
                                     </button>
                                 </form>
                             </div>
-
-                            <form v-else @submit.prevent="connectInstagram" class="space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[11px] text-slate-400">تحتاج مساعدة في استخراج معرف وتوكن إنستجرام؟</span>
-                                    <button
-                                        type="button"
-                                        @click="openGuideModal('instagram')"
-                                        class="cursor-pointer inline-flex items-center gap-1 text-[11px] text-pink-400 hover:text-pink-300 font-bold"
-                                    >
-                                        <HelpCircle class="w-3.5 h-3.5" />
-                                        <span>عرض الخطوات بالتفصيل</span>
-                                    </button>
-                                </div>
-                                <div>
-                                    <label for="instagram_business_id" class="block text-xs font-bold text-slate-300">
-                                        Instagram Business Account ID
-                                    </label>
-                                    <input
-                                        id="instagram_business_id"
-                                        v-model="instagramForm.instagram_business_id"
-                                        type="text"
-                                        dir="ltr"
-                                        autocomplete="new-password"
-                                        class="mt-1.5 block w-full rounded-xl text-xs font-mono px-3.5 py-3 !bg-slate-950 border border-slate-800 !text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                                        placeholder="17841405..."
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label for="access_token" class="block text-xs font-bold text-slate-300">
-                                        Instagram Access Token
-                                    </label>
-                                    <input
-                                        id="access_token"
-                                        v-model="instagramForm.access_token"
-                                        type="password"
-                                        dir="ltr"
-                                        autocomplete="new-password"
-                                        class="mt-1.5 block w-full rounded-xl text-xs font-mono px-3.5 py-3 !bg-slate-950 border border-slate-800 !text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                                        placeholder="EAA..."
-                                        required
-                                    />
-                                    <InputError class="mt-1.5" :message="instagramForm.errors.access_token" />
-                                </div>
-                                <button
-                                    type="submit"
-                                    :disabled="instagramForm.processing"
-                                    class="cursor-pointer w-full justify-center bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white py-3 rounded-xl text-xs font-bold transition shadow-sm mt-2"
-                                >
-                                    ربط إنستجرام وتفعيل الاستقبال
-                                </button>
-                            </form>
                         </div>
                     </div>
                 </div>
@@ -1440,6 +1447,14 @@ const disconnect = (channel) => {
             :initial-channel="activeGuideChannel"
             :business="business"
             @close="showGuideModal = false"
+        />
+
+        <!-- Meta Asset Selector Modal -->
+        <MetaAssetSelectorModal
+            :show="showMetaAssetModal"
+            :accounts="metaAccounts || []"
+            :business-id="business.id"
+            @close="showMetaAssetModal = false"
         />
     </AuthenticatedLayout>
 </template>

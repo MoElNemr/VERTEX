@@ -82,9 +82,9 @@ class User extends Authenticatable
     public function canCreateBusiness(): bool
     {
         $activeSub = $this->activeSubscription;
-        
+
         // إذا كان المستخدم جديد بدون اشتراك، نعتبر له صلاحية إنشاء بيزنس تجريبي
-        if (!$activeSub || !$activeSub->plan) {
+        if (! $activeSub || ! $activeSub->plan) {
             return $this->businesses()->count() < 1; // بيزنس تجريبي واحد مجاناً
         }
 
