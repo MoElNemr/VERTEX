@@ -102,6 +102,12 @@ class CampaignBalanceGateTest extends TestCase
         $user = User::factory()->create();
         $business = Business::create(['user_id' => $user->id, 'name' => 'Test Store']);
 
+        // Connect WhatsApp account
+        $business->whatsappAccount()->create([
+            'session_id' => 'session_'.$business->id,
+            'status' => 'connected',
+        ]);
+
         // User has 10 credits
         $walletService = app(WalletService::class);
         $walletService->creditWallet($user, 20.00, 10, null, 'Sufficient balance');
@@ -139,7 +145,7 @@ class CampaignBalanceGateTest extends TestCase
         $this->assertDatabaseHas('bulk_message_transactions', [
             'user_id' => $user->id,
             'business_id' => $business->id,
-            'type' => 'usage',
+            'type' => 'deduct',
             'credits' => -1,
             'credits_after' => 9,
         ]);
@@ -184,5 +190,48 @@ class CampaignBalanceGateTest extends TestCase
         // Wallet credits must remain untouched at 5 because retargeting is included in monthly plan
         $wallet = $user->bulkWallet()->first();
         $this->assertEquals(5, $wallet->credits);
+    }
+
+    public function test_failed_message_dispatch_does_not_deduct_wallet_credits(): void
+    {
+        $user = User::factory()->create();
+        $business = Business::create(['user_id' => $user->id, 'name' => 'Disconnected Store']);
+
+        // User has 10 credits
+        $walletService = app(WalletService::class);
+        $walletService->creditWallet($user, 20.00, 10, null, 'Sufficient balance');
+
+        // Business has NO connected channel -> dispatch will fail
+        $recipients = [
+            ['name' => 'Customer A', 'phone' => '+201011111111'],
+        ];
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_business_id' => $business->id])
+            ->postJson(route('whatsapp-sender.send'), [
+                'name' => 'Failed Campaign',
+                'message' => 'Hello {name}!',
+                'recipients' => $recipients,
+                'auto_start' => false,
+            ]);
+
+        $response->assertOk();
+        $campaign = Campaign::where('name', 'Failed Campaign')->first();
+
+        // Process step -> message dispatch fails
+        $stepResponse = $this->actingAs($user)
+            ->withSession(['current_business_id' => $business->id])
+            ->postJson(route('whatsapp-sender.step', $campaign->id));
+
+        $stepResponse->assertOk();
+
+        // Credits must still be 10!
+        $wallet = $user->bulkWallet()->first();
+        $this->assertEquals(10, $wallet->credits);
+
+        $this->assertDatabaseMissing('bulk_message_transactions', [
+            'user_id' => $user->id,
+            'type' => 'deduct',
+        ]);
     }
 }

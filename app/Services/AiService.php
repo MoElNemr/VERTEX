@@ -64,7 +64,7 @@ class AiService
         $history = [['role' => 'system', 'content' => $system]];
         foreach ($messages as $msg) {
             $history[] = [
-                'role' => $msg->sender_type === 'agent' ? 'assistant' : 'user',
+                'role' => in_array($msg->sender_type, ['agent', 'bot'], true) ? 'assistant' : 'user',
                 'content' => $msg->body,
             ];
         }

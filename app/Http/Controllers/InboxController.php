@@ -280,14 +280,17 @@ class InboxController extends Controller
             ->first();
 
         if ($existingTargetConversation) {
+            // Merge messages from old conversation into target conversation (BUG-21)
+            $conversation->messages()->update([
+                'conversation_id' => $existingTargetConversation->id,
+            ]);
+
             $existingTargetConversation->update([
                 'status' => 'open',
                 'last_message_at' => now(),
             ]);
 
-            $conversation->update([
-                'status' => 'closed',
-            ]);
+            $conversation->delete();
 
             return response()->json([
                 'status' => 'success',

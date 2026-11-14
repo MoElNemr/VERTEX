@@ -32,6 +32,7 @@ class FacebookAccount extends Model
     ];
 
     protected $casts = [
+        'page_access_token' => 'encrypted',
         'comment_reply_enabled' => 'boolean',
         'comment_keywords' => 'array',
         'granted_scopes' => 'array',

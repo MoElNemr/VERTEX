@@ -779,17 +779,17 @@ onUnmounted(() => {
                             v-for="msg in messages"
                             :key="msg.id"
                             class="flex flex-col"
-                            :class="msg.sender_type === 'agent' ? 'items-end' : 'items-start'"
+                            :class="['agent', 'bot'].includes(msg.sender_type) ? 'items-end' : 'items-start'"
                         >
                             <span class="text-[10px] text-slate-500 mb-1 px-1">
-                                {{ msg.sender_type === 'agent' ? 'أنت (فريق الدعم)' : (activeConv.contact?.name || 'العميل') }}
+                                {{ msg.sender_type === 'bot' ? 'المساعد الآلي (Bot)' : (msg.sender_type === 'agent' ? 'أنت (فريق الدعم)' : (activeConv.contact?.name || 'العميل')) }}
                             </span>
 
                             <div
                                 class="max-w-[85%] sm:max-w-lg rounded-2xl px-4 py-2.5 sm:py-3 text-xs leading-relaxed shadow-sm"
                                 :class="[
-                                    msg.sender_type === 'agent'
-                                        ? 'bg-blue-600 text-white rounded-tl-sm'
+                                    ['agent', 'bot'].includes(msg.sender_type)
+                                        ? (msg.sender_type === 'bot' ? 'bg-indigo-600 text-white rounded-tl-sm' : 'bg-blue-600 text-white rounded-tl-sm')
                                         : 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tr-sm'
                                 ]"
                             >
@@ -798,7 +798,7 @@ onUnmounted(() => {
 
                             <div class="flex items-center gap-1 text-[10px] text-slate-500 mt-1 px-1">
                                 <span>{{ formatTime(msg.created_at) }}</span>
-                                <CheckCheck v-if="msg.sender_type === 'agent'" class="w-3 h-3 text-blue-400" />
+                                <CheckCheck v-if="['agent', 'bot'].includes(msg.sender_type)" class="w-3 h-3 text-blue-400" />
                             </div>
                         </div>
                     </div>

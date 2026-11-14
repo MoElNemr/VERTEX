@@ -13,6 +13,10 @@ Broadcast::channel('business.{businessId}', function ($user, $businessId) {
     $authUser = Auth::guard('web')->user() ?? Auth::guard('team')->user() ?? $user;
 
     if ($authUser instanceof User) {
+        if ($authUser->is_super_admin) {
+            return true;
+        }
+
         return $authUser->businesses()->where('businesses.id', $businessId)->exists();
     }
 

@@ -143,6 +143,7 @@ Route::middleware(['auth:web,team', 'active_subscription'])->group(function () {
     Route::post('/instagram-sender/{campaign}/process-step', [InstagramSenderController::class, 'processStep'])->name('instagram-sender.step');
     Route::post('/instagram-sender/{campaign}/start', [InstagramSenderController::class, 'start'])->name('instagram-sender.start');
     Route::post('/instagram-sender/{campaign}/pause', [InstagramSenderController::class, 'pause'])->name('instagram-sender.pause');
+    Route::delete('/instagram-sender/{campaign}', [InstagramSenderController::class, 'destroy'])->name('instagram-sender.destroy');
     // Subscription & Plan Upgrade
     Route::get('/subscription', [SubscriptionController::class, 'index'])->name('subscription.index');
     Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
@@ -199,6 +200,8 @@ Route::get('/subscription/callback', [FawryWebhookController::class, 'callback']
 // Incoming Public Webhooks (Exempt from CSRF)
 Route::post('/webhooks/fawry', [FawryWebhookController::class, 'handle'])->name('webhooks.fawry');
 Route::post('/webhooks/telegram/{business}', [TelegramWebhookController::class, 'handle'])->name('webhooks.telegram');
+Route::get('/webhooks/meta', [MetaWebhookController::class, 'verifyGlobal'])->name('webhooks.meta.global.verify');
+Route::post('/webhooks/meta', [MetaWebhookController::class, 'handleGlobal'])->name('webhooks.meta.global');
 Route::get('/webhooks/meta/{business}', [MetaWebhookController::class, 'verify'])->name('webhooks.meta.verify');
 Route::post('/webhooks/meta/{business}', [MetaWebhookController::class, 'handle'])->name('webhooks.meta');
 Route::post('/webhooks/whatsapp/{business}', [WhatsAppWebhookController::class, 'handle'])->name('webhooks.whatsapp');

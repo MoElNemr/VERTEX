@@ -415,36 +415,21 @@ class CampaignService
         }
 
         $businessId = $campaign->business_id;
+        $user = $campaign->business?->user;
 
-        // If not retargeting, deduct 1 credit from user bulk wallet
-        if ($campaign->type !== 'retargeting') {
-            $user = $campaign->business?->user;
-            if ($user) {
-                try {
-                    $this->walletService->deductCredit(
-                        $user,
-                        $businessId,
-                        $recipient->platform,
-                        "إرسال رسالة حملة {$campaign->name} إلى {$recipient->recipient_id}",
-                        [
-                            'campaign_id' => $campaign->id,
-                            'recipient_id' => $recipient->id,
-                            'platform' => $recipient->platform,
-                        ]
-                    );
-                } catch (\Throwable $e) {
-                    // Insufficient credits: pause campaign and fail recipient
-                    $campaign->update(['status' => 'paused']);
-                    $recipient->update([
-                        'status' => 'failed',
-                        'error_message' => 'رصيد الرسائل غير كافٍ. تم إيقاف الحملة مؤقتاً.',
-                        'sent_at' => now(),
-                    ]);
-                    $campaign->increment('failed_count');
-                    Log::warning("Campaign {$campaign->id} paused due to empty wallet balance: ".$e->getMessage());
+        // If not retargeting, pre-check that user has sufficient credits (BUG-05)
+        if ($campaign->type !== 'retargeting' && $user) {
+            if (! $this->walletService->hasSufficientCredits($user, 1)) {
+                $campaign->update(['status' => 'paused']);
+                $recipient->update([
+                    'status' => 'failed',
+                    'error_message' => 'رصيد الرسائل غير كافٍ. تم إيقاف الحملة مؤقتاً.',
+                    'sent_at' => now(),
+                ]);
+                $campaign->increment('failed_count');
+                Log::warning("Campaign {$campaign->id} paused due to empty wallet balance.");
 
-                    return false;
-                }
+                return false;
             }
         }
 
@@ -510,6 +495,25 @@ class CampaignService
 
             if ($status === 'sent') {
                 $campaign->increment('sent_count');
+
+                // Deduct credit only on confirmed dispatch success (BUG-05)
+                if ($campaign->type !== 'retargeting' && $user) {
+                    try {
+                        $this->walletService->deductCredit(
+                            $user,
+                            $businessId,
+                            $recipient->platform,
+                            "إرسال رسالة حملة {$campaign->name} إلى {$recipient->recipient_id}",
+                            [
+                                'campaign_id' => $campaign->id,
+                                'recipient_id' => $recipient->id,
+                                'platform' => $recipient->platform,
+                            ]
+                        );
+                    } catch (\Throwable $e) {
+                        Log::error("Failed to deduct credit after successful send: {$e->getMessage()}");
+                    }
+                }
             } else {
                 $campaign->increment('failed_count');
             }

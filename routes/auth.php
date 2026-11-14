@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\Auth\TeamAuthenticatedSessionController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,13 @@ Route::middleware('guest')->group(function () {
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    // Facebook Social Auth
+    Route::get('auth/facebook/redirect', [SocialAuthController::class, 'redirectToFacebook'])
+        ->name('auth.facebook.redirect');
+
+    Route::get('auth/facebook/callback', [SocialAuthController::class, 'handleFacebookCallback'])
+        ->name('auth.facebook.callback');
 
     // Team Member Login
     Route::get('team/login', [TeamAuthenticatedSessionController::class, 'create'])

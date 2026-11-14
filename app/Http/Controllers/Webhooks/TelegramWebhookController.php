@@ -19,6 +19,14 @@ class TelegramWebhookController extends Controller
      */
     public function handle(Request $request, Business $business): JsonResponse
     {
+        $account = $business->telegramAccount;
+        if ($account && ! empty($account->webhook_secret)) {
+            $providedSecret = $request->header('X-Telegram-Bot-Api-Secret-Token');
+            if (! $providedSecret || ! hash_equals($account->webhook_secret, $providedSecret)) {
+                return response()->json(['error' => 'Unauthorized secret token'], 403);
+            }
+        }
+
         $result = $this->telegramService->handleWebhook($business, $request);
 
         return response()->json($result);

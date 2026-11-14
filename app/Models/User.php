@@ -16,6 +16,8 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'facebook_id',
+        'avatar',
         'password',
         'is_super_admin',
     ];
@@ -48,6 +50,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(Subscription::class)
             ->whereIn('status', ['active', 'trial'])
+            ->where(function ($q) {
+                $q->whereNull('ends_at')->orWhere('ends_at', '>', now());
+            })
             ->latestOfMany();
     }
 

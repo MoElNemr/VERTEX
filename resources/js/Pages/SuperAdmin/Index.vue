@@ -835,9 +835,9 @@ const restartSession = async (sessionId) => {
                                     <td class="py-3 px-3 text-center">
                                         <div class="inline-flex items-center gap-1 font-mono text-[10px]">
                                             <span v-if="b.whatsapp_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">WA</span>
-                                            <span v-if="b.telegram_account?.is_active" class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400">TG</span>
-                                            <span v-if="b.facebook_account?.is_active" class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">FB</span>
-                                            <span v-if="b.instagram_account?.is_active" class="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400">IG</span>
+                                            <span v-if="b.telegram_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400">TG</span>
+                                            <span v-if="b.facebook_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">FB</span>
+                                            <span v-if="b.instagram_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400">IG</span>
                                         </div>
                                     </td>
                                     <td class="py-3 px-3 text-center font-mono font-bold text-slate-300">
@@ -922,9 +922,9 @@ const restartSession = async (sessionId) => {
                                 <td class="py-3 px-3 text-center">
                                     <div class="inline-flex items-center gap-1 font-mono text-[10px]">
                                         <span v-if="b.whatsapp_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">WA</span>
-                                        <span v-if="b.telegram_account?.is_active" class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold">TG</span>
-                                        <span v-if="b.facebook_account?.is_active" class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold">FB</span>
-                                        <span v-if="b.instagram_account?.is_active" class="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400 font-bold">IG</span>
+                                        <span v-if="b.telegram_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold">TG</span>
+                                        <span v-if="b.facebook_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold">FB</span>
+                                        <span v-if="b.instagram_account?.status === 'connected'" class="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400 font-bold">IG</span>
                                         <span v-if="!b.whatsapp_account && !b.telegram_account && !b.facebook_account && !b.instagram_account" class="text-slate-600">بدون</span>
                                     </div>
                                 </td>

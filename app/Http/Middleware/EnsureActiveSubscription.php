@@ -21,12 +21,13 @@ class EnsureActiveSubscription
             return $next($request);
         }
 
-        // Exempt subscription checkout, callbacks, user profile, logout, and webhooks
+        // Exempt subscription checkout, callbacks, user profile, logout, webhooks, and meta callback
         if ($request->routeIs(
             'subscription.*',
             'profile.*',
             'logout',
-            'webhooks.*'
+            'webhooks.*',
+            'meta.callback'
         )) {
             return $next($request);
         }

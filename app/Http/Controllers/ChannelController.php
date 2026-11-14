@@ -357,7 +357,9 @@ class ChannelController extends Controller
                     $q->where('user_id', $user->id);
                 } else {
                     $q->whereHas('teamMembers', function ($tmQ) use ($user) {
-                        $tmQ->where('email', $user->email);
+                        $tmQ->where('email', $user->email)
+                            ->where('is_active', true)
+                            ->where('role', 'admin');
                     });
                 }
             })->exists();

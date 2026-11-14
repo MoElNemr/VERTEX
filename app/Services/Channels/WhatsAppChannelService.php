@@ -9,6 +9,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\WhatsappAccount;
 use App\Services\Channels\Concerns\HandlesAiAutoReply;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,24 @@ class WhatsAppChannelService implements ChannelServiceInterface
     public function __construct()
     {
         $this->serviceUrl = rtrim(config('services.whatsapp.service_url', 'http://127.0.0.1:3000'), '/');
+    }
+
+    /**
+     * Helper to build HTTP client with API key credentials for wa-server.
+     */
+    protected function httpWithAuth(int $timeout = 8): PendingRequest
+    {
+        $request = Http::timeout($timeout);
+        $apiKey = config('services.whatsapp.api_key');
+
+        if (! empty($apiKey)) {
+            $request = $request->withHeaders([
+                'x-api-key' => $apiKey,
+                'Authorization' => 'Bearer '.$apiKey,
+            ]);
+        }
+
+        return $request;
     }
 
     /**
@@ -55,7 +74,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $targetTo = str_contains($recipient, '@') ? trim($recipient) : preg_replace('/[^0-9]/', '', $recipient);
 
         try {
-            $response = Http::timeout(8)->post("{$this->serviceUrl}/api/sessions/{$account->session_id}/messages", [
+            $response = $this->httpWithAuth(8)->post("{$this->serviceUrl}/api/sessions/{$account->session_id}/messages", [
                 'to' => $targetTo,
                 'text' => $message->body,
             ]);
@@ -75,22 +94,36 @@ class WhatsAppChannelService implements ChannelServiceInterface
                     'platform_message_id' => $waMsgId,
                 ];
             }
+
+            Log::error('WhatsApp microservice dispatch error', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
         } catch (\Throwable $e) {
-            Log::info("Baileys microservice unreachable ({$e->getMessage()}), using mock fallback mode.");
+            Log::info("Baileys microservice unreachable ({$e->getMessage()})");
         }
 
-        // Fallback simulation mode for testing without active Node daemon
-        $mockMsgId = 'BAE5_'.strtoupper(bin2hex(random_bytes(6)));
-        $message->update([
-            'platform_message_id' => $mockMsgId,
-            'status' => 'delivered',
-            'metadata' => array_merge($message->metadata ?? [], ['simulation_mode' => true]),
-        ]);
+        // Fallback simulation mode strictly for local and testing environments (BUG-06)
+        if (app()->environment('local', 'testing')) {
+            $mockMsgId = 'BAE5_'.strtoupper(bin2hex(random_bytes(6)));
+            $message->update([
+                'platform_message_id' => $mockMsgId,
+                'status' => 'delivered',
+                'metadata' => array_merge($message->metadata ?? [], ['simulation_mode' => true]),
+            ]);
+
+            return [
+                'status' => 'delivered',
+                'platform_message_id' => $mockMsgId,
+                'simulated' => true,
+            ];
+        }
+
+        $message->update(['status' => 'failed']);
 
         return [
-            'status' => 'delivered',
-            'platform_message_id' => $mockMsgId,
-            'simulated' => true,
+            'status' => 'failed',
+            'error' => 'WhatsApp service unreachable or session disconnected',
         ];
     }
 
@@ -296,7 +329,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $sessionId = 'session_'.$business->id;
 
         try {
-            $response = Http::timeout(8)->post("{$this->serviceUrl}/api/sessions/start", [
+            $response = $this->httpWithAuth(8)->post("{$this->serviceUrl}/api/sessions/start", [
                 'business_id' => $business->id,
                 'session_id' => $sessionId,
                 'webhook_url' => route('webhooks.whatsapp', $business->id),
@@ -353,7 +386,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $cleanPhone = preg_replace('/[^0-9]/', '', $phoneNumber);
 
         try {
-            $response = Http::timeout(10)->post("{$this->serviceUrl}/api/sessions/pairing-code", [
+            $response = $this->httpWithAuth(10)->post("{$this->serviceUrl}/api/sessions/pairing-code", [
                 'business_id' => $business->id,
                 'session_id' => $sessionId,
                 'phone_number' => $cleanPhone,
@@ -387,7 +420,7 @@ class WhatsAppChannelService implements ChannelServiceInterface
         if ($account) {
             $sessionId = $account->session_id ?: ('session_'.$business->id);
             try {
-                Http::timeout(5)->delete("{$this->serviceUrl}/api/sessions/{$sessionId}");
+                $this->httpWithAuth(5)->delete("{$this->serviceUrl}/api/sessions/{$sessionId}");
             } catch (\Throwable $e) {
                 Log::warning("Failed to notify WhatsApp microservice of disconnect: {$e->getMessage()}");
             }

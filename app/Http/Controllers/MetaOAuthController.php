@@ -75,8 +75,8 @@ class MetaOAuthController extends Controller
                 ->with('error', 'تم إلغاء أو رفض عملية الربط عبر ميتا: '.$errorDesc);
         }
 
-        // Verify CSRF state byte-for-byte
-        $sessionState = session('meta_oauth_state');
+        // Verify CSRF state byte-for-byte (single use)
+        $sessionState = session()->pull('meta_oauth_state');
         $returnedState = (string) $request->input('state');
 
         if (empty($sessionState) || empty($returnedState) || ! hash_equals($sessionState, $returnedState)) {
@@ -175,8 +175,31 @@ class MetaOAuthController extends Controller
                 ->with('error', 'الصفحة المختارة غير موجودة ضمن الحسابات المصرح بها.');
         }
 
+        // Prevent cross-business collision on page_id (unique constraint)
+        $existingFb = FacebookAccount::withoutGlobalScopes()
+            ->where('page_id', $selectedPage['id'])
+            ->where('business_id', '!=', $business->id)
+            ->first();
+
+        if ($existingFb) {
+            return redirect()->route('channels.index', ['business' => $business->id])
+                ->with('error', 'هذه الصفحة مربوطة بالفعل بمتجر آخر في المنصة. يرجى فصلها من المتجر الآخر أولاً.');
+        }
+
+        if ($connectInstagram && ! empty($selectedPage['instagram_business_account']['id'])) {
+            $igId = $selectedPage['instagram_business_account']['id'];
+            $existingIg = InstagramAccount::withoutGlobalScopes()
+                ->where('instagram_business_id', $igId)
+                ->where('business_id', '!=', $business->id)
+                ->first();
+
+            if ($existingIg) {
+                return redirect()->route('channels.index', ['business' => $business->id])
+                    ->with('error', 'حساب إنستجرام هذا مربوط بالفعل بمتجر آخر في المنصة. يرجى فصله من المتجر الآخر أولاً.');
+            }
+        }
+
         $metaUserId = session('meta_user_id');
-        $tokenExpiresAt = session('meta_token_expires_at');
         $grantedScopes = session('meta_granted_scopes') ?? MetaOAuthService::SCOPES;
 
         $pageAccessToken = $selectedPage['access_token'];
@@ -188,11 +211,10 @@ class MetaOAuthController extends Controller
             $pageAccessToken,
             $pageAvatar,
             $metaUserId,
-            $tokenExpiresAt,
             $grantedScopes,
             $connectInstagram
         ) {
-            // Update or create Facebook account
+            // Update or create Facebook account (Permanent page token: token_expires_at is null)
             $business->facebookAccount()->updateOrCreate(
                 ['business_id' => $business->id],
                 [
@@ -201,7 +223,7 @@ class MetaOAuthController extends Controller
                     'meta_user_id' => $metaUserId,
                     'page_access_token' => $pageAccessToken,
                     'token_type' => 'oauth',
-                    'token_expires_at' => $tokenExpiresAt,
+                    'token_expires_at' => null,
                     'avatar_url' => $pageAvatar,
                     'granted_scopes' => $grantedScopes,
                     'status' => 'connected',
@@ -221,12 +243,15 @@ class MetaOAuthController extends Controller
                         'linked_facebook_page_id' => $selectedPage['id'],
                         'access_token' => $pageAccessToken, // Permanent Page Token accesses IG
                         'token_type' => 'oauth',
-                        'token_expires_at' => $tokenExpiresAt,
+                        'token_expires_at' => null,
                         'avatar_url' => $ig['profile_picture_url'] ?? null,
                         'granted_scopes' => $grantedScopes,
                         'status' => 'connected',
                     ]
                 );
+            } else {
+                // Remove stale orphaned Instagram account if page switch has no IG or unchecked
+                $business->instagramAccount()?->delete();
             }
         });
 
@@ -337,7 +362,9 @@ class MetaOAuthController extends Controller
                     $q->where('user_id', $user->id);
                 } else {
                     $q->whereHas('teamMembers', function ($tmQ) use ($user) {
-                        $tmQ->where('email', $user->email);
+                        $tmQ->where('email', $user->email)
+                            ->where('is_active', true)
+                            ->where('role', 'admin');
                     });
                 }
             })->exists();

@@ -62,11 +62,31 @@ class MetaChannelService implements ChannelServiceInterface
         }
 
         try {
-            $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", [
+            $isCampaign = ! empty($message->metadata['campaign_id']) || ! empty($message->metadata['is_campaign']);
+            $messagingType = $isCampaign ? 'MESSAGE_TAG' : 'RESPONSE';
+
+            $payload = [
                 'recipient' => ['id' => $recipientId],
                 'message' => ['text' => $message->body],
-                'messaging_type' => 'RESPONSE',
-            ]);
+                'messaging_type' => $messagingType,
+            ];
+
+            if ($messagingType === 'MESSAGE_TAG') {
+                $payload['tag'] = 'CONFIRMED_EVENT_UPDATE';
+            }
+
+            $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", $payload);
+
+            // Retry with MESSAGE_TAG if standard RESPONSE 24h window expired
+            if (! $response->successful() && $messagingType === 'RESPONSE') {
+                $errCode = $response->json('error.code');
+                $errSubcode = $response->json('error.error_subcode');
+                if ($errCode === 10 || $errSubcode === 2018278 || str_contains($response->json('error.message', ''), 'window')) {
+                    $payload['messaging_type'] = 'MESSAGE_TAG';
+                    $payload['tag'] = 'CONFIRMED_EVENT_UPDATE';
+                    $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", $payload);
+                }
+            }
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -171,21 +191,26 @@ class MetaChannelService implements ChannelServiceInterface
     /**
      * Verify Meta Webhook Challenge.
      */
-    public function verifyWebhook(Business $business, Request $request): ?string
+    public function verifyWebhook(?Business $business, Request $request): ?string
     {
         $mode = $request->query('hub_mode');
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
 
-        $expectedToken = config('services.meta.verify_token', 'vertex_meta_token_'.$business->id);
+        $expectedTokens = array_filter([
+            config('services.meta.verify_token'),
+            config('services.meta.webhook_verify_token'),
+            'vertex_secret_token',
+            $business ? 'vertex_meta_token_'.$business->id : null,
+        ]);
 
-        if ($mode === 'subscribe' && ($token === $expectedToken || $token === 'vertex_secret_token' || $token === 'vertex_meta_token_'.$business->id)) {
-            Log::info("Meta webhook verified successfully for business {$business->id}");
+        if ($mode === 'subscribe' && in_array($token, $expectedTokens, true)) {
+            Log::info('Meta webhook verified successfully'.($business ? " for business {$business->id}" : ' globally'));
 
             return (string) $challenge;
         }
 
-        Log::warning("Meta webhook verification failed for business {$business->id}", [
+        Log::warning('Meta webhook verification failed'.($business ? " for business {$business->id}" : ' globally'), [
             'mode' => $mode,
             'token' => $token,
         ]);
@@ -196,7 +221,7 @@ class MetaChannelService implements ChannelServiceInterface
     /**
      * Handle incoming Meta Webhook payload for Facebook and Instagram (DMs & Comments).
      */
-    public function handleWebhook(Business $business, Request $request): array
+    public function handleWebhook(?Business $business, Request $request): array
     {
         $object = $request->input('object');
         $entries = $request->input('entry', []);
@@ -212,6 +237,27 @@ class MetaChannelService implements ChannelServiceInterface
         $processedComments = [];
 
         foreach ($entries as $entry) {
+            $entryId = (string) ($entry['id'] ?? '');
+            $targetBusiness = null;
+
+            if ($object === 'page' && ! empty($entryId)) {
+                $fbAcc = FacebookAccount::withoutGlobalScopes()->where('page_id', $entryId)->first();
+                $targetBusiness = $fbAcc?->business;
+            } elseif ($object === 'instagram' && ! empty($entryId)) {
+                $igAcc = InstagramAccount::withoutGlobalScopes()->where('instagram_business_id', $entryId)->first();
+                $targetBusiness = $igAcc?->business;
+            }
+
+            if (! $targetBusiness) {
+                $targetBusiness = $business;
+            }
+
+            if (! $targetBusiness) {
+                Log::warning("No business found for Meta webhook entry ID: {$entryId}");
+
+                continue;
+            }
+
             // 1. Direct Messaging Events (Messenger / IG Direct)
             $messagingEvents = $entry['messaging'] ?? [];
             foreach ($messagingEvents as $event) {
@@ -235,7 +281,7 @@ class MetaChannelService implements ChannelServiceInterface
                     : 'عميل فيسبوك '.substr($senderId, -4);
 
                 $contact = Contact::withoutGlobalScopes()->firstOrCreate([
-                    'business_id' => $business->id,
+                    'business_id' => $targetBusiness->id,
                     'platform' => $platform,
                     'platform_sender_id' => $senderId,
                 ], [
@@ -243,7 +289,7 @@ class MetaChannelService implements ChannelServiceInterface
                 ]);
 
                 $conversation = Conversation::withoutGlobalScopes()->firstOrCreate([
-                    'business_id' => $business->id,
+                    'business_id' => $targetBusiness->id,
                     'contact_id' => $contact->id,
                     'platform' => $platform,
                 ], [
@@ -251,6 +297,16 @@ class MetaChannelService implements ChannelServiceInterface
                     'unread_count' => 0,
                     'last_message_at' => now(),
                 ]);
+
+                // Deduplicate incoming message by platform_message_id (BUG-10)
+                if (! empty($mid)) {
+                    $existingMessage = Message::where('conversation_id', $conversation->id)
+                        ->where('platform_message_id', $mid)
+                        ->first();
+                    if ($existingMessage) {
+                        continue;
+                    }
+                }
 
                 $message = Message::create([
                     'conversation_id' => $conversation->id,
@@ -285,7 +341,7 @@ class MetaChannelService implements ChannelServiceInterface
             // 2. Changes Events: Facebook Page Feed & Instagram Comments
             $changes = $entry['changes'] ?? [];
             if (! empty($changes)) {
-                $commentResults = $this->handleChangesWebhook($business, $object, $changes, $entry['id'] ?? null);
+                $commentResults = $this->handleChangesWebhook($targetBusiness, $object, $changes, $entry['id'] ?? null);
                 $processedComments = array_merge($processedComments, $commentResults);
             }
         }
@@ -388,6 +444,16 @@ class MetaChannelService implements ChannelServiceInterface
             'last_message_at' => now(),
         ]);
 
+        // Check deduplication for incoming comment (BUG-10)
+        if (! empty($commentId)) {
+            $existingComment = Message::where('conversation_id', $conversation->id)
+                ->where('platform_message_id', $commentId)
+                ->first();
+            if ($existingComment) {
+                return null;
+            }
+        }
+
         // Record incoming comment message in conversation
         $commentMessage = Message::create([
             'conversation_id' => $conversation->id,
@@ -404,6 +470,13 @@ class MetaChannelService implements ChannelServiceInterface
 
         $conversation->increment('unread_count');
         $conversation->update(['last_message_at' => now()]);
+
+        // Broadcast incoming comment to live inbox (BUG-08)
+        try {
+            broadcast(new MessageSent($conversation, $commentMessage));
+        } catch (\Throwable $e) {
+            Log::warning('Broadcast failed in Facebook comment: '.$e->getMessage());
+        }
 
         $replySent = false;
         $dmSent = false;
@@ -466,18 +539,26 @@ class MetaChannelService implements ChannelServiceInterface
 
                         $dmSent = $dmRes->successful();
 
-                        // Record bot DM in conversation
-                        Message::create([
-                            'conversation_id' => $conversation->id,
-                            'sender_type' => 'bot',
-                            'type' => 'text',
-                            'body' => $dmBody,
-                            'status' => $dmSent ? 'delivered' : 'failed',
-                            'metadata' => [
-                                'triggered_by_comment_id' => $commentId,
-                                'api_response' => $dmRes->json(),
-                            ],
-                        ]);
+                        // Record bot DM in conversation only on success (BUG-08)
+                        if ($dmSent) {
+                            $botMsg = Message::create([
+                                'conversation_id' => $conversation->id,
+                                'sender_type' => 'bot',
+                                'type' => 'text',
+                                'body' => $dmBody,
+                                'status' => 'delivered',
+                                'metadata' => [
+                                    'triggered_by_comment_id' => $commentId,
+                                    'api_response' => $dmRes->json(),
+                                ],
+                            ]);
+
+                            try {
+                                broadcast(new MessageSent($conversation, $botMsg));
+                            } catch (\Throwable $e) {
+                                Log::warning('Broadcast failed for Facebook bot DM: '.$e->getMessage());
+                            }
+                        }
                     } catch (\Throwable $e) {
                         Log::error('Facebook comment private DM failed: '.$e->getMessage());
                     }
@@ -540,6 +621,16 @@ class MetaChannelService implements ChannelServiceInterface
             'last_message_at' => now(),
         ]);
 
+        // Check deduplication for incoming comment (BUG-10)
+        if (! empty($commentId)) {
+            $existingComment = Message::where('conversation_id', $conversation->id)
+                ->where('platform_message_id', $commentId)
+                ->first();
+            if ($existingComment) {
+                return null;
+            }
+        }
+
         // Record incoming comment
         $commentMessage = Message::create([
             'conversation_id' => $conversation->id,
@@ -556,6 +647,13 @@ class MetaChannelService implements ChannelServiceInterface
 
         $conversation->increment('unread_count');
         $conversation->update(['last_message_at' => now()]);
+
+        // Broadcast incoming comment to live inbox (BUG-08)
+        try {
+            broadcast(new MessageSent($conversation, $commentMessage));
+        } catch (\Throwable $e) {
+            Log::warning('Broadcast failed in Instagram comment: '.$e->getMessage());
+        }
 
         $replySent = false;
         $dmSent = false;
@@ -617,18 +715,26 @@ class MetaChannelService implements ChannelServiceInterface
 
                         $dmSent = $dmRes->successful();
 
-                        // Record bot message in conversation
-                        Message::create([
-                            'conversation_id' => $conversation->id,
-                            'sender_type' => 'bot',
-                            'type' => 'text',
-                            'body' => $dmBody,
-                            'status' => $dmSent ? 'delivered' : 'failed',
-                            'metadata' => [
-                                'triggered_by_comment_id' => $commentId,
-                                'api_response' => $dmRes->json(),
-                            ],
-                        ]);
+                        // Record bot message in conversation only on success (BUG-08)
+                        if ($dmSent) {
+                            $botMsg = Message::create([
+                                'conversation_id' => $conversation->id,
+                                'sender_type' => 'bot',
+                                'type' => 'text',
+                                'body' => $dmBody,
+                                'status' => 'delivered',
+                                'metadata' => [
+                                    'triggered_by_comment_id' => $commentId,
+                                    'api_response' => $dmRes->json(),
+                                ],
+                            ]);
+
+                            try {
+                                broadcast(new MessageSent($conversation, $botMsg));
+                            } catch (\Throwable $e) {
+                                Log::warning('Broadcast failed for Instagram bot DM: '.$e->getMessage());
+                            }
+                        }
                     } catch (\Throwable $e) {
                         Log::error('Instagram comment private DM failed: '.$e->getMessage());
                     }

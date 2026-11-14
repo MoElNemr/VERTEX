@@ -11,15 +11,22 @@ class MetaOAuthService
 {
     public const GRAPH_VERSION = 'v21.0';
 
+    public const LOGIN_SCOPES = [
+        'public_profile',
+        'email',
+    ];
+
     public const SCOPES = [
         'pages_show_list',
         'pages_read_engagement',
         'pages_manage_metadata',
         'pages_messaging',
+        'pages_manage_posts',
         'instagram_basic',
         'instagram_manage_messages',
         'instagram_manage_comments',
         'public_profile',
+        'email',
     ];
 
     /**
@@ -164,16 +171,16 @@ class MetaOAuthService
     }
 
     /**
-     * Fetch user profile (ID & Name).
+     * Fetch user profile (ID, Name, Email, Picture).
      *
-     * @return array{id: string, name?: string}
+     * @return array{id: string, name?: string, email?: string, picture?: array}
      *
      * @throws Exception
      */
     public function getUserProfile(string $userAccessToken): array
     {
         $response = $this->httpClient(10)->get('https://graph.facebook.com/'.self::GRAPH_VERSION.'/me', [
-            'fields' => 'id,name',
+            'fields' => 'id,name,email,picture.type(large)',
             'access_token' => $userAccessToken,
         ]);
 
@@ -187,6 +194,7 @@ class MetaOAuthService
 
     /**
      * Discover manageable accounts with linked Instagram business account details.
+     * Supports pagination up to 5 pages.
      *
      * @return array<int, array<string, mixed>>
      *
@@ -195,23 +203,35 @@ class MetaOAuthService
     public function getManageableAccounts(string $longLivedToken): array
     {
         $fields = 'id,name,category,access_token,picture{url},tasks,instagram_business_account{id,username,name,profile_picture_url}';
-
-        $response = $this->httpClient(15)->get('https://graph.facebook.com/'.self::GRAPH_VERSION.'/me/accounts', [
+        $accounts = [];
+        $url = 'https://graph.facebook.com/'.self::GRAPH_VERSION.'/me/accounts';
+        $params = [
             'fields' => $fields,
             'access_token' => $longLivedToken,
             'limit' => 100,
-        ]);
+        ];
+        $pages = 0;
 
-        if (! $response->successful()) {
-            $errorMsg = $response->json('error.message') ?? 'Failed to retrieve manageable Meta accounts.';
-            Log::error('MetaOAuthService getManageableAccounts error', [
-                'status' => $response->status(),
-                'response' => $response->json(),
-            ]);
-            throw new Exception($errorMsg);
-        }
+        do {
+            $response = $this->httpClient(15)->get($url, $params);
 
-        return $response->json('data') ?? [];
+            if (! $response->successful()) {
+                $errorMsg = $response->json('error.message') ?? 'Failed to retrieve manageable Meta accounts.';
+                Log::error('MetaOAuthService getManageableAccounts error', [
+                    'status' => $response->status(),
+                    'response' => $response->json(),
+                ]);
+                throw new Exception($errorMsg);
+            }
+
+            $data = $response->json('data') ?? [];
+            $accounts = array_merge($accounts, $data);
+            $url = $response->json('paging.next');
+            $params = [];
+            $pages++;
+        } while (! empty($url) && $pages < 5);
+
+        return $accounts;
     }
 
     /**

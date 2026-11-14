@@ -24,7 +24,18 @@ trait HandlesAiAutoReply
             ->first();
 
         if ($aiSetting && $aiSetting->ai_enabled) {
+            // Check allowed platforms (BUG-12)
+            $allowedPlatforms = $aiSetting->auto_reply_platforms ?? ['whatsapp', 'facebook', 'instagram', 'telegram'];
+            if (! in_array($conversation->platform, $allowedPlatforms, true)) {
+                return;
+            }
+
             if (! $aiSetting->working_hours_only || $this->isWithinWorkingHours($aiSetting)) {
+                // Apply optional response delay if configured
+                if (! empty($aiSetting->reply_delay_seconds) && $aiSetting->reply_delay_seconds > 0 && $aiSetting->reply_delay_seconds <= 3) {
+                    sleep((int) $aiSetting->reply_delay_seconds);
+                }
+
                 $reply = app(AiService::class)->autoReply($conversation, $aiSetting, $messageText);
                 if ($reply) {
                     $replyMsg = $conversation->messages()->create([
@@ -52,14 +63,19 @@ trait HandlesAiAutoReply
     }
 
     /**
-     * التحقق مما إذا كان الوقت الحالي ضمن ساعات العمل المحددة
+     * التحقق مما إذا كان الوقت الحالي ضمن ساعات العمل المحددة (يدعم الورديات الليلية)
      */
     protected function isWithinWorkingHours(BusinessAiSetting $setting): bool
     {
         $hour = now()->hour;
-        $start = $setting->work_start_hour ?? 9;
-        $end = $setting->work_end_hour ?? 18;
+        $start = (int) ($setting->work_start_hour ?? 9);
+        $end = (int) ($setting->work_end_hour ?? 18);
 
-        return $hour >= $start && $hour < $end;
+        if ($start <= $end) {
+            return $hour >= $start && $hour < $end;
+        }
+
+        // Crosses midnight (e.g. 18:00 to 02:00)
+        return $hour >= $start || $hour < $end;
     }
 }

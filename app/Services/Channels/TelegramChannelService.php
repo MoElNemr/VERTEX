@@ -146,6 +146,19 @@ class TelegramChannelService implements ChannelServiceInterface
             'last_message_at' => now(),
         ]);
 
+        // Deduplicate incoming message by platform_message_id (BUG-10)
+        if (! empty($telegramMsgId)) {
+            $existingMessage = Message::where('conversation_id', $conversation->id)
+                ->where('platform_message_id', $telegramMsgId)
+                ->first();
+            if ($existingMessage) {
+                return [
+                    'status' => 'duplicate',
+                    'message_id' => $existingMessage->id,
+                ];
+            }
+        }
+
         // 3. Create incoming customer Message
         $message = Message::create([
             'conversation_id' => $conversation->id,

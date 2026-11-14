@@ -18,7 +18,7 @@ class MetaWebhookController extends Controller
     /**
      * Handle Meta webhook verification challenge (GET).
      */
-    public function verify(Request $request, Business $business): Response
+    public function verify(Request $request, ?Business $business = null): Response
     {
         $challenge = $this->metaService->verifyWebhook($business, $request);
 
@@ -30,9 +30,17 @@ class MetaWebhookController extends Controller
     }
 
     /**
+     * Handle global Meta webhook verification challenge without business parameter in URL.
+     */
+    public function verifyGlobal(Request $request): Response
+    {
+        return $this->verify($request, null);
+    }
+
+    /**
      * Handle incoming Meta webhook events (POST) for Facebook and Instagram.
      */
-    public function handle(Request $request, Business $business): Response|JsonResponse
+    public function handle(Request $request, ?Business $business = null): Response|JsonResponse
     {
         $appSecret = config('services.meta.app_secret')
             ?: config('services.meta.client_secret');
@@ -62,5 +70,13 @@ class MetaWebhookController extends Controller
         }
 
         return response('EVENT_RECEIVED', 200);
+    }
+
+    /**
+     * Handle global incoming Meta webhook events without business parameter in URL.
+     */
+    public function handleGlobal(Request $request): Response|JsonResponse
+    {
+        return $this->handle($request, null);
     }
 }

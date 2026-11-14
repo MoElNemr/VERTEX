@@ -188,7 +188,7 @@ class WalletService
                 'user_id' => $user->id,
                 'business_id' => $businessId,
                 'payment_transaction_id' => null,
-                'type' => 'usage',
+                'type' => 'deduct',
                 'amount' => 0.00,
                 'credits' => -1,
                 'balance_after' => $wallet->balance,

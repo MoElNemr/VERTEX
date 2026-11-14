@@ -22,4 +22,9 @@ class TelegramAccount extends Model
         'bot_token',
         'webhook_secret',
     ];
+
+    protected $casts = [
+        'bot_token' => 'encrypted',
+        'webhook_secret' => 'encrypted',
+    ];
 }

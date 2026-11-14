@@ -296,12 +296,12 @@ const simulatePayment = async () => {
                                         class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
                                         :class="{
                                             'bg-emerald-500/20 text-emerald-400': t.type === 'topup',
-                                            'bg-rose-500/20 text-rose-400': t.type === 'deduct',
+                                            'bg-rose-500/20 text-rose-400': t.type === 'deduct' || t.type === 'usage',
                                             'bg-amber-500/20 text-amber-300': t.type === 'refund',
                                             'bg-purple-500/20 text-purple-300': t.type === 'manual_adjustment',
                                         }"
                                     >
-                                        {{ t.type === 'topup' ? 'شحن رصيد' : (t.type === 'deduct' ? 'خصم إرسال' : (t.type === 'refund' ? 'استرداد' : 'تعديل إداري')) }}
+                                        {{ t.type === 'topup' ? 'شحن رصيد' : (t.type === 'deduct' || t.type === 'usage' ? 'خصم إرسال' : (t.type === 'refund' ? 'استرداد' : 'تعديل إداري')) }}
                                     </span>
                                 </td>
                                 <td class="py-2.5">{{ t.description }}</td>

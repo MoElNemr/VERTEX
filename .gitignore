@@ -29,3 +29,5 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+repomix-output*.xml
+vertex_platform_full_system_bug_report_remediation_blueprint.md

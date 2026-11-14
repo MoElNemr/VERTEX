@@ -53,7 +53,12 @@ class SuperAdminController extends Controller
         $liveNodeSessions = [];
         try {
             $serviceUrl = config('services.whatsapp.service_url', 'http://127.0.0.1:3000');
-            $response = Http::timeout(2)->get("{$serviceUrl}/api/sessions");
+            $apiKey = config('services.whatsapp.api_key');
+            $req = Http::timeout(2);
+            if (! empty($apiKey)) {
+                $req = $req->withHeaders(['x-api-key' => $apiKey, 'Authorization' => 'Bearer '.$apiKey]);
+            }
+            $response = $req->get("{$serviceUrl}/api/sessions");
             if ($response->successful()) {
                 $nodeServiceOnline = true;
                 $liveNodeSessions = $response->json('sessions', []);
@@ -526,7 +531,12 @@ class SuperAdminController extends Controller
     {
         try {
             $serviceUrl = config('services.whatsapp.service_url', 'http://127.0.0.1:3000');
-            $response = Http::timeout(8)->post("{$serviceUrl}/api/sessions/start", [
+            $apiKey = config('services.whatsapp.api_key');
+            $req = Http::timeout(8);
+            if (! empty($apiKey)) {
+                $req = $req->withHeaders(['x-api-key' => $apiKey, 'Authorization' => 'Bearer '.$apiKey]);
+            }
+            $response = $req->post("{$serviceUrl}/api/sessions/start", [
                 'session_id' => $sessionId,
             ]);
 

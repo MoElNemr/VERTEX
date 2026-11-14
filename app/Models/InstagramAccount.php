@@ -33,6 +33,7 @@ class InstagramAccount extends Model
     ];
 
     protected $casts = [
+        'access_token' => 'encrypted',
         'comment_reply_enabled' => 'boolean',
         'comment_keywords' => 'array',
         'granted_scopes' => 'array',
