@@ -51,11 +51,11 @@ const toggleFaq = (index) => {
 const faqs = [
     {
         q: 'كيف تضمن منصة Vertex حماية رقم الواتساب من الحظر؟',
-        a: 'نستخدم نظام جدولة متقدم يطبق فترات زمنية متغيرة (Jitter) وتأخير تدريجي ذكي بين كل رسالة وأخرى، مما يحاكي السلوك البشري الطبيعي تماماً ويمنع خوارزميات واتساب من رصد النشاط كإرسال آلي مكثف.'
+        a: 'نستخدم نظام ردود تفاعلية ومحاكاة بشرية متقدمة (Human-like Typing Presence) مع الردود الواردة حصراً، مما يحاكي السلوك البشري الطبيعي تماماً ويمنع خوارزميات واتساب من رصد أي نشاط غير مرغوب به.'
     },
     {
         q: 'هل يمكن ربط أكثر من منصة معاً لنفس المتجر؟',
-        a: 'نعم! يمكنك ربط واتساب وتيليجرام وفيسبوك ماسنجر وإنستجرام في متجر واحد، والرد على جميع الرسائل الواردة من صندوق وارد موحد دون الحاجة لفتح كل تطبيق على حدة.'
+        a: 'نعم! يمكنك ربط واتساب، تيليجرام، فيسبوك، إنستجرام، وتيك توك في متجر واحد، والرد على جميع الرسائل والتعليقات الواردة من صندوق وارد موحد دون الحاجة لفتح كل تطبيق على حدة.'
     },
     {
         q: 'هل يمكن لفريق العمل العمل معي على نفس الحساب؟',
@@ -69,7 +69,7 @@ const faqs = [
 </script>
 
 <template>
-    <Head title="Vertex - منصة أتمتة التسويق والمراسلة الذكية للمتاجر" />
+    <Head title="Vertex - منصة أتمتة خدمة العملاء والمحادثات الموحدة عبر 5 قنوات" />
 
     <div class="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white relative overflow-hidden" dir="rtl">
 
@@ -142,18 +142,18 @@ const faqs = [
             <!-- Announcement Pill -->
             <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-900 border border-slate-800 text-slate-300 mb-6 shadow-md hover:border-slate-700 transition">
                 <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                <span>الجيل الجديد لأتمتة التسويق والمراسلة الجماعية</span>
+                <span>الجيل الجديد لأتمتة خدمة العملاء والمحادثات الموحدة</span>
                 <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-blue-500/20 text-blue-400 font-bold">v2.4</span>
             </div>
 
             <!-- Main Headline -->
             <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-tight sm:leading-tight">
-                منصة واحدة لتوحيد قنوات البيع وأتمتة حملات المتاجر الذكية
+                منصة واحدة لتوحيد محادثات خدمة العملاء والمبيعات الذكية
             </h1>
 
             <!-- Subtitle -->
             <p class="mt-5 text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                اربط <span class="text-emerald-400 font-semibold">واتساب</span>، <span class="text-sky-400 font-semibold">تيليجرام</span>، <span class="text-blue-400 font-semibold">فيسبوك</span>، و<span class="text-pink-400 font-semibold">إنستجرام</span> في مكان واحد. أرسل حملات إعادة استهداف ذكية، وارفع جهات اتصالك بملف CSV، وتفادى الحظر بتقنية الـ Jitter المتطورة.
+                اربط <span class="text-emerald-400 font-semibold">واتساب</span>، <span class="text-sky-400 font-semibold">تيليجرام</span>، <span class="text-blue-400 font-semibold">فيسبوك</span>، <span class="text-pink-400 font-semibold">إنستجرام</span>، و<span class="text-cyan-400 font-semibold">تيك توك</span> في مكان واحد. ردود تلقائية ذكية بالذكاء الاصطناعي، صندوق وارد موحد، وتصدير كامل لبيانات العملاء.
             </p>
 
             <!-- CTA Buttons -->
@@ -241,8 +241,8 @@ const faqs = [
                                 <Send class="w-4 h-4" />
                             </div>
                             <div>
-                                <span class="font-bold text-white block">حملة إعادة الاستهداف: عروض الجمعة البيضاء</span>
-                                <span class="text-[11px] text-slate-400">تم إرسال 1,240 رسالة عبر Queue مع فواصل 10s عشوائية لحماية الأرقام</span>
+                                <span class="font-bold text-white block">مساعد الذكاء الاصطناعي: الرد على الاستفسارات فورياً</span>
+                                <span class="text-[11px] text-slate-400">فهم طبيعي للهجات العربية وإجابة تلقائية على استفسارات الأسعار والمخزون</span>
                             </div>
                         </div>
                         <span class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -272,7 +272,7 @@ const faqs = [
                         </div>
                         <h3 class="font-bold text-sm text-white">واتساب (WhatsApp)</h3>
                         <p class="text-xs text-slate-400 leading-relaxed">
-                            ربط سريع بـ QR Code أو كود الاقتران. إرسال جماعي CSV، وحملات متزامنة، مع خوارزمية ذكية تمنع الحظر.
+                            ربط سريع بـ QR Code أو كود الاقتران عبر Baileys. استقبال فوري للمحادثات، ردود ذكية، ومزامنة في الوقت الفعلي.
                         </p>
                     </div>
 
@@ -362,20 +362,20 @@ const faqs = [
                     <div class="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/30 text-purple-400 flex items-center justify-center">
                         <Repeat class="w-6 h-6" />
                     </div>
-                    <h3 class="text-lg font-bold text-white">إعادة الاستهداف الذكي</h3>
+                    <h3 class="text-lg font-bold text-white">الرد الآلي على التعليقات</h3>
                     <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                        أعد استهداف العملاء الذين تواصلوا معك سابقاً عبر كل منصة برسائل وعروض ترويجية مخصصة تزيد نسبة التحويل بنسبة تصل إلى 40%.
+                        رد فوري على تعليقات العملاء في منشورات فيسبوك وإنستجرام وتيك توك، مع إرسال رسالة ترحيبية وتفاصيل في الخاص (DM) تلقائياً.
                     </p>
                 </div>
 
-                <!-- Feature 4: CSV WhatsApp Bulk Sender (Col span 1) -->
+                <!-- Feature 4: Contacts Management & Export (Col span 1) -->
                 <div class="p-6 sm:p-8 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
                     <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-                        <Send class="w-6 h-6" />
+                        <Users class="w-6 h-6" />
                     </div>
-                    <h3 class="text-lg font-bold text-white">مرسل واتساب CSV</h3>
+                    <h3 class="text-lg font-bold text-white">إدارة وتصدير جهات الاتصال</h3>
                     <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                        ارفع قائمة أرقام وأسماء عملائك بملف Excel/CSV بضغطة زر، خصص الرسالة بالاسم <code class="text-amber-300 font-mono">&#123;&#123;name&#125;&#125;</code>، وأطلق الحملة بأمان تام.
+                        سجل عملاء منظم يجمع كافة المحادثات وتفاصيل العملاء، مع إمكانية تصدير كامل البيانات بصيغة CSV لتظل على تواصل دائم مع جمهورك.
                     </p>
                 </div>
 
@@ -416,9 +416,9 @@ const faqs = [
                         <div class="w-8 h-8 rounded-xl bg-blue-600 text-white font-mono font-bold flex items-center justify-center text-sm">
                             2
                         </div>
-                        <h3 class="font-bold text-sm text-white">ارفع جهات اتصالك أو جهز رسالتك</h3>
+                        <h3 class="font-bold text-sm text-white">فعل المساعد الذكي والردود التلقائية</h3>
                         <p class="text-xs text-slate-400 leading-relaxed">
-                            اختر الجمهور المستهدف من عملاء المتجر أو ارفع ملف CSV يحتوي على أرقام وأسماء عملائك.
+                            حدد قواعد الرد التلقائي وخصص نبرة المساعد الذكي ليرد فورياً على رسائل واستفسارات عملائك على مدار الساعة.
                         </p>
                     </div>
 
@@ -426,9 +426,9 @@ const faqs = [
                         <div class="w-8 h-8 rounded-xl bg-blue-600 text-white font-mono font-bold flex items-center justify-center text-sm">
                             3
                         </div>
-                        <h3 class="font-bold text-sm text-white">أطلق الحملة وشاهد نمو المبيعات</h3>
+                        <h3 class="font-bold text-sm text-white">أدر المحادثات من صندوق الوارد الموحد</h3>
                         <p class="text-xs text-slate-400 leading-relaxed">
-                            يقوم النظام بجدولة الإرسال تلقائياً، والرد على الرسائل الواردة، وتتبع معدل التفاعل والمبيعات.
+                            استقبل كل الرسائل والتعليقات في صندوق وارد متزامن وسريع يرفع رضا العملاء ويسرع إغلاق المبيعات.
                         </p>
                     </div>
                 </div>
@@ -470,7 +470,7 @@ const faqs = [
                         </li>
                         <li class="flex items-center gap-2">
                             <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>مرسل واتساب CSV</span>
+                            <span>صندوق وارد موحد وقواعد ردود ذكية</span>
                         </li>
                     </ul>
                     <Link
@@ -500,7 +500,7 @@ const faqs = [
                         </li>
                         <li class="flex items-center gap-2">
                             <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>كافة القنوات (WA • TG • FB • IG)</span>
+                            <span>كافة القنوات الـ 5 (واتساب • تيليجرام • فيسبوك • إنستجرام • تيك توك)</span>
                         </li>
                         <li class="flex items-center gap-2">
                             <Check class="w-4 h-4 text-emerald-400 shrink-0" />
@@ -508,11 +508,11 @@ const faqs = [
                         </li>
                         <li class="flex items-center gap-2">
                             <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>إعادة استهداف متقدمة + AI Auto-Reply</span>
+                            <span>ردود ذكية على التعليقات + AI Auto-Reply</span>
                         </li>
                         <li class="flex items-center gap-2">
                             <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>نظام الحماية من الحظر (Anti-Ban Jitter)</span>
+                            <span>تصدير كامل لبيانات العملاء (CSV Export)</span>
                         </li>
                     </ul>
                     <Link
@@ -539,7 +539,7 @@ const faqs = [
                         </li>
                         <li class="flex items-center gap-2">
                             <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>رسائل غير محدودة</span>
+                            <span>رسائل واردة وردود غير محدودة</span>
                         </li>
                         <li class="flex items-center gap-2">
                             <Check class="w-4 h-4 text-emerald-400 shrink-0" />

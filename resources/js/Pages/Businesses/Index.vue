@@ -298,6 +298,23 @@ const switchBusiness = (id) => {
                                         </span>
                                     </div>
                                 </div>
+
+                                <!-- TikTok -->
+                                <div
+                                    class="p-2.5 rounded-xl border transition flex flex-col justify-between gap-1.5 col-span-2 sm:col-span-1"
+                                    :class="b.tiktok_account?.status === 'connected' ? 'bg-cyan-950/20 border-cyan-800/60' : 'bg-slate-950/50 border-slate-800'"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-slate-300">تيك توك</span>
+                                        <Radio class="w-3 h-3" :class="b.tiktok_account?.status === 'connected' ? 'text-cyan-400' : 'text-slate-600'" />
+                                    </div>
+                                    <div class="flex items-center justify-between text-[10px]">
+                                        <span class="text-slate-500">الحالة:</span>
+                                        <span class="font-bold" :class="b.tiktok_account?.status === 'connected' ? 'text-cyan-400' : 'text-slate-500'">
+                                            {{ b.tiktok_account?.status === 'connected' ? 'متصل' : 'غير متصل' }}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

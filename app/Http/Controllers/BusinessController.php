@@ -23,6 +23,7 @@ class BusinessController extends Controller
                 'facebookAccount:business_id,page_name,status',
                 'instagramAccount:business_id,username,status',
                 'telegramAccount:business_id,bot_username,status',
+                'tiktokAccount:business_id,username,display_name,status',
             ])
             ->withCount(['conversations', 'teamMembers'])
             ->latest()

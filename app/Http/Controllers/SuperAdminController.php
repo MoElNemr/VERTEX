@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BulkMessageTransaction;
 use App\Models\Business;
-use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\FacebookAccount;
 use App\Models\InstagramAccount;
@@ -14,9 +12,9 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\SystemSetting;
 use App\Models\TelegramAccount;
+use App\Models\TiktokAccount;
 use App\Models\User;
 use App\Models\WhatsappAccount;
-use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,7 +37,6 @@ class SuperAdminController extends Controller
         $totalBusinesses = Business::count();
         $totalMessages = Message::count();
         $totalContacts = Contact::count();
-        $totalCampaigns = Campaign::count();
         $totalPlans = Plan::count();
 
         // 2. Channel Breakdown
@@ -47,6 +44,7 @@ class SuperAdminController extends Controller
         $telegramConnected = TelegramAccount::withoutGlobalScopes()->where('status', 'connected')->count();
         $facebookConnected = FacebookAccount::withoutGlobalScopes()->where('status', 'connected')->count();
         $instagramConnected = InstagramAccount::withoutGlobalScopes()->where('status', 'connected')->count();
+        $tiktokConnected = TiktokAccount::withoutGlobalScopes()->where('status', 'connected')->count();
 
         // 3. System & Microservices Health Check
         $nodeServiceOnline = false;
@@ -84,8 +82,8 @@ class SuperAdminController extends Controller
         $failedJobs = DB::table('failed_jobs')->count();
 
         // 4. Businesses List
-        $businesses = Business::with(['user:id,name,email', 'whatsappAccount', 'telegramAccount', 'facebookAccount', 'instagramAccount'])
-            ->withCount(['contacts', 'conversations', 'campaigns'])
+        $businesses = Business::with(['user:id,name,email', 'whatsappAccount', 'telegramAccount', 'facebookAccount', 'instagramAccount', 'tiktokAccount'])
+            ->withCount(['contacts', 'conversations'])
             ->latest()
             ->paginate(15, ['*'], 'businesses_page');
 
@@ -98,45 +96,41 @@ class SuperAdminController extends Controller
         // 6. Plans List
         $plans = Plan::withCount('subscriptions')->get();
 
-        // 7. Recent Campaigns across all businesses
-        $recentCampaigns = Campaign::with('business:id,name')
-            ->latest()
-            ->limit(10)
-            ->get();
-
-        // 8. All Users simple list for dropdown selects
+        // 7. All Users simple list for dropdown selects
         $allUsersSimple = User::select(['id', 'name', 'email'])->orderBy('name')->get();
 
-        // 9. System Specs
-        $systemSpecs = [
-            'php_version' => PHP_VERSION,
-            'laravel_version' => app()->version(),
-            'server_os' => PHP_OS_FAMILY,
-            'db_connection' => config('database.default'),
-            'queue_driver' => config('queue.default'),
-            'broadcast_driver' => config('broadcasting.default'),
+        // 8. Platform Apps & Gateway Integrations
+        $appSettings = [
+            'meta' => [
+                'app_id' => (string) SystemSetting::get('meta_app_id', config('services.meta.client_id') ?? config('services.meta.app_id') ?? ''),
+                'app_secret' => (string) SystemSetting::get('meta_app_secret', config('services.meta.client_secret') ?? config('services.meta.app_secret') ?? ''),
+                'verify_token' => (string) SystemSetting::get('meta_webhook_verify_token', config('services.meta.verify_token') ?? 'vertex_secret_token'),
+                'webhook_url' => url('/webhooks/meta'),
+                'redirect_uri' => url('/channels/meta/callback'),
+            ],
+            'tiktok' => [
+                'client_key' => (string) SystemSetting::get('tiktok_client_key', config('services.tiktok.client_key') ?? ''),
+                'client_secret' => (string) SystemSetting::get('tiktok_client_secret', config('services.tiktok.client_secret') ?? ''),
+                'redirect_uri' => url('/channels/tiktok/callback'),
+                'webhook_url' => url('/webhooks/tiktok'),
+            ],
+            'google' => [
+                'client_id' => (string) SystemSetting::get('google_client_id', config('services.google.client_id') ?? env('GOOGLE_CLIENT_ID', '')),
+                'client_secret' => (string) SystemSetting::get('google_client_secret', config('services.google.client_secret') ?? env('GOOGLE_CLIENT_SECRET', '')),
+                'enabled' => (bool) SystemSetting::get('google_auth_enabled', true),
+                'redirect_uri' => url('/auth/google/callback'),
+            ],
+            'fawry' => [
+                'merchant_code' => (string) SystemSetting::get('fawry_merchant_code', env('FAWRY_MERCHANT_CODE', '1014316')),
+                'security_key' => (string) SystemSetting::get('fawry_security_key', env('FAWRY_SECURITY_KEY', 'default_test_key')),
+                'merchant_wallet' => (string) SystemSetting::get('fawry_merchant_wallet', env('FAWRY_MERCHANT_WALLET', '')),
+                'mode' => (string) SystemSetting::get('fawry_mode', env('FAWRY_MODE', 'sandbox')),
+                'webhook_url' => url('/webhooks/fawry'),
+            ],
         ];
 
-        // 10. Fawry Payment Gateway Settings & Transactions
-        $fawrySettings = [
-            'merchant_code' => SystemSetting::get('fawry_merchant_code', env('FAWRY_MERCHANT_CODE', '1014316')),
-            'security_key' => SystemSetting::get('fawry_security_key', env('FAWRY_SECURITY_KEY', 'default_test_key')),
-            'merchant_wallet' => SystemSetting::get('fawry_merchant_wallet', env('FAWRY_MERCHANT_WALLET', '')),
-            'mode' => SystemSetting::get('fawry_mode', env('FAWRY_MODE', 'sandbox')),
-            'webhook_url' => url('/webhooks/fawry'),
-        ];
-
+        // 9. Financial transactions
         $paymentTransactions = PaymentTransaction::with(['user:id,name,email', 'plan:id,name'])
-            ->latest()
-            ->limit(15)
-            ->get();
-
-        // 11. Bulk Message Wallets & Transactions
-        $userWallets = User::with('bulkWallet')
-            ->latest()
-            ->paginate(15, ['*'], 'wallets_page');
-
-        $recentBulkTransactions = BulkMessageTransaction::with('user:id,name,email')
             ->latest()
             ->limit(20)
             ->get();
@@ -147,14 +141,14 @@ class SuperAdminController extends Controller
                 'total_businesses' => $totalBusinesses,
                 'total_messages' => $totalMessages,
                 'total_contacts' => $totalContacts,
-                'total_campaigns' => $totalCampaigns,
                 'total_plans' => $totalPlans,
                 'channels' => [
                     'whatsapp' => $whatsappConnected,
                     'telegram' => $telegramConnected,
                     'facebook' => $facebookConnected,
                     'instagram' => $instagramConnected,
-                    'total' => $whatsappConnected + $telegramConnected + $facebookConnected + $instagramConnected,
+                    'tiktok' => $tiktokConnected,
+                    'total' => $whatsappConnected + $telegramConnected + $facebookConnected + $instagramConnected + $tiktokConnected,
                 ],
             ],
             'health' => [
@@ -169,39 +163,62 @@ class SuperAdminController extends Controller
             'users' => $users,
             'plans' => $plans,
             'allUsersSimple' => $allUsersSimple,
-            'recentCampaigns' => $recentCampaigns,
-            'systemSpecs' => $systemSpecs,
-            'fawrySettings' => $fawrySettings,
+            'appSettings' => $appSettings,
+            'fawrySettings' => $appSettings['fawry'],
             'paymentTransactions' => $paymentTransactions,
-            'userWallets' => $userWallets,
-            'recentBulkTransactions' => $recentBulkTransactions,
         ]);
     }
 
     /**
-     * Adjust User Bulk Message Wallet balance from Super Admin.
+     * Update Meta (Facebook & Instagram) App settings.
      */
-    public function adjustUserWallet(Request $request, User $user, WalletService $walletService): RedirectResponse
+    public function updateMetaSettings(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0'],
-            'credits' => ['required', 'integer', 'min:0'],
-            'type' => ['required', 'in:add,deduct'],
-            'reason' => ['required', 'string', 'max:255'],
+            'app_id' => ['nullable', 'string', 'max:255'],
+            'app_secret' => ['nullable', 'string', 'max:255'],
+            'verify_token' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $admin = $request->user('web');
-        $multiplier = $validated['type'] === 'deduct' ? -1 : 1;
+        SystemSetting::set('meta_app_id', trim($validated['app_id'] ?? ''), 'meta');
+        SystemSetting::set('meta_app_secret', trim($validated['app_secret'] ?? ''), 'meta');
+        SystemSetting::set('meta_webhook_verify_token', trim($validated['verify_token'] ?? 'vertex_secret_token'), 'meta');
 
-        $walletService->adjustBalance(
-            $user,
-            (float) ($validated['amount'] * $multiplier),
-            (int) ($validated['credits'] * $multiplier),
-            $validated['reason'],
-            $admin ? $admin->name : 'Super Admin'
-        );
+        return back()->with('success', 'تم حفظ وتحديث إعدادات تطبيق Meta (Facebook & Instagram) بنجاح.');
+    }
 
-        return back()->with('success', "تم تعديل رصيد محفظة المستخدم {$user->name} بنجاح.");
+    /**
+     * Update TikTok App settings.
+     */
+    public function updateTikTokSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'client_key' => ['nullable', 'string', 'max:255'],
+            'client_secret' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        SystemSetting::set('tiktok_client_key', trim($validated['client_key'] ?? ''), 'tiktok');
+        SystemSetting::set('tiktok_client_secret', trim($validated['client_secret'] ?? ''), 'tiktok');
+
+        return back()->with('success', 'تم حفظ وتحديث إعدادات تطبيق TikTok بنجاح.');
+    }
+
+    /**
+     * Update Google Authentication App settings.
+     */
+    public function updateGoogleSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'client_id' => ['nullable', 'string', 'max:255'],
+            'client_secret' => ['nullable', 'string', 'max:255'],
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        SystemSetting::set('google_client_id', trim($validated['client_id'] ?? ''), 'google');
+        SystemSetting::set('google_client_secret', trim($validated['client_secret'] ?? ''), 'google');
+        SystemSetting::set('google_auth_enabled', $validated['enabled'], 'google');
+
+        return back()->with('success', 'تم حفظ وتحديث إعدادات تطبيق Google بنجاح.');
     }
 
     /**
@@ -247,10 +264,13 @@ class SuperAdminController extends Controller
 
         // Assign plan if provided
         if (! empty($validated['plan_id'])) {
+            $plan = Plan::find($validated['plan_id']);
             Subscription::create([
                 'user_id' => $user->id,
                 'plan_id' => $validated['plan_id'],
                 'status' => 'active',
+                'messages_limit' => $plan?->monthly_message_quota,
+                'quota_resets_at' => now()->addMonth(),
                 'starts_at' => now(),
                 'ends_at' => now()->addYear(),
             ]);
@@ -285,11 +305,14 @@ class SuperAdminController extends Controller
         $user->update($updateData);
 
         if (! empty($validated['plan_id'])) {
+            $plan = Plan::find($validated['plan_id']);
             Subscription::updateOrCreate(
                 ['user_id' => $user->id],
                 [
                     'plan_id' => $validated['plan_id'],
                     'status' => 'active',
+                    'messages_limit' => $plan?->monthly_message_quota,
+                    'quota_resets_at' => now()->addMonth(),
                     'starts_at' => now(),
                     'ends_at' => now()->addYear(),
                 ]
@@ -334,12 +357,15 @@ class SuperAdminController extends Controller
         ]);
 
         $months = $validated['duration_months'] ?? 12;
+        $plan = Plan::find($validated['plan_id']);
 
         Subscription::updateOrCreate(
             ['user_id' => $user->id],
             [
                 'plan_id' => $validated['plan_id'],
                 'status' => 'active',
+                'messages_limit' => $plan?->monthly_message_quota,
+                'quota_resets_at' => now()->addMonth(),
                 'starts_at' => now(),
                 'ends_at' => now()->addMonths($months),
             ]
@@ -405,6 +431,7 @@ class SuperAdminController extends Controller
             'type' => ['required', 'string', 'max:50'],
             'description' => ['nullable', 'string', 'max:1000'],
             'max_businesses' => ['nullable', 'integer', 'min:1'],
+            'monthly_message_quota' => ['nullable', 'integer', 'min:1'],
             'price_monthly' => ['required', 'numeric', 'min:0'],
             'price_yearly' => ['required', 'numeric', 'min:0'],
             'features' => ['nullable', 'array'],
@@ -416,6 +443,7 @@ class SuperAdminController extends Controller
             'type' => $validated['type'],
             'description' => $validated['description'] ?? null,
             'max_businesses' => $validated['max_businesses'] ?: null,
+            'monthly_message_quota' => ! empty($validated['monthly_message_quota']) ? (int) $validated['monthly_message_quota'] : null,
             'price_monthly' => $validated['price_monthly'],
             'price_yearly' => $validated['price_yearly'],
             'features' => $validated['features'] ?? [],
@@ -435,6 +463,7 @@ class SuperAdminController extends Controller
             'type' => ['required', 'string', 'max:50'],
             'description' => ['nullable', 'string', 'max:1000'],
             'max_businesses' => ['nullable', 'integer', 'min:1'],
+            'monthly_message_quota' => ['nullable', 'integer', 'min:1'],
             'price_monthly' => ['required', 'numeric', 'min:0'],
             'price_yearly' => ['required', 'numeric', 'min:0'],
             'features' => ['nullable', 'array'],
@@ -446,6 +475,7 @@ class SuperAdminController extends Controller
             'type' => $validated['type'],
             'description' => $validated['description'] ?? null,
             'max_businesses' => $validated['max_businesses'] ?: null,
+            'monthly_message_quota' => ! empty($validated['monthly_message_quota']) ? (int) $validated['monthly_message_quota'] : null,
             'price_monthly' => $validated['price_monthly'],
             'price_yearly' => $validated['price_yearly'],
             'features' => $validated['features'] ?? [],

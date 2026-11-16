@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('contacts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('business_id')->constrained()->cascadeOnDelete();
-            $table->enum('platform', ['whatsapp', 'facebook', 'instagram', 'telegram']);
-            $table->string('platform_sender_id'); // Phone number, PSID, IG ID, or TG Chat ID
+            $table->enum('platform', ['whatsapp', 'facebook', 'instagram', 'telegram', 'tiktok']);
+            $table->string('platform_sender_id'); // Phone number, PSID, IG ID, TG Chat ID, or TikTok OpenID
             $table->string('name')->nullable();
             $table->string('avatar')->nullable();
             $table->string('phone')->nullable();

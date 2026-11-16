@@ -17,6 +17,8 @@ import {
     Key,
     ShieldCheck,
     Layers,
+    Video,
+    Sparkles,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -94,10 +96,12 @@ const closeModal = () => {
                             'bg-sky-950/60 border-sky-800/60 text-sky-400': selectedChannel === 'telegram',
                             'bg-blue-950/60 border-blue-800/60 text-blue-400': selectedChannel === 'facebook',
                             'bg-pink-950/60 border-pink-800/60 text-pink-400': selectedChannel === 'instagram',
+                            'bg-cyan-950/60 border-cyan-800/60 text-cyan-400': selectedChannel === 'tiktok',
                         }"
                     >
                         <MessageCircle v-if="selectedChannel === 'whatsapp'" class="w-5 h-5" />
                         <Send v-else-if="selectedChannel === 'telegram'" class="w-5 h-5" />
+                        <Video v-else-if="selectedChannel === 'tiktok'" class="w-5 h-5" />
                         <svg v-else-if="selectedChannel === 'facebook'" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                         </svg>
@@ -173,6 +177,18 @@ const closeModal = () => {
                     <Send class="w-3.5 h-3.5" />
                     <span>تيليجرام (Telegram)</span>
                 </button>
+
+                <button
+                    type="button"
+                    @click="selectedChannel = 'tiktok'"
+                    class="cursor-pointer pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap"
+                    :class="selectedChannel === 'tiktok'
+                        ? 'border-cyan-500 text-cyan-400'
+                        : 'border-transparent text-slate-400 hover:text-slate-200'"
+                >
+                    <Video class="w-3.5 h-3.5" />
+                    <span>تيك توك (TikTok)</span>
+                </button>
             </div>
 
             <!-- Body / Steps -->
@@ -180,13 +196,24 @@ const closeModal = () => {
 
                 <!-- ================== FACEBOOK GUIDE ================== -->
                 <div v-if="selectedChannel === 'facebook'" class="space-y-6">
-                    <!-- Overview Banner -->
-                    <div class="p-4 rounded-xl bg-blue-950/30 border border-blue-800/40 text-blue-200 flex items-start gap-3">
+                    <!-- 1-Click OAuth Banner -->
+                    <div class="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-slate-900 border border-blue-600/40 text-blue-200 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-blue-500 text-white uppercase tracking-wider">الأسهل والأسرع</span>
+                            <h4 class="font-bold text-white text-sm">الربط التلقائي بضغطة زر (1-Click Meta OAuth)</h4>
+                        </div>
+                        <p class="text-xs text-blue-200/90 leading-relaxed">
+                            للمستخدمين العاديين وأصحاب الأنشطة التجارية: لا تحتاج إلى ضبط حسابات مطورين أو إنشاء توكن يدوياً! اضغط ببساطة على زر <span class="text-white font-bold">"ربط تلقائي عبر فيسبوك"</span> في بطاقة القناة، وسجل دخولك بحساب Meta الذي يدير الصفحة؛ سيتم منح الصلاحيات وربط الصفحة فوراً بأمان وسرعة.
+                        </p>
+                    </div>
+
+                    <!-- Manual Developer Setup Banner -->
+                    <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-300 flex items-start gap-3">
                         <Info class="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                         <div class="text-xs space-y-1">
-                            <p class="font-bold">ما تحتاجه لربط صفحة فيسبوك:</p>
-                            <p class="text-blue-300/90 leading-relaxed">
-                                تحتاج إلى شيئين أساسيين: <span class="text-white font-mono font-bold">Page ID</span> (معرف الصفحة) و <span class="text-white font-mono font-bold">Page Access Token</span> (رمز الوصول مع صلاحيات المحادثات والمنشورات).
+                            <p class="font-bold text-white">الخيار البديل: الربط اليدوي للمطورين (Manual Developer Setup):</p>
+                            <p class="text-slate-400 leading-relaxed">
+                                إذا كنت ترغب باستخدام تطبيقك المخصص على Meta Developers، ستحتاج إلى إدخال <span class="text-white font-mono font-bold">Page ID</span> (معرف الصفحة) و <span class="text-white font-mono font-bold">Page Access Token</span> (دائم عبر System User) باتباع الخطوات التالية:
                             </p>
                         </div>
                     </div>
@@ -320,12 +347,23 @@ const closeModal = () => {
 
                 <!-- ================== INSTAGRAM GUIDE ================== -->
                 <div v-else-if="selectedChannel === 'instagram'" class="space-y-6">
+                    <!-- 1-Click OAuth Banner -->
+                    <div class="p-4 rounded-xl bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-slate-900 border border-pink-600/40 text-pink-200 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-pink-500 text-white uppercase tracking-wider">الأسهل والأسرع</span>
+                            <h4 class="font-bold text-white text-sm">الربط التلقائي بضغطة زر (1-Click Meta OAuth)</h4>
+                        </div>
+                        <p class="text-xs text-pink-200/90 leading-relaxed">
+                            بعد ضبط حساب إنستجرام كـ (حساب أعمال Business مرتبط بصفحة فيسبوك)، يمكنك ببساطة الضغط على زر <span class="text-white font-bold">"ربط تلقائي عبر إنستجرام"</span> في بطاقة القناة؛ سيتم الربط وجلب المعرفات والتوكن تلقائياً دون كتابة أي أكواد أو توكن يدوي!
+                        </p>
+                    </div>
+
                     <!-- Overview Banner -->
-                    <div class="p-4 rounded-xl bg-pink-950/30 border border-pink-800/40 text-pink-200 flex items-start gap-3">
+                    <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-300 flex items-start gap-3">
                         <Info class="w-5 h-5 text-pink-400 shrink-0 mt-0.5" />
                         <div class="text-xs space-y-1">
-                            <p class="font-bold">شروط ربط إنستجرام بنجاح:</p>
-                            <p class="text-pink-300/90 leading-relaxed">
+                            <p class="font-bold text-white">متطلبات الربط (سواء التلقائي أو اليدوي للمطورين):</p>
+                            <p class="text-slate-400 leading-relaxed">
                                 يتطلب إنستجرام أن يكون الحساب <span class="text-white font-bold">حساب أعمال (Business Account)</span> ومرتبطاً بصفحة فيسبوك داخل Meta Business Suite، بالإضافة إلى تفعيل ميزة السماح بالوصول للرسائل.
                             </p>
                         </div>
@@ -506,6 +544,47 @@ const closeModal = () => {
                         <div class="p-3 rounded-lg bg-emerald-950/20 border border-emerald-800/40 text-emerald-300 text-xs flex items-center gap-2">
                             <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0" />
                             <span>يقوم فيرتكس بضبط الـ Webhook تلقائياً وبدء استقبال الرسائل فور إدخال التوكن الصحيح.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================== TIKTOK GUIDE ================== -->
+                <div v-else-if="selectedChannel === 'tiktok'" class="space-y-6">
+                    <!-- Overview Banner -->
+                    <div class="p-4 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-cyan-200 flex items-start gap-3">
+                        <Sparkles class="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+                        <div class="text-xs space-y-1">
+                            <span class="font-bold text-white block text-sm">ربط رسمي بضغطة زر واحدة (1-Click TikTok OAuth)</span>
+                            <p class="leading-relaxed">
+                                يتم ربط حساب تيك توك للأعمال (TikTok for Business) رسمياً عبر بروتوكول OAuth المعتمد من تيك توك دون الحاجة لنسخ أو لصق أي توكن يدوي.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 1: Pre-requisites -->
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-cyan-600/20 text-cyan-400 text-xs font-bold flex items-center justify-center font-mono">1</span>
+                            <h4 class="text-sm font-bold text-white">متطلبات حساب تيك توك للأعمال</h4>
+                        </div>
+                        <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
+                            <p>1. تأكد من تحويل حساب تيك توك الخاص بك إلى <span class="text-white font-bold">حساب تجاري (Business Account)</span> مجاناً من تطبيق تيك توك (الإعدادات > الحساب > التبديل إلى حساب تجاري).</p>
+                            <p>2. تفعيل استلام الرسائل المباشرة من الجميع في إعدادات الخصوصية داخل التطبيق.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: One-Click Authorization -->
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-cyan-600/20 text-cyan-400 text-xs font-bold flex items-center justify-center font-mono">2</span>
+                            <h4 class="text-sm font-bold text-white">بدء الربط الرسمي بضغطة زر</h4>
+                        </div>
+                        <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
+                            <p>اضغط على زر <span class="text-cyan-400 font-bold">ربط حساب تيك توك للأعمال</span> في صفحة القنوات. سيتم توجيهك إلى صفحة تيك توك الرسمية للموافقة على صلاحيات الرسائل والتعليقات، ثم تعود تلقائياً لمتجرك والحساب متصل وجاهز للرد التلقائي.</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-emerald-950/20 border border-emerald-800/40 text-emerald-300 text-xs flex items-center gap-2">
+                            <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>يتولى فيرتكس تجديد التوكنات ومعالجة Webhooks تلقائياً دون أي تدخل منك.</span>
                         </div>
                     </div>
                 </div>

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->enum('type', ['standard', 'premium'])->default('standard');
             $table->unsignedInteger('max_businesses')->nullable(); // null = unlimited
+            $table->unsignedInteger('monthly_message_quota')->nullable(); // null = unlimited; e.g. 3000, 15000
             $table->decimal('price_monthly', 10, 2)->default(0.00);
             $table->decimal('price_yearly', 10, 2)->default(0.00);
             $table->boolean('is_active')->default(true);

@@ -9,7 +9,10 @@ use App\Models\Conversation;
 use App\Models\FacebookAccount;
 use App\Models\InstagramAccount;
 use App\Models\Message;
+use App\Models\SystemSetting;
+use App\Services\AutoReplyService;
 use App\Services\Channels\Concerns\HandlesAiAutoReply;
+use App\Services\MessageQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -62,29 +65,26 @@ class MetaChannelService implements ChannelServiceInterface
         }
 
         try {
-            $isCampaign = ! empty($message->metadata['campaign_id']) || ! empty($message->metadata['is_campaign']);
-            $messagingType = $isCampaign ? 'MESSAGE_TAG' : 'RESPONSE';
-
             $payload = [
                 'recipient' => ['id' => $recipientId],
                 'message' => ['text' => $message->body],
-                'messaging_type' => $messagingType,
+                'messaging_type' => 'RESPONSE',
             ];
-
-            if ($messagingType === 'MESSAGE_TAG') {
-                $payload['tag'] = 'CONFIRMED_EVENT_UPDATE';
-            }
 
             $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", $payload);
 
-            // Retry with MESSAGE_TAG if standard RESPONSE 24h window expired
-            if (! $response->successful() && $messagingType === 'RESPONSE') {
+            if (! $response->successful()) {
                 $errCode = $response->json('error.code');
                 $errSubcode = $response->json('error.error_subcode');
-                if ($errCode === 10 || $errSubcode === 2018278 || str_contains($response->json('error.message', ''), 'window')) {
-                    $payload['messaging_type'] = 'MESSAGE_TAG';
-                    $payload['tag'] = 'CONFIRMED_EVENT_UPDATE';
-                    $response = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", $payload);
+                $errMsg = $response->json('error.message', '');
+
+                if ($errCode === 10 || $errSubcode === 2018278 || str_contains($errMsg, 'window')) {
+                    $message->update(['status' => 'failed']);
+
+                    return [
+                        'status' => 'failed',
+                        'error' => 'انتهت نافذة الـ 24 ساعة المسموحة من ميتا للرد على هذا العميل.',
+                    ];
                 }
             }
 
@@ -198,6 +198,7 @@ class MetaChannelService implements ChannelServiceInterface
         $challenge = $request->query('hub_challenge');
 
         $expectedTokens = array_filter([
+            SystemSetting::get('meta_webhook_verify_token'),
             config('services.meta.verify_token'),
             config('services.meta.webhook_verify_token'),
             'vertex_secret_token',
@@ -478,11 +479,97 @@ class MetaChannelService implements ChannelServiceInterface
             Log::warning('Broadcast failed in Facebook comment: '.$e->getMessage());
         }
 
+        // 1. Try unified AutoReplyService first (evaluates custom AutoReplyRule with trigger_type === 'comment')
+        $publicReplySender = function (string $text) use ($account, $commentId): bool {
+            if (! $account->page_access_token) {
+                return false;
+            }
+            try {
+                $replyRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/{$commentId}/comments?access_token={$account->page_access_token}", [
+                    'message' => $text,
+                ]);
+
+                return $replyRes->successful();
+            } catch (\Throwable $e) {
+                Log::error('Facebook public comment reply failed: '.$e->getMessage());
+
+                return false;
+            }
+        };
+
+        $privateDmSender = function (string $text) use ($account, $commentId, $conversation): bool {
+            if (! $account->page_access_token) {
+                return false;
+            }
+            try {
+                $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", [
+                    'recipient' => ['comment_id' => $commentId],
+                    'message' => ['text' => $text],
+                ]);
+
+                if ($dmRes->successful()) {
+                    $botMsg = Message::create([
+                        'conversation_id' => $conversation->id,
+                        'sender_type' => 'bot',
+                        'type' => 'text',
+                        'body' => $text,
+                        'status' => 'delivered',
+                        'metadata' => [
+                            'triggered_by_comment_id' => $commentId,
+                            'api_response' => $dmRes->json(),
+                        ],
+                    ]);
+
+                    try {
+                        broadcast(new MessageSent($conversation, $botMsg));
+                    } catch (\Throwable $e) {
+                        Log::warning('Broadcast failed for Facebook bot DM: '.$e->getMessage());
+                    }
+
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                Log::error('Facebook comment private DM failed: '.$e->getMessage());
+            }
+
+            return false;
+        };
+
+        $handledByRule = app(AutoReplyService::class)->handleInboundComment(
+            $business,
+            'facebook',
+            $commentId,
+            $commentText,
+            $senderId,
+            $senderName,
+            $publicReplySender,
+            $privateDmSender
+        );
+
+        if ($handledByRule) {
+            return [
+                'platform' => 'facebook',
+                'comment_id' => $commentId,
+                'sender_id' => $senderId,
+                'sender_name' => $senderName,
+                'comment_message_id' => $commentMessage->id,
+                'reply_sent' => true,
+                'dm_sent' => true,
+            ];
+        }
+
         $replySent = false;
         $dmSent = false;
 
-        // Check if Comment-to-DM is enabled on page
+        // 2. Fallback to channel-level comment settings if enabled
         if ($account->comment_reply_enabled) {
+            $quotaService = app(MessageQuotaService::class);
+            if (! $quotaService->canSend($business->user, 1)) {
+                Log::info("Facebook comment reply skipped: quota exhausted for business {$business->id}");
+
+                return null;
+            }
+
             // Keyword match check (if configured)
             $matchesKeyword = true;
             if (! empty($account->comment_keywords) && is_array($account->comment_keywords)) {
@@ -514,7 +601,7 @@ class MetaChannelService implements ChannelServiceInterface
                     }
                 }
 
-                // 2. Send private DM to commenter
+                // 2. Send private DM to commenter (strictly via comment_id, never unsolicited cold DM)
                 if (! empty($account->dm_message_text) && $account->page_access_token) {
                     $dmBody = str_replace(
                         ['{name}', '{sender_name}'],
@@ -523,23 +610,13 @@ class MetaChannelService implements ChannelServiceInterface
                     );
 
                     try {
-                        // First attempt: recipient using comment_id (Meta Private Reply API)
                         $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", [
                             'recipient' => ['comment_id' => $commentId],
                             'message' => ['text' => $dmBody],
                         ]);
 
-                        if (! $dmRes->successful() && $senderId) {
-                            // Fallback attempt: recipient using PSID
-                            $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->page_access_token}", [
-                                'recipient' => ['id' => $senderId],
-                                'message' => ['text' => $dmBody],
-                            ]);
-                        }
-
                         $dmSent = $dmRes->successful();
 
-                        // Record bot DM in conversation only on success (BUG-08)
                         if ($dmSent) {
                             $botMsg = Message::create([
                                 'conversation_id' => $conversation->id,
@@ -562,6 +639,16 @@ class MetaChannelService implements ChannelServiceInterface
                     } catch (\Throwable $e) {
                         Log::error('Facebook comment private DM failed: '.$e->getMessage());
                     }
+                }
+
+                if ($replySent || $dmSent) {
+                    $quotaService->consumeQuota(
+                        $business->user,
+                        $business->id,
+                        'facebook',
+                        1,
+                        "الرد على تعليق فيسبوك من {$senderName}"
+                    );
                 }
             }
         }
@@ -655,11 +742,97 @@ class MetaChannelService implements ChannelServiceInterface
             Log::warning('Broadcast failed in Instagram comment: '.$e->getMessage());
         }
 
+        // 1. Try unified AutoReplyService first (evaluates custom AutoReplyRule with trigger_type === 'comment')
+        $publicReplySender = function (string $text) use ($account, $commentId): bool {
+            if (! $account->access_token) {
+                return false;
+            }
+            try {
+                $replyRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/{$commentId}/replies?access_token={$account->access_token}", [
+                    'message' => $text,
+                ]);
+
+                return $replyRes->successful();
+            } catch (\Throwable $e) {
+                Log::error('Instagram public comment reply failed: '.$e->getMessage());
+
+                return false;
+            }
+        };
+
+        $privateDmSender = function (string $text) use ($account, $commentId, $conversation): bool {
+            if (! $account->access_token) {
+                return false;
+            }
+            try {
+                $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->access_token}", [
+                    'recipient' => ['comment_id' => $commentId],
+                    'message' => ['text' => $text],
+                ]);
+
+                if ($dmRes->successful()) {
+                    $botMsg = Message::create([
+                        'conversation_id' => $conversation->id,
+                        'sender_type' => 'bot',
+                        'type' => 'text',
+                        'body' => $text,
+                        'status' => 'delivered',
+                        'metadata' => [
+                            'triggered_by_comment_id' => $commentId,
+                            'api_response' => $dmRes->json(),
+                        ],
+                    ]);
+
+                    try {
+                        broadcast(new MessageSent($conversation, $botMsg));
+                    } catch (\Throwable $e) {
+                        Log::warning('Broadcast failed for Instagram bot DM: '.$e->getMessage());
+                    }
+
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                Log::error('Instagram comment private DM failed: '.$e->getMessage());
+            }
+
+            return false;
+        };
+
+        $handledByRule = app(AutoReplyService::class)->handleInboundComment(
+            $business,
+            'instagram',
+            $commentId,
+            $commentText,
+            $senderId,
+            $senderUsername,
+            $publicReplySender,
+            $privateDmSender
+        );
+
+        if ($handledByRule) {
+            return [
+                'platform' => 'instagram',
+                'comment_id' => $commentId,
+                'sender_id' => $senderId,
+                'sender_username' => $senderUsername,
+                'comment_message_id' => $commentMessage->id,
+                'reply_sent' => true,
+                'dm_sent' => true,
+            ];
+        }
+
         $replySent = false;
         $dmSent = false;
 
-        // Check if Comment-to-DM is enabled
+        // 2. Fallback to channel-level comment settings if enabled
         if ($account->comment_reply_enabled) {
+            $quotaService = app(MessageQuotaService::class);
+            if (! $quotaService->canSend($business->user, 1)) {
+                Log::info("Instagram comment reply skipped: quota exhausted for business {$business->id}");
+
+                return null;
+            }
+
             // Keyword filter check
             $matchesKeyword = true;
             if (! empty($account->comment_keywords) && is_array($account->comment_keywords)) {
@@ -691,7 +864,7 @@ class MetaChannelService implements ChannelServiceInterface
                     }
                 }
 
-                // 2. Send private DM to commenter
+                // 2. Send private DM to commenter (strictly via comment_id, never unsolicited cold DM)
                 if (! empty($account->dm_message_text) && $account->access_token) {
                     $dmBody = str_replace(
                         ['{name}', '{username}'],
@@ -700,22 +873,13 @@ class MetaChannelService implements ChannelServiceInterface
                     );
 
                     try {
-                        // Instagram Private Reply to comment
                         $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->access_token}", [
                             'recipient' => ['comment_id' => $commentId],
                             'message' => ['text' => $dmBody],
                         ]);
 
-                        if (! $dmRes->successful() && $senderId) {
-                            $dmRes = Http::timeout(10)->post("https://graph.facebook.com/v21.0/me/messages?access_token={$account->access_token}", [
-                                'recipient' => ['id' => $senderId],
-                                'message' => ['text' => $dmBody],
-                            ]);
-                        }
-
                         $dmSent = $dmRes->successful();
 
-                        // Record bot message in conversation only on success (BUG-08)
                         if ($dmSent) {
                             $botMsg = Message::create([
                                 'conversation_id' => $conversation->id,
@@ -738,6 +902,16 @@ class MetaChannelService implements ChannelServiceInterface
                     } catch (\Throwable $e) {
                         Log::error('Instagram comment private DM failed: '.$e->getMessage());
                     }
+                }
+
+                if ($replySent || $dmSent) {
+                    $quotaService->consumeQuota(
+                        $business->user,
+                        $business->id,
+                        'instagram',
+                        1,
+                        "الرد على تعليق إنستجرام من {$senderUsername}"
+                    );
                 }
             }
         }

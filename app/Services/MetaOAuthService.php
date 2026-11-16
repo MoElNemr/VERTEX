@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\SystemSetting;
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
@@ -34,8 +35,9 @@ class MetaOAuthService
      */
     public function getClientId(): ?string
     {
-        return config('services.meta.client_id')
-            ?? config('services.meta.app_id');
+        return SystemSetting::get('meta_app_id')
+            ?: config('services.meta.client_id')
+            ?: config('services.meta.app_id');
     }
 
     /**
@@ -43,8 +45,9 @@ class MetaOAuthService
      */
     public function getClientSecret(): ?string
     {
-        return config('services.meta.client_secret')
-            ?? config('services.meta.app_secret');
+        return SystemSetting::get('meta_app_secret')
+            ?: config('services.meta.client_secret')
+            ?: config('services.meta.app_secret');
     }
 
     /**

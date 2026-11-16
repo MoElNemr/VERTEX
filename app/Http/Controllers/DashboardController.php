@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AutoReplyRule;
 use App\Models\Business;
-use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\TeamMember;
+use App\Services\MessageQuotaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -81,6 +82,7 @@ class DashboardController extends Controller
             'facebook' => ['name' => 'Facebook', 'color' => '#2563EB'],
             'instagram' => ['name' => 'Instagram', 'color' => '#EC4899'],
             'telegram' => ['name' => 'Telegram', 'color' => '#0EA5E9'],
+            'tiktok' => ['name' => 'TikTok', 'color' => '#06B6D4'],
         ];
 
         $platformDistribution = [];
@@ -97,27 +99,8 @@ class DashboardController extends Controller
             ];
         }
 
-        // 5. Campaigns Metrics
-        $campaignsQuery = Campaign::withoutGlobalScopes()->where('business_id', $currentBusinessId);
-        $totalCampaigns = (clone $campaignsQuery)->count();
-        $activeCampaigns = (clone $campaignsQuery)->where('status', 'processing')->count();
-        $completedCampaigns = (clone $campaignsQuery)->where('status', 'completed')->count();
-        $retargetingCampaigns = (clone $campaignsQuery)->where('type', 'retargeting')->count();
-        $bulkCampaigns = (clone $campaignsQuery)->where('type', '!=', 'retargeting')->count();
-        $totalCampaignRecipients = (int) (clone $campaignsQuery)->sum('total_recipients');
-        $totalCampaignSent = (int) (clone $campaignsQuery)->sum('sent_count');
-        $totalCampaignFailed = (int) (clone $campaignsQuery)->sum('failed_count');
-
-        $totalDispatched = $totalCampaignSent + $totalCampaignFailed;
-        $deliveryRate = $totalDispatched > 0
-            ? round(($totalCampaignSent / $totalDispatched) * 100, 1)
-            : ($totalCampaignRecipients > 0 ? 0.0 : 100.0);
-
-        // Recent 5 campaigns
-        $recentCampaigns = (clone $campaignsQuery)
-            ->latest()
-            ->limit(5)
-            ->get(['id', 'name', 'type', 'platforms', 'status', 'total_recipients', 'sent_count', 'failed_count', 'created_at']);
+        $deliveryRate = 100.0;
+        $recentCampaigns = [];
 
         // 6. 14-day time series performance data for Line Chart & Sparklines
         $timeSeries = $this->generateTimeSeriesPerformance($currentBusinessId);
@@ -135,8 +118,31 @@ class DashboardController extends Controller
                 'handled' => $m->handled_count,
             ]);
 
+        $channelsCount = 0;
+        if ($business->whatsappAccount()->where('status', 'connected')->exists()) {
+            $channelsCount++;
+        }
+        if ($business->facebookAccount()->where('status', 'connected')->exists()) {
+            $channelsCount++;
+        }
+        if ($business->instagramAccount()->where('status', 'connected')->exists()) {
+            $channelsCount++;
+        }
+        if ($business->telegramAccount()->where('status', 'connected')->exists()) {
+            $channelsCount++;
+        }
+        if ($business->tiktokAccount()->where('status', 'connected')->exists()) {
+            $channelsCount++;
+        }
+
+        $autoRepliesCount = AutoReplyRule::where('business_id', $currentBusinessId)->where('is_active', true)->count();
+        $quota = app(MessageQuotaService::class)->getQuotaSummary($business->user);
+
         return Inertia::render('Dashboard', [
             'business' => $business->only(['id', 'name']),
+            'channelsCount' => $channelsCount,
+            'autoRepliesCount' => $autoRepliesCount,
+            'quota' => $quota,
             'stats' => [
                 'total_contacts' => $totalContacts,
                 'contacts_today' => $contactsToday,
@@ -155,19 +161,13 @@ class DashboardController extends Controller
                 'by_platform' => $contactPlatformCounts,
             ],
             'marketing' => [
-                'total_campaigns' => $totalCampaigns,
-                'active_campaigns' => $activeCampaigns,
-                'completed_campaigns' => $completedCampaigns,
-                'retargeting_campaigns' => $retargetingCampaigns,
-                'bulk_campaigns' => $bulkCampaigns,
-                'total_recipients' => $totalCampaignRecipients,
-                'messages_sent' => $totalCampaignSent,
-                'messages_failed' => $totalCampaignFailed,
+                'total_recipients' => 0,
+                'messages_sent' => $outgoingMessages,
+                'messages_failed' => 0,
                 'delivery_rate' => $deliveryRate,
                 'roi_multiplier' => 3.8,
                 'platform_distribution' => $platformDistribution,
                 'time_series' => $timeSeries,
-                'recent_campaigns' => $recentCampaigns,
             ],
             'teamPerformance' => $teamPerformance,
         ]);

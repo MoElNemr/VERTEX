@@ -25,8 +25,9 @@ class DatabaseSeeder extends Seeder
         $standardPlan = Plan::firstOrCreate(
             ['type' => 'standard'],
             [
-                'name' => 'Standard Unlimited',
+                'name' => 'Standard 3,000 Messages',
                 'max_businesses' => null,
+                'monthly_message_quota' => 3000,
                 'price_monthly' => 29.00,
                 'price_yearly' => 290.00,
                 'is_active' => true,
@@ -38,6 +39,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Premium Unlimited',
                 'max_businesses' => null,
+                'monthly_message_quota' => null,
                 'price_monthly' => 99.00,
                 'price_yearly' => 990.00,
                 'is_active' => true,
@@ -50,6 +52,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Mohamed Nemr',
                 'password' => Hash::make('password123'),
+                'is_super_admin' => true,
                 'email_verified_at' => now(),
             ]
         );
@@ -59,6 +62,9 @@ class DatabaseSeeder extends Seeder
             ['user_id' => $admin->id, 'plan_id' => $premiumPlan->id],
             [
                 'status' => 'active',
+                'messages_limit' => null,
+                'messages_used' => 0,
+                'quota_resets_at' => now()->addMonth(),
                 'starts_at' => now(),
                 'ends_at' => now()->addYears(10),
             ]

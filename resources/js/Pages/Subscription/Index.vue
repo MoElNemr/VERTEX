@@ -125,13 +125,13 @@ const simulatePayment = async () => {
                     </div>
                     <h1 class="text-xl font-black text-white">إدارة باقة الاشتراك والدفع عبر فوري (Fawry)</h1>
                     <p class="text-xs text-slate-400">
-                        الخطط تشمل خدمات صندوق الوارد والردود الآلية وإعادة الاستهداف. الإرسال الجماعي يحاسب حسب الرسالة.
+                        الخطط تشمل خدمات صندوق الوارد الموحد، الردود الآلية الذكية، وإدارة وتصدير العملاء بكفاءة تامة.
                     </p>
                 </div>
 
                 <!-- Current Subscription Status Pill -->
                 <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-end">
-                    <span class="text-[10px] font-mono text-slate-400 block mb-0.5">الباقة الحالية</span>
+                    <span class="text-[10px] font-mono text-slate-400 block mb-0.5">الباقة الحالية وحصة الرسائل</span>
                     <div class="text-sm font-black text-white flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full" :class="activeSubscription?.status === 'active' ? 'bg-emerald-400' : (activeSubscription?.status === 'trial' ? 'bg-blue-400' : 'bg-rose-400')"></span>
                         <span>{{ currentPlan?.name || 'حساب غير مفعل' }}</span>
@@ -140,6 +140,12 @@ const simulatePayment = async () => {
                         </span>
                         <span v-else class="text-[10px] px-1.5 py-0.2 rounded font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30">
                             بانتظار السداد والتفعيل
+                        </span>
+                    </div>
+                    <div v-if="activeSubscription" class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-3 text-[11px]">
+                        <span class="text-slate-400">استهلاك الرسائل:</span>
+                        <span class="font-mono font-bold text-emerald-400">
+                            {{ Number(activeSubscription.messages_used ?? 0).toLocaleString() }} / {{ Number(activeSubscription.messages_limit ?? currentPlan?.monthly_message_quota ?? 1000).toLocaleString() }}
                         </span>
                     </div>
                     <span v-if="activeSubscription?.ends_at" class="text-[10px] text-slate-400 mt-1 block">
@@ -194,7 +200,7 @@ const simulatePayment = async () => {
                         <div>
                             <h3 class="font-bold text-base text-white">{{ plan.name }}</h3>
                             <p class="text-xs text-slate-400 mt-1 line-clamp-2">
-                                {{ plan.description || 'أتمتة الردود وإعادة الاستهداف وتوحيد القنوات' }}
+                                {{ plan.description || 'أتمتة الردود الذكية وتوحيد كافة قنوات التواصل وصندوق وارد موحد' }}
                             </p>
                         </div>
 
@@ -207,7 +213,15 @@ const simulatePayment = async () => {
                         <ul class="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
                             <li class="flex items-center gap-2">
                                 <Check class="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span>{{ (plan.monthly_message_quota ?? 1000).toLocaleString() }} رسالة شهرياً (Inbound & Auto-Reply)</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <Check class="w-4 h-4 text-emerald-400 shrink-0" />
                                 <span>{{ plan.max_businesses ? plan.max_businesses + ' متاجر نشطة' : 'متاجر غير محدودة' }}</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <Check class="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span>دعم 5 قنوات (واتساب • تيليجرام • فيسبوك • إنستجرام • تيك توك)</span>
                             </li>
                             <li class="flex items-center gap-2">
                                 <Check class="w-4 h-4 text-emerald-400 shrink-0" />
@@ -215,11 +229,11 @@ const simulatePayment = async () => {
                             </li>
                             <li class="flex items-center gap-2">
                                 <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                                <span>حملات إعادة الاستهداف (Retargeting)</span>
+                                <span>الردود التلقائية بالذكاء الاصطناعي (AI Auto-Reply)</span>
                             </li>
-                            <li class="flex items-center gap-2 text-slate-400">
-                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 ms-1 me-1"></span>
-                                <span>الإرسال الجماعي: دفع حسب الرسالة</span>
+                            <li class="flex items-center gap-2">
+                                <Check class="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span>تصدير جهات الاتصال والعملاء (CSV Export)</span>
                             </li>
                         </ul>
                     </div>

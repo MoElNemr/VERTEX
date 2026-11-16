@@ -29,6 +29,8 @@ import {
     ArrowLeftRight,
     Maximize2,
     Minimize2,
+    Video,
+    MoreVertical,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -49,6 +51,7 @@ const props = defineProps({
 // State
 const conversationsList = ref([...(props.conversations || [])]);
 const activeConv = ref(null);
+const isMobileActionsMenuOpen = ref(false);
 const isTransferModalOpen = ref(false);
 const selectedTargetBusinessId = ref('');
 const isTransferring = ref(false);
@@ -108,6 +111,7 @@ const platformList = [
     { id: 'facebook', name: 'فيسبوك', icon: MessageCircle, color: 'text-blue-500' },
     { id: 'instagram', name: 'إنستجرام', icon: Camera, color: 'text-pink-400' },
     { id: 'telegram', name: 'تيليجرام', icon: Send, color: 'text-sky-400' },
+    { id: 'tiktok', name: 'تيك توك', icon: Video, color: 'text-cyan-400' },
 ];
 
 const statusOptions = [
@@ -122,6 +126,7 @@ const getPlatformName = (platform) => {
         case 'facebook': return 'فيسبوك';
         case 'instagram': return 'إنستجرام';
         case 'telegram': return 'تيليجرام';
+        case 'tiktok': return 'تيك توك';
         default: return platform;
     }
 };
@@ -132,6 +137,7 @@ const getPlatformBadgeColor = (platform) => {
         case 'facebook': return 'bg-blue-600 text-white';
         case 'instagram': return 'bg-pink-600 text-white';
         case 'telegram': return 'bg-sky-500 text-white';
+        case 'tiktok': return 'bg-cyan-500 text-slate-950 font-bold';
         default: return 'bg-slate-700 text-white';
     }
 };
@@ -633,12 +639,13 @@ onUnmounted(() => {
                 <!-- Active Chat Flow -->
                 <template v-else>
                     <!-- Chat Header -->
-                    <div class="h-16 px-4 sm:px-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/80 backdrop-blur shrink-0">
-                        <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                    <div class="h-16 px-3 sm:px-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/80 backdrop-blur shrink-0 relative">
+                        <!-- Contact Info (Left / Start) -->
+                        <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                             <!-- Mobile Back Button to return to list -->
                             <button
                                 @click="backToList"
-                                class="md:hidden p-2 -ms-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+                                class="md:hidden p-1.5 -ms-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
                                 title="الرجوع لقائمة المحادثات"
                             >
                                 <ChevronRight class="w-5 h-5" />
@@ -656,11 +663,11 @@ onUnmounted(() => {
 
                             <!-- Avatar -->
                             <div class="relative shrink-0">
-                                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-200 text-xs sm:text-sm">
+                                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-200 text-xs sm:text-sm">
                                     {{ activeConv.contact?.name ? activeConv.contact.name.charAt(0).toUpperCase() : 'ع' }}
                                 </div>
                                 <div
-                                    class="absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold"
+                                    class="absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold ring-2 ring-slate-900"
                                     :class="getPlatformBadgeColor(activeConv.platform)"
                                 >
                                     {{ activeConv.platform.charAt(0).toUpperCase() }}
@@ -668,14 +675,14 @@ onUnmounted(() => {
                             </div>
 
                             <!-- Name & Meta -->
-                            <div class="min-w-0">
+                            <div class="min-w-0 flex-1">
                                 <h3 class="text-xs sm:text-sm font-bold text-white truncate">
                                     {{ activeConv.contact?.name || activeConv.contact?.phone || 'محادثة نشطة' }}
                                 </h3>
                                 <div class="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-400 truncate">
                                     <span>عبر {{ getPlatformName(activeConv.platform) }}</span>
                                     <span>•</span>
-                                    <span class="font-mono text-slate-500 truncate max-w-[100px] sm:max-w-none">{{ activeConv.contact?.platform_sender_id }}</span>
+                                    <span class="font-mono text-slate-500 truncate max-w-[80px] sm:max-w-none">{{ activeConv.contact?.platform_sender_id }}</span>
                                     <span
                                         class="hidden sm:inline-block px-1.5 py-0.2 rounded text-[10px] font-semibold"
                                         :class="activeConv.status === 'open' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80' : 'bg-slate-800 text-slate-400'"
@@ -686,8 +693,8 @@ onUnmounted(() => {
                             </div>
                         </div>
 
-                        <!-- Actions (Assign Agent + Status switch) -->
-                        <div class="flex items-center gap-2 shrink-0">
+                        <!-- Desktop Actions (md and up) -->
+                        <div class="hidden md:flex items-center gap-2 shrink-0">
                             <!-- Assign Agent Selector -->
                             <div v-if="$page.props.auth.can_view_all_conversations && teamMembers.length > 0" class="flex items-center gap-1.5">
                                 <span class="hidden lg:inline text-[11px] text-slate-400 font-semibold">إسناد:</span>
@@ -758,6 +765,98 @@ onUnmounted(() => {
                                 <Maximize2 v-if="!isConvListHidden" class="w-4 h-4" />
                                 <Minimize2 v-else class="w-4 h-4" />
                             </button>
+                        </div>
+
+                        <!-- Mobile Compact Actions (< md) -->
+                        <div class="flex md:hidden items-center gap-1.5 shrink-0">
+                            <!-- Mobile Close / Open Status Toggle Button -->
+                            <button
+                                v-if="activeConv.status === 'open'"
+                                @click="updateStatus('closed')"
+                                class="cursor-pointer px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1"
+                                title="إغلاق المحادثة"
+                            >
+                                <Check class="w-3.5 h-3.5 text-emerald-400" />
+                                <span class="text-[11px]">إغلاق</span>
+                            </button>
+                            <button
+                                v-else
+                                @click="updateStatus('open')"
+                                class="cursor-pointer px-2 py-1.5 rounded-lg text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1"
+                                title="إعادة فتح المحادثة"
+                            >
+                                <RotateCcw class="w-3.5 h-3.5" />
+                                <span class="text-[11px]">فتح</span>
+                            </button>
+
+                            <!-- Mobile Kebab Menu Button -->
+                            <div class="relative">
+                                <button
+                                    type="button"
+                                    @click="isMobileActionsMenuOpen = !isMobileActionsMenuOpen"
+                                    class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                                    title="المزيد من الإجراءات"
+                                >
+                                    <MoreVertical class="w-5 h-5" />
+                                </button>
+
+                                <!-- Mobile Kebab Backdrop -->
+                                <div
+                                    v-if="isMobileActionsMenuOpen"
+                                    class="fixed inset-0 z-30"
+                                    @click="isMobileActionsMenuOpen = false"
+                                ></div>
+
+                                <!-- Mobile Kebab Popover Menu -->
+                                <div
+                                    v-if="isMobileActionsMenuOpen"
+                                    class="absolute end-0 top-full mt-2 w-56 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-2 z-40 space-y-2 text-xs"
+                                >
+                                    <!-- Agent Assignment -->
+                                    <div v-if="$page.props.auth.can_view_all_conversations && teamMembers.length > 0" class="space-y-1">
+                                        <label class="text-[10px] font-bold text-slate-400 block px-1">إسناد المحادثة لوكيل:</label>
+                                        <select
+                                            :value="activeConv.assigned_to || ''"
+                                            @change="assignAgent($event.target.value); isMobileActionsMenuOpen = false;"
+                                            :disabled="isAssigning"
+                                            class="w-full bg-slate-950 border border-slate-750 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:border-blue-500 focus:outline-none"
+                                        >
+                                            <option value="">غير مسندة</option>
+                                            <option v-for="tm in teamMembers" :key="tm.id" :value="tm.id">
+                                                {{ tm.name }} ({{ tm.role === 'admin' ? 'مسؤول' : tm.role === 'supervisor' ? 'مشرف' : 'وكيل' }})
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Summarize AI -->
+                                    <button
+                                        type="button"
+                                        @click="summarizeConversation(); isMobileActionsMenuOpen = false;"
+                                        :disabled="isSummarizingAi"
+                                        class="w-full flex items-center gap-2 p-2 rounded-xl text-start text-violet-300 hover:bg-violet-950/50 transition font-bold"
+                                    >
+                                        <Sparkles class="w-4 h-4 text-violet-400 shrink-0" />
+                                        <span>{{ isSummarizingAi ? 'جاري التلخيص...' : 'تلخيص بالذكاء الاصطناعي' }}</span>
+                                    </button>
+
+                                    <!-- Transfer Store -->
+                                    <button
+                                        v-if="otherBusinesses && otherBusinesses.length > 0"
+                                        type="button"
+                                        @click="openTransferModal(); isMobileActionsMenuOpen = false;"
+                                        class="w-full flex items-center gap-2 p-2 rounded-xl text-start text-indigo-300 hover:bg-indigo-950/50 transition font-bold"
+                                    >
+                                        <ArrowLeftRight class="w-4 h-4 text-indigo-400 shrink-0" />
+                                        <span>تحويل المحادثة لمتجر آخر</span>
+                                    </button>
+
+                                    <!-- Platform & Sender Details -->
+                                    <div class="pt-2 border-t border-slate-800 text-[10px] text-slate-400 px-1 space-y-0.5">
+                                        <div>المعرف: <span class="font-mono text-slate-300">{{ activeConv.contact?.platform_sender_id }}</span></div>
+                                        <div>الحالة: <span class="font-bold text-white">{{ activeConv.status === 'open' ? 'مفتوحة' : 'مغلقة' }}</span></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

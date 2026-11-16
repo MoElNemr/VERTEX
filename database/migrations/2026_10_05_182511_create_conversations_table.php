@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('business_id')->constrained()->cascadeOnDelete();
             $table->foreignId('contact_id')->constrained()->cascadeOnDelete();
-            $table->enum('platform', ['whatsapp', 'facebook', 'instagram', 'telegram']);
+            $table->enum('platform', ['whatsapp', 'facebook', 'instagram', 'telegram', 'tiktok']);
             $table->enum('status', ['open', 'closed', 'pending'])->default('open');
             $table->unsignedInteger('unread_count')->default(0);
             $table->foreignId('assigned_to')->nullable()->constrained('team_members')->nullOnDelete();

@@ -36,12 +36,14 @@ class MakeSuperAdminCommand extends Command
         $this->info('   VERTEX PLATFORM - SYSTEM SUPERADMIN CREATION   ');
         $this->info('==================================================');
 
-        $name = $this->option('name') ?: $this->ask('Enter Super Admin Full Name', 'System Superadmin');
-        $email = $this->option('email') ?: $this->ask('Enter Super Admin Email', 'admin@vertex.app');
+        $name = $this->option('name') ?: ($this->input->isInteractive() ? $this->ask('Enter Super Admin Full Name', 'System Superadmin') : 'System Superadmin');
+        $email = $this->option('email') ?: ($this->input->isInteractive() ? $this->ask('Enter Super Admin Email', 'admin@vertex.app') : 'admin@vertex.app');
         $password = $this->option('password');
 
         if (! $password) {
-            $password = $this->secret('Enter Password (minimum 8 characters, or press enter for "password123")') ?: 'password123';
+            $password = $this->input->isInteractive()
+                ? ($this->secret('Enter Password (minimum 6 characters, or press enter for "password123")') ?: 'password123')
+                : 'password123';
         }
 
         if (strlen($password) < 6) {
@@ -78,6 +80,7 @@ class MakeSuperAdminCommand extends Command
             [
                 'name' => 'Enterprise Unlimited',
                 'max_businesses' => null,
+                'monthly_message_quota' => null,
                 'price_monthly' => 99.00,
                 'price_yearly' => 990.00,
                 'is_active' => true,
@@ -88,7 +91,8 @@ class MakeSuperAdminCommand extends Command
             ['type' => 'standard'],
             [
                 'name' => 'Professional Growth',
-                'max_businesses' => 5,
+                'max_businesses' => null,
+                'monthly_message_quota' => 3000,
                 'price_monthly' => 29.00,
                 'price_yearly' => 290.00,
                 'is_active' => true,
@@ -100,6 +104,9 @@ class MakeSuperAdminCommand extends Command
             ['user_id' => $user->id, 'plan_id' => $premiumPlan->id],
             [
                 'status' => 'active',
+                'messages_limit' => null,
+                'messages_used' => 0,
+                'quota_resets_at' => now()->addMonth(),
                 'starts_at' => now(),
                 'ends_at' => now()->addYears(10),
             ]

@@ -16,6 +16,9 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('plan_id')->constrained()->cascadeOnDelete();
             $table->enum('status', ['active', 'cancelled', 'expired', 'trial'])->default('trial');
+            $table->unsignedInteger('messages_limit')->nullable(); // snapshot of plan quota or admin override; null = unlimited
+            $table->unsignedInteger('messages_used')->default(0);
+            $table->timestamp('quota_resets_at')->nullable();
             $table->dateTime('starts_at')->nullable();
             $table->dateTime('ends_at')->nullable();
             $table->timestamps();

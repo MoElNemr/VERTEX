@@ -73,6 +73,8 @@ class RegisteredUserController extends Controller
             $user->subscriptions()->create([
                 'plan_id' => $selectedPlan->id,
                 'status' => 'trial',
+                'messages_limit' => $selectedPlan->monthly_message_quota,
+                'quota_resets_at' => now()->addMonth(),
                 'starts_at' => now(),
                 'ends_at' => now()->addDays(14),
             ]);

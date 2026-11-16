@@ -47,6 +47,16 @@ class Business extends Model
         return $this->hasOne(TelegramAccount::class)->withoutGlobalScopes();
     }
 
+    public function tiktokAccount()
+    {
+        return $this->hasOne(TiktokAccount::class)->withoutGlobalScopes();
+    }
+
+    public function autoReplyRules()
+    {
+        return $this->hasMany(AutoReplyRule::class);
+    }
+
     public function contacts()
     {
         return $this->hasMany(Contact::class);
@@ -65,10 +75,5 @@ class Business extends Model
     public function aiSetting()
     {
         return $this->hasOne(BusinessAiSetting::class);
-    }
-
-    public function campaigns()
-    {
-        return $this->hasMany(Campaign::class);
     }
 }

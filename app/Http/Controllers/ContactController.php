@@ -47,7 +47,7 @@ class ContactController extends Controller
         $business = Business::findOrFail($currentBusinessId);
         $search = $request->query('search');
         $platform = $request->query('platform') ?: $request->query('channel');
-        $validPlatforms = ['whatsapp', 'facebook', 'instagram', 'telegram'];
+        $validPlatforms = ['whatsapp', 'facebook', 'instagram', 'telegram', 'tiktok'];
 
         $query = Contact::where('business_id', $business->id)
             ->withCount('conversations')
@@ -115,6 +115,64 @@ class ContactController extends Controller
     }
 
     /**
+     * إنشاء جهة اتصال جديدة يدوياً للمتجر الحالي
+     */
+    public function store(Request $request): JsonResponse|RedirectResponse
+    {
+        $currentBusinessId = session('current_business_id');
+        if (! $currentBusinessId) {
+            abort(403, 'لم يتم تحديد متجر نشط.');
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'platform' => ['required', 'in:whatsapp,facebook,instagram,telegram,tiktok'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'platform_sender_id' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+            'tags' => ['nullable'],
+        ]);
+
+        $tags = $validated['tags'] ?? [];
+        if (is_string($tags)) {
+            $tags = array_values(array_filter(array_map('trim', explode(',', $tags))));
+        }
+
+        $senderId = $validated['platform_sender_id'] ?? null;
+        if (empty($senderId)) {
+            if ($validated['platform'] === 'whatsapp' && ! empty($validated['phone'])) {
+                $senderId = $this->cleanPhoneNumber($validated['phone']);
+            } elseif (! empty($validated['email'])) {
+                $senderId = $validated['email'];
+            } else {
+                $senderId = 'contact_'.uniqid();
+            }
+        }
+
+        $contact = Contact::withoutGlobalScopes()->create([
+            'business_id' => $currentBusinessId,
+            'name' => $validated['name'],
+            'platform' => $validated['platform'],
+            'platform_sender_id' => $senderId,
+            'phone' => ! empty($validated['phone']) ? $this->cleanPhoneNumber($validated['phone']) : null,
+            'email' => $validated['email'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+            'tags' => ! empty($tags) ? array_values(array_unique($tags)) : null,
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'contact' => $contact,
+                'message' => "تمت إضافة جهة الاتصال {$contact->name} بنجاح.",
+            ]);
+        }
+
+        return redirect()->back()->with('success', "تم إضافة جهة الاتصال {$contact->name} بنجاح.");
+    }
+
+    /**
      * تحديث بيانات جهة الاتصال (الاسم، الهاتف، البريد، الملاحظات، الوسوم)
      */
     public function update(Request $request, Contact $contact): JsonResponse|RedirectResponse
@@ -166,7 +224,7 @@ class ContactController extends Controller
 
         $business = Business::findOrFail($currentBusinessId);
         $channel = $request->query('channel') ?: $request->query('platform');
-        $validChannels = ['whatsapp', 'facebook', 'instagram', 'telegram'];
+        $validChannels = ['whatsapp', 'facebook', 'instagram', 'telegram', 'tiktok'];
 
         $query = Contact::where('business_id', $business->id);
 
@@ -224,5 +282,20 @@ class ContactController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Normalize phone numbers for WhatsApp.
+     */
+    protected function cleanPhoneNumber(string $phone): string
+    {
+        $cleaned = preg_replace('/[^\d+]/', '', $phone);
+        $cleaned = ltrim($cleaned, '+');
+
+        if (str_starts_with($cleaned, '01') && strlen($cleaned) === 11) {
+            $cleaned = '2'.$cleaned;
+        }
+
+        return $cleaned;
     }
 }

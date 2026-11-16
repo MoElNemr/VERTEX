@@ -9,7 +9,6 @@ import {
     Users,
     MessageSquare,
     Clock,
-    Repeat,
     ShieldCheck,
     Radio,
     Sparkles,
@@ -28,6 +27,24 @@ const props = defineProps({
     business: {
         type: Object,
         default: () => ({ name: 'المتجر' }),
+    },
+    channelsCount: {
+        type: Number,
+        default: 0,
+    },
+    autoRepliesCount: {
+        type: Number,
+        default: 0,
+    },
+    quota: {
+        type: Object,
+        default: () => ({
+            limit: null,
+            used: 0,
+            remaining: null,
+            resets_at: null,
+            is_unlimited: false,
+        }),
     },
     stats: {
         type: Object,
@@ -52,18 +69,12 @@ const props = defineProps({
     marketing: {
         type: Object,
         default: () => ({
-            total_campaigns: 0,
-            active_campaigns: 0,
-            completed_campaigns: 0,
-            retargeting_campaigns: 0,
-            bulk_campaigns: 0,
             total_recipients: 0,
             messages_sent: 0,
             messages_failed: 0,
             delivery_rate: 0,
             platform_distribution: {},
             time_series: [],
-            recent_campaigns: [],
         }),
     },
     teamPerformance: {
@@ -184,6 +195,16 @@ const platformsList = computed(() => {
             textColor: 'text-sky-400',
             badgeBg: 'bg-sky-500/10 border-sky-500/20 text-sky-400',
         },
+        {
+            key: 'tiktok',
+            name: 'TikTok',
+            share: dist.tiktok?.share ?? 0,
+            count: dist.tiktok?.count ?? 0,
+            newThisWeek: dist.tiktok?.new_this_week ?? 0,
+            color: 'bg-cyan-500',
+            textColor: 'text-cyan-400',
+            badgeBg: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
+        },
     ];
 });
 </script>
@@ -213,19 +234,21 @@ const platformsList = computed(() => {
                 <!-- Quick Action Buttons -->
                 <div class="flex items-center flex-wrap gap-2">
                     <Link
-                        :href="route('retargeting.index')"
+                        v-if="business.id"
+                        :href="route('channels.index', business.id)"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/80 transition"
                     >
-                        <Repeat class="w-3.5 h-3.5 text-blue-400" />
-                        <span>إعادة الاستهداف</span>
+                        <Radio class="w-3.5 h-3.5 text-blue-400" />
+                        <span>إدارة القنوات</span>
                     </Link>
 
                     <Link
-                        :href="route('whatsapp-sender.index')"
+                        v-if="business.id"
+                        :href="route('channels.index', { business: business.id, tab: 'auto_reply' })"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/80 transition"
                     >
-                        <Send class="w-3.5 h-3.5 text-emerald-400" />
-                        <span>إرسال واتساب CSV</span>
+                        <Sparkles class="w-3.5 h-3.5 text-purple-400" />
+                        <span>الردود التلقائية والـ AI</span>
                     </Link>
 
                     <Link
@@ -280,24 +303,24 @@ const platformsList = computed(() => {
                     </div>
                 </div>
 
-                <!-- KPI 3: Real Marketing Campaigns Dispatches -->
+                <!-- KPI 3: Real Plan Quota & Usage -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 transition hover:border-slate-700">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400">رسائل الحملات والتسويق</span>
+                        <span class="text-xs font-medium text-slate-400">باقة الرسائل والصلاحية</span>
                         <span class="inline-flex items-center gap-0.5 text-[11px] font-mono font-semibold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
-                            <Send class="w-3 h-3" />
-                            {{ marketing.total_campaigns || 0 }} حملة
+                            <Zap class="w-3 h-3" />
+                            {{ quota.is_unlimited ? 'غير محدود' : ((quota.remaining !== null ? quota.remaining : 0) + ' متبقي') }}
                         </span>
                     </div>
                     <div class="mt-2.5 flex items-baseline gap-2">
                         <span class="text-2xl font-bold font-mono text-white tracking-tight">
-                            {{ (marketing.messages_sent || 0).toLocaleString() }}
+                            {{ quota.is_unlimited ? '∞' : (quota.used || 0).toLocaleString() }}
                         </span>
-                        <span class="text-[11px] text-slate-500">مرسلة بنجاح</span>
+                        <span class="text-[11px] text-slate-500">مستهلك هذا الشهر</span>
                     </div>
                     <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>المستهدفين: <span class="font-mono text-slate-200 font-semibold">{{ (marketing.total_recipients || 0).toLocaleString() }}</span></span>
-                        <span>نسبة التسليم: <span class="font-mono text-emerald-400 font-semibold">{{ marketing.delivery_rate }}%</span></span>
+                        <span>الحد الشهري: <span class="font-mono text-slate-200 font-semibold">{{ quota.is_unlimited ? 'غير محدود' : (quota.limit || 0).toLocaleString() }}</span></span>
+                        <span>تجديد الباقة: <span class="font-mono text-emerald-400 font-semibold">{{ quota.resets_at || 'نهاية الشهر' }}</span></span>
                     </div>
                 </div>
 
@@ -440,13 +463,13 @@ const platformsList = computed(() => {
                             <span class="font-mono font-bold text-blue-400 text-xs">{{ avgDailyMessages }} رسالة</span>
                         </div>
                         <div class="p-2 rounded bg-slate-950/60 border border-slate-800/60">
-                            <span class="text-[10px] text-slate-500 block">نسبة تسليم الحملات</span>
-                            <span class="font-mono font-bold text-emerald-400 text-xs">{{ marketing.delivery_rate }}%</span>
+                            <span class="text-[10px] text-slate-500 block">قواعد الرد الآلي النشطة</span>
+                            <span class="font-mono font-bold text-emerald-400 text-xs">{{ autoRepliesCount }} قاعدة</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- SIDE CELL: Social Media Platform Distribution (4 Real Channels) (4 cols) -->
+                <!-- SIDE CELL: Social Media Platform Distribution (5 Real Channels) (4 cols) -->
                 <div class="lg:col-span-4 bg-slate-900/85 border border-slate-800/90 rounded-xl p-5 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -459,7 +482,7 @@ const platformsList = computed(() => {
                                     توزيع جهات الاتصال على القنوات
                                 </p>
                             </div>
-                            <span class="text-[11px] font-mono text-slate-500">4 قنوات</span>
+                            <span class="text-[11px] font-mono text-slate-500">5 قنوات</span>
                         </div>
 
                         <!-- Platforms Bars -->
@@ -508,146 +531,146 @@ const platformsList = computed(() => {
                 </div>
             </div>
 
-            <!-- 3. BENTO ROW 3: MARKETING MODULES & CAMPAIGN VELOCITY -->
+            <!-- 3. BENTO ROW 3: OMNICHANNEL & AUTOMATION ENGINE -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                <!-- Bento Cell 1: Retargeting Engine Card -->
+                <!-- Bento Cell 1: Channels Integration Card -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <div class="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                                    <Repeat class="w-4 h-4" />
+                                    <Radio class="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h4 class="text-xs font-bold text-white">إعادة الاستهداف الذكية</h4>
-                                    <p class="text-[10px] text-slate-400">إرسال على فترات لحماية الحظر</p>
+                                    <h4 class="text-xs font-bold text-white">القنوات ومنصات التواصل</h4>
+                                    <p class="text-[10px] text-slate-400">ربط موحد للرسائل والتعليقات</p>
                                 </div>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                نشط
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                {{ channelsCount }} متصلة
                             </span>
                         </div>
 
                         <div class="mt-3.5 space-y-2 text-xs">
                             <div class="flex items-center justify-between py-1 border-b border-slate-800/60 text-slate-400 text-[11px]">
                                 <span>المنصات المدعومة:</span>
-                                <span class="font-bold text-white">4 منصات مدمجة</span>
+                                <span class="font-bold text-white">WhatsApp, Meta, TikTok, Telegram</span>
                             </div>
                             <div class="flex items-center justify-between py-1 border-b border-slate-800/60 text-slate-400 text-[11px]">
-                                <span>فاصل الأمان الافتراضي:</span>
-                                <span class="font-mono font-bold text-blue-400">10 ثواني + تذبذب عشوائي</span>
+                                <span>حالة مزامنة الويب هوك:</span>
+                                <span class="font-mono font-bold text-emerald-400">فورية (Realtime)</span>
                             </div>
                             <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
-                                <span>حملات إعادة الاستهداف:</span>
-                                <span class="font-mono font-bold text-white">{{ marketing.retargeting_campaigns || 0 }} حملة</span>
+                                <span>صندوق وارد موحد:</span>
+                                <span class="font-mono font-bold text-white">محادثات + تعليقات المنشورات</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="mt-4 pt-3 border-t border-slate-800/80">
                         <Link
-                            :href="route('retargeting.index')"
+                            v-if="business.id"
+                            :href="route('channels.index', business.id)"
                             class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition"
                         >
-                            <span>فتح إدارة إعادة الاستهداف</span>
+                            <span>فتح إدارة القنوات</span>
                             <ArrowUpRight class="w-3.5 h-3.5" />
                         </Link>
                     </div>
                 </div>
 
-                <!-- Bento Cell 2: WhatsApp Bulk Sender Card -->
+                <!-- Bento Cell 2: Auto-Replies & AI Assistant -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
-                                <div class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                                    <Send class="w-4 h-4" />
+                                <div class="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                                    <Sparkles class="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h4 class="text-xs font-bold text-white">مرسل الواتساب بملف CSV</h4>
-                                    <p class="text-[10px] text-slate-400">رفع أرقام وأسماء وإرسال جماعي</p>
+                                    <h4 class="text-xs font-bold text-white">الردود الذكية والـ AI</h4>
+                                    <p class="text-[10px] text-slate-400">رد تلقائي على الرسائل والتعليقات</p>
                                 </div>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                Baileys
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                {{ autoRepliesCount }} قاعدة
                             </span>
                         </div>
 
                         <div class="mt-3.5 space-y-2 text-xs">
                             <div class="flex items-center justify-between py-1 border-b border-slate-800/60 text-slate-400 text-[11px]">
-                                <span>دعم التخصيص:</span>
-                                <span class="font-mono text-emerald-400">{name} + {phone}</span>
+                                <span>محرك المطابقة:</span>
+                                <span class="font-mono text-purple-300">Exact + Contains + Regex</span>
                             </div>
                             <div class="flex items-center justify-between py-1 border-b border-slate-800/60 text-slate-400 text-[11px]">
-                                <span>حماية الحظر (Anti-Ban):</span>
-                                <span class="font-bold text-white">تأخير تدريجي مخصص</span>
+                                <span>دعم تعليقات السوشيال:</span>
+                                <span class="font-bold text-emerald-400">رد عام + رسالة خاصة في الخاص</span>
                             </div>
                             <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
-                                <span>حملات الإرسال الجماعي:</span>
-                                <span class="font-mono font-bold text-emerald-400">{{ marketing.bulk_campaigns || 0 }} حملة</span>
+                                <span>تفويض الذكاء الاصطناعي:</span>
+                                <span class="font-mono font-bold text-cyan-400">Gemini 2.5 Flash</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="mt-4 pt-3 border-t border-slate-800/80">
                         <Link
-                            :href="route('whatsapp-sender.index')"
-                            class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
+                            v-if="business.id"
+                            :href="route('channels.index', { business: business.id, tab: 'auto_reply' })"
+                            class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
                         >
-                            <span>رفع ملف وإرسال واتساب</span>
+                            <span>إعداد الردود التلقائية</span>
                             <ArrowUpRight class="w-3.5 h-3.5" />
                         </Link>
                     </div>
                 </div>
 
-                <!-- Bento Cell 3: Recent Campaigns Activity Stream -->
+                <!-- Bento Cell 3: Plan Quota & Usage -->
                 <div class="bg-slate-900/85 border border-slate-800/90 rounded-xl p-4 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
                             <div class="flex items-center gap-2">
-                                <Activity class="w-4 h-4 text-blue-400" />
-                                <h4 class="text-xs font-bold text-white">أحدث الحملات التسويقية</h4>
+                                <Zap class="w-4 h-4 text-emerald-400" />
+                                <h4 class="text-xs font-bold text-white">سعة استهلاك الرسائل</h4>
                             </div>
-                            <span class="text-[10px] font-mono text-slate-500">سجل فوري</span>
+                            <span class="text-[10px] font-mono text-emerald-400 font-semibold">
+                                {{ quota.is_unlimited ? 'سعة غير محدودة' : (quota.remaining ?? 0) + ' متبقي' }}
+                            </span>
                         </div>
 
-                        <div class="mt-3 space-y-2.5">
-                            <div
-                                v-if="!marketing.recent_campaigns || marketing.recent_campaigns.length === 0"
-                                class="py-6 text-center text-xs text-slate-500"
-                            >
-                                لا توجد حملات منشأة حتى الآن.
+                        <div class="mt-3.5 space-y-2.5 text-xs">
+                            <div class="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800/80">
+                                <div class="flex items-center justify-between text-[11px] mb-1.5">
+                                    <span class="text-slate-400">المستهلك من الباقة:</span>
+                                    <span class="font-mono font-bold text-white">
+                                        {{ quota.used }} / {{ quota.is_unlimited ? '∞' : (quota.limit || 0) }}
+                                    </span>
+                                </div>
+                                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                        class="h-full bg-emerald-500 transition-all duration-500"
+                                        :style="{ width: quota.is_unlimited ? '10%' : Math.min(100, Math.round(((quota.used || 0) / (quota.limit || 1)) * 100)) + '%' }"
+                                    ></div>
+                                </div>
                             </div>
 
-                            <div
-                                v-for="c in marketing.recent_campaigns"
-                                :key="c.id"
-                                class="p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-xs"
-                            >
-                                <div class="min-w-0 flex-1 pe-2">
-                                    <div class="font-bold text-white truncate text-[11px]">{{ c.name }}</div>
-                                    <div class="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                                        <span class="font-mono text-emerald-400">{{ c.sent_count }} مرسلة</span>
-                                        <span>•</span>
-                                        <span>{{ c.type === 'retargeting' ? 'إعادة استهداف' : 'واتساب جماعي' }}</span>
-                                    </div>
-                                </div>
-                                <span
-                                    class="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono font-semibold"
-                                    :class="c.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : c.status === 'processing' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse' : 'bg-slate-800 text-slate-400 border border-slate-700'"
-                                >
-                                    {{ c.status === 'completed' ? 'مكتملة' : c.status === 'processing' ? 'جارية' : 'مسودة' }}
-                                </span>
+                            <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
+                                <span>الرسائل المتبقية في الباقة:</span>
+                                <span class="font-mono font-bold text-emerald-400">{{ quota.is_unlimited ? 'غير محدود' : (quota.remaining ?? 0) }} رسالة</span>
+                            </div>
+                            <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
+                                <span>تاريخ تجديد الباقة:</span>
+                                <span class="font-mono text-slate-300">{{ quota.resets_at || 'نهاية دورة الفاتورة' }}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-end">
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex justify-end">
                         <Link
-                            :href="route('retargeting.index')"
-                            class="text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition flex items-center gap-1"
+                            :href="route('inbox.index')"
+                            class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/80 font-bold text-xs transition"
                         >
-                            <span>عرض كافة الحملات</span>
+                            <span>فتح صندوق الوارد والمحادثات</span>
                             <ChevronRight class="w-3.5 h-3.5" />
                         </Link>
                     </div>

@@ -1,10 +1,11 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import axios from 'axios';
 import {
     Users,
+    UserPlus,
     Search,
     Download,
     MessageCircle,
@@ -24,6 +25,8 @@ import {
     MessageSquare,
     Camera,
     Send,
+    Upload,
+    Video,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -65,6 +68,35 @@ const filterByPlatform = (plat) => {
         },
         { preserveState: true, replace: true }
     );
+};
+
+// Create Single Contact Modal
+const isCreateModalOpen = ref(false);
+const createForm = useForm({
+    name: '',
+    platform: 'whatsapp',
+    phone: '',
+    email: '',
+    notes: '',
+    tags: '',
+});
+
+const openCreateModal = () => {
+    createForm.reset();
+    createForm.clearErrors();
+    isCreateModalOpen.value = true;
+};
+
+const submitCreateContact = () => {
+    createForm.transform((data) => ({
+        ...data,
+        tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+    })).post(route('contacts.store'), {
+        onSuccess: () => {
+            isCreateModalOpen.value = false;
+            createForm.reset();
+        },
+    });
 };
 
 // Selected Contact Modal
@@ -152,6 +184,8 @@ const getPlatformBadge = (platform) => {
             return { name: 'إنستجرام', color: 'bg-pink-500/10 text-pink-400 border-pink-500/20' };
         case 'telegram':
             return { name: 'تيليجرام', color: 'bg-sky-500/10 text-sky-400 border-sky-500/20' };
+        case 'tiktok':
+            return { name: 'تيك توك', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' };
         default:
             return { name: platform, color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
     }
@@ -190,17 +224,28 @@ const formatDate = (dateString) => {
                     </div>
                 </div>
 
-                <div class="relative w-full sm:w-auto">
-                    <!-- Export CSV Button with Channel Selector Dropdown -->
+                <div class="flex items-center flex-wrap gap-2 w-full sm:w-auto">
+                    <!-- Add Single Contact Button -->
                     <button
                         type="button"
-                        @click="isExportMenuOpen = !isExportMenuOpen"
-                        class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-bold transition shadow-sm"
+                        @click="openCreateModal"
+                        class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm"
                     >
-                        <Download class="w-4 h-4 text-blue-400" />
-                        <span>تصدير CSV حسب القناة</span>
-                        <ChevronDown class="w-3.5 h-3.5 text-slate-400 transition" :class="{ 'rotate-180': isExportMenuOpen }" />
+                        <UserPlus class="w-4 h-4" />
+                        <span>إضافة جهة اتصال</span>
                     </button>
+
+                    <div class="relative w-full sm:w-auto">
+                        <!-- Export CSV Button with Channel Selector Dropdown -->
+                        <button
+                            type="button"
+                            @click="isExportMenuOpen = !isExportMenuOpen"
+                            class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-bold transition shadow-sm"
+                        >
+                            <Download class="w-4 h-4 text-blue-400" />
+                            <span>تصدير CSV</span>
+                            <ChevronDown class="w-3.5 h-3.5 text-slate-400 transition" :class="{ 'rotate-180': isExportMenuOpen }" />
+                        </button>
 
                     <!-- Backdrop -->
                     <div
@@ -294,11 +339,26 @@ const formatDate = (dateString) => {
                                         {{ platformCounts?.telegram || 0 }}
                                     </span>
                                 </a>
+
+                                <a
+                                    :href="route('contacts.export', { channel: 'tiktok' })"
+                                    @click="isExportMenuOpen = false"
+                                    class="flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <Video class="w-4 h-4 text-cyan-400" />
+                                        <span>قناة تيك توك (TikTok)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold">
+                                        {{ platformCounts?.tiktok || 0 }}
+                                    </span>
+                                </a>
                             </div>
                         </div>
                     </transition>
                 </div>
             </div>
+        </div>
         </template>
 
         <div class="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
@@ -371,6 +431,16 @@ const formatDate = (dateString) => {
                         <Send class="w-3.5 h-3.5" :class="selectedPlatform === 'telegram' ? 'text-white' : 'text-sky-400'" />
                         <span>تيليجرام</span>
                         <span class="text-[10px] font-mono opacity-80 font-bold">({{ platformCounts?.telegram || 0 }})</span>
+                    </button>
+                    <button
+                        type="button"
+                        @click="filterByPlatform('tiktok')"
+                        class="cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                        :class="selectedPlatform === 'tiktok' ? 'bg-cyan-600 text-white font-bold shadow-sm' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'"
+                    >
+                        <Video class="w-3.5 h-3.5" :class="selectedPlatform === 'tiktok' ? 'text-white' : 'text-cyan-400'" />
+                        <span>تيك توك</span>
+                        <span class="text-[10px] font-mono opacity-80 font-bold">({{ platformCounts?.tiktok || 0 }})</span>
                     </button>
                 </div>
 
@@ -673,6 +743,142 @@ const formatDate = (dateString) => {
                             <span>{{ isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات' }}</span>
                         </button>
                     </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- CREATE SINGLE CONTACT MODAL -->
+        <transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-95"
+        >
+            <div
+                v-if="isCreateModalOpen"
+                class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm"
+                @click.self="isCreateModalOpen = false"
+            >
+                <div class="bg-slate-900 border border-slate-800 w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <!-- Header -->
+                    <div class="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+                                <UserPlus class="w-4 h-4" />
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">إضافة جهة اتصال جديدة</h3>
+                                <p class="text-[11px] text-slate-400">إدخال بيانات عميل يدوياً وربطه بالمنصة</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            @click="isCreateModalOpen = false"
+                            class="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                        >
+                            <X class="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <form @submit.prevent="submitCreateContact" class="p-4 sm:p-5 space-y-4 overflow-y-auto">
+                        <!-- Name -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">اسم العميل *</label>
+                            <input
+                                v-model="createForm.name"
+                                type="text"
+                                required
+                                placeholder="مثال: محمد أحمد"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"
+                            />
+                            <p v-if="createForm.errors.name" class="text-xs text-rose-400 mt-1">{{ createForm.errors.name }}</p>
+                        </div>
+
+                        <!-- Platform -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">المنصة التابعة *</label>
+                            <select
+                                v-model="createForm.platform"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"
+                            >
+                                <option value="whatsapp">واتساب (WhatsApp)</option>
+                                <option value="facebook">فيسبوك ماسنجر (Facebook)</option>
+                                <option value="instagram">إنستجرام دايركت (Instagram)</option>
+                                <option value="telegram">تيليجرام (Telegram)</option>
+                                <option value="tiktok">تيك توك (TikTok)</option>
+                            </select>
+                        </div>
+
+                        <!-- Phone & Email -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">رقم الهاتف (دولي)</label>
+                                <input
+                                    v-model="createForm.phone"
+                                    type="text"
+                                    placeholder="+201012345678"
+                                    dir="ltr"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"
+                                />
+                                <p v-if="createForm.errors.phone" class="text-xs text-rose-400 mt-1">{{ createForm.errors.phone }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">البريد الإلكتروني</label>
+                                <input
+                                    v-model="createForm.email"
+                                    type="email"
+                                    placeholder="client@example.com"
+                                    dir="ltr"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"
+                                />
+                                <p v-if="createForm.errors.email" class="text-xs text-rose-400 mt-1">{{ createForm.errors.email }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Tags -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">الوسوم (مفصولة بفواصل)</label>
+                            <input
+                                v-model="createForm.tags"
+                                type="text"
+                                placeholder="VIP, مهتم, القاهرة"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"
+                            />
+                        </div>
+
+                        <!-- Notes -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">ملاحظات داخلية</label>
+                            <textarea
+                                v-model="createForm.notes"
+                                rows="2"
+                                placeholder="ملاحظات خدمة العملاء..."
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition resize-none"
+                            ></textarea>
+                        </div>
+
+                        <!-- Footer Actions -->
+                        <div class="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                @click="isCreateModalOpen = false"
+                                class="cursor-pointer px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                            >
+                                إلغاء
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="createForm.processing"
+                                class="cursor-pointer px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                            >
+                                <Save class="w-4 h-4" />
+                                <span>{{ createForm.processing ? 'جاري الحفظ...' : 'حفظ جهة الاتصال' }}</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </transition>

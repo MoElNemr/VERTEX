@@ -31,6 +31,17 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
+        $user = $request->user('web');
+        if ($user && $user->is_super_admin) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('admin.login')->withErrors([
+                'email' => 'حسابات الإدارة العليا (Super Admin) غير مسموح لها بتسجيل الدخول من صفحة المستخدمين. يرجى استخدام بوابة الإدارة.',
+            ]);
+        }
+
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard', absolute: false));

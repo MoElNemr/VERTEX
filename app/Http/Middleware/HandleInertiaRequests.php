@@ -4,7 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Models\Business;
 use App\Models\BusinessAiSetting;
-use App\Models\User;
+use App\Services\GoogleAuthService;
+use App\Services\MessageQuotaService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -92,11 +93,8 @@ class HandleInertiaRequests extends Middleware
             'currentBusiness' => $currentBusiness,
             'businesses' => $businesses,
             'has_ai' => $hasAi,
-            'bulk_wallet' => $user instanceof User ? [
-                'balance' => (float) ($user->bulkWallet?->balance ?? 0),
-                'credits' => (int) ($user->bulkWallet?->credits ?? 0),
-                'currency' => $user->bulkWallet?->currency ?? 'EGP',
-            ] : null,
+            'message_quota' => app(MessageQuotaService::class)->getQuotaSummary($request->user('web') ?: $request->user('team')?->owner),
+            'google_auth_enabled' => app(GoogleAuthService::class)->isEnabled(),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

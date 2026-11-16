@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AutoReplyRule;
 use App\Models\Business;
 use App\Models\BusinessAiSetting;
+use App\Models\TiktokAccount;
 use App\Services\Channels\WhatsAppChannelService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -63,6 +65,8 @@ class ChannelController extends Controller
             'facebook' => $business->facebookAccount,
             'instagram' => $business->instagramAccount,
             'telegram' => $business->telegramAccount,
+            'tiktok' => $business->tiktokAccount,
+            'autoReplyRules' => $business->autoReplyRules()->orderBy('priority')->get(),
             'aiSetting' => $aiSetting,
             'sharedApiKey' => $sharedApiKey,
             'metaAccounts' => session('meta_oauth_accounts'),
@@ -230,6 +234,7 @@ class ChannelController extends Controller
                 $business->facebookAccount()?->delete();
                 $business->instagramAccount()?->delete();
             }),
+            'tiktok' => TiktokAccount::withoutGlobalScopes()->where('business_id', $business->id)->delete(),
             'whatsapp' => app(WhatsAppChannelService::class)->disconnect($business),
             default => null,
         };
@@ -289,7 +294,7 @@ class ChannelController extends Controller
         $this->authorizeBusiness($request, $business);
 
         $validated = $request->validate([
-            'platform' => ['required', 'in:facebook,instagram'],
+            'platform' => ['required', 'in:facebook,instagram,tiktok'],
             'comment_reply_enabled' => ['required', 'boolean'],
             'comment_reply_text' => ['nullable', 'string', 'max:1000'],
             'dm_message_text' => ['nullable', 'string', 'max:2000'],
@@ -337,7 +342,135 @@ class ChannelController extends Controller
             return back()->with('success', 'تم حفظ إعدادات الرد التلقائي على تعليقات إنستجرام بنجاح!');
         }
 
+        if ($validated['platform'] === 'tiktok') {
+            $account = $business->tiktokAccount;
+            if (! $account) {
+                return back()->with('error', 'يرجى ربط حساب تيك توك أولاً قبل ضبط إعدادات الرد على التعليقات.');
+            }
+
+            $account->update([
+                'comment_reply_enabled' => $validated['comment_reply_enabled'],
+                'comment_reply_text' => $validated['comment_reply_text'],
+                'dm_message_text' => $validated['dm_message_text'],
+                'comment_keywords' => $keywords,
+            ]);
+
+            return back()->with('success', 'تم حفظ إعدادات الرد التلقائي على تعليقات تيك توك بنجاح!');
+        }
+
         return back();
+    }
+
+    /**
+     * Store a new static auto-reply rule.
+     */
+    public function storeAutoReplyRule(Request $request, Business $business): RedirectResponse
+    {
+        $this->authorizeBusiness($request, $business);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:191'],
+            'platform' => ['required', 'in:all,whatsapp,facebook,instagram,telegram,tiktok'],
+            'trigger_type' => ['required', 'in:keyword,welcome,fallback,comment'],
+            'match_type' => ['required', 'in:exact,contains,starts_with'],
+            'keywords' => ['nullable', 'string'],
+            'reply_text' => ['required', 'string', 'max:5000'],
+            'private_dm_text' => ['nullable', 'string', 'max:5000'],
+            'priority' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $keywords = ! empty($validated['keywords'])
+            ? array_values(array_filter(array_map('trim', explode(',', $validated['keywords']))))
+            : null;
+
+        $business->autoReplyRules()->create([
+            'name' => $validated['name'],
+            'platform' => $validated['platform'],
+            'trigger_type' => $validated['trigger_type'],
+            'match_type' => $validated['match_type'],
+            'keywords' => $keywords,
+            'reply_text' => $validated['reply_text'],
+            'private_dm_text' => $validated['private_dm_text'] ?? null,
+            'priority' => $validated['priority'] ?? 10,
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', 'تم إضافة قاعدة الرد التلقائي بنجاح.');
+    }
+
+    /**
+     * Update an existing static auto-reply rule.
+     */
+    public function updateAutoReplyRule(Request $request, Business $business, AutoReplyRule $rule): RedirectResponse
+    {
+        $this->authorizeBusiness($request, $business);
+
+        if ($rule->business_id !== $business->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:191'],
+            'platform' => ['required', 'in:all,whatsapp,facebook,instagram,telegram,tiktok'],
+            'trigger_type' => ['required', 'in:keyword,welcome,fallback,comment'],
+            'match_type' => ['required', 'in:exact,contains,starts_with'],
+            'keywords' => ['nullable', 'string'],
+            'reply_text' => ['required', 'string', 'max:5000'],
+            'private_dm_text' => ['nullable', 'string', 'max:5000'],
+            'priority' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $keywords = ! empty($validated['keywords'])
+            ? array_values(array_filter(array_map('trim', explode(',', $validated['keywords']))))
+            : null;
+
+        $rule->update([
+            'name' => $validated['name'],
+            'platform' => $validated['platform'],
+            'trigger_type' => $validated['trigger_type'],
+            'match_type' => $validated['match_type'],
+            'keywords' => $keywords,
+            'reply_text' => $validated['reply_text'],
+            'private_dm_text' => $validated['private_dm_text'] ?? null,
+            'priority' => $validated['priority'] ?? 10,
+        ]);
+
+        return back()->with('success', 'تم تعديل قاعدة الرد التلقائي بنجاح.');
+    }
+
+    /**
+     * Toggle auto-reply rule active state.
+     */
+    public function toggleAutoReplyRule(Request $request, Business $business, AutoReplyRule $rule): JsonResponse
+    {
+        $this->authorizeBusiness($request, $business);
+
+        if ($rule->business_id !== $business->id) {
+            abort(403);
+        }
+
+        $rule->update(['is_active' => ! $rule->is_active]);
+
+        return response()->json([
+            'status' => 'success',
+            'is_active' => $rule->is_active,
+        ]);
+    }
+
+    /**
+     * Delete an auto-reply rule.
+     */
+    public function deleteAutoReplyRule(Request $request, Business $business, AutoReplyRule $rule): RedirectResponse
+    {
+        $this->authorizeBusiness($request, $business);
+
+        if ($rule->business_id !== $business->id) {
+            abort(403);
+        }
+
+        $rule->delete();
+
+        return back()->with('success', 'تم حذف قاعدة الرد بنجاح.');
     }
 
     /**

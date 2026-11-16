@@ -31,6 +31,11 @@ import {
     Eye,
     EyeOff,
     ExternalLink,
+    Video,
+    Plus,
+    Trash2,
+    Edit,
+    X,
 } from 'lucide-vue-next';
 
 import ChannelGuideModal from '@/Components/ChannelGuideModal.vue';
@@ -42,6 +47,11 @@ const props = defineProps({
     facebook: Object,
     instagram: Object,
     telegram: Object,
+    tiktok: Object,
+    autoReplyRules: {
+        type: Array,
+        default: () => [],
+    },
     aiSetting: Object,
     sharedApiKey: String,
     metaAccounts: {
@@ -88,7 +98,7 @@ const aiForm = useForm({
     work_end_hour: props.aiSetting?.work_end_hour ?? 18,
     auto_reply_platforms: Array.isArray(props.aiSetting?.auto_reply_platforms)
         ? props.aiSetting.auto_reply_platforms
-        : ['whatsapp', 'facebook', 'instagram', 'telegram'],
+        : ['whatsapp', 'facebook', 'instagram', 'telegram', 'tiktok'],
     reply_delay_seconds: props.aiSetting?.reply_delay_seconds ?? 2,
 });
 
@@ -348,6 +358,105 @@ const disconnect = (channel) => {
         useForm({}).delete(route('channels.disconnect', [props.business.id, channel]));
     }
 };
+
+const connectTikTokOAuth = () => {
+    window.location.href = route('tiktok.redirect', props.business.id);
+};
+
+const disconnectTikTok = () => {
+    if (confirm('هل أنت متأكد من فصل حساب تيك توك للأعمال؟')) {
+        useForm({}).delete(route('tiktok.disconnect', props.business.id));
+    }
+};
+
+// TikTok Comment Form
+const tiktokCommentForm = useForm({
+    platform: 'tiktok',
+    comment_reply_enabled: Boolean(props.tiktok?.comment_reply_enabled),
+    comment_reply_text: props.tiktok?.comment_reply_text || 'شكراً لتواصلك معنا! راجع الرسائل الخاصة 📩',
+    dm_message_text: props.tiktok?.dm_message_text || 'أهلاً بك {name}! تفضل تفاصيل العرض والطلب المتاح حالياً...',
+    comment_keywords: Array.isArray(props.tiktok?.comment_keywords) ? props.tiktok.comment_keywords.join(', ') : (props.tiktok?.comment_keywords || ''),
+});
+
+const saveTikTokCommentSettings = () => {
+    tiktokCommentForm.post(route('channels.comment-settings.update', props.business.id), {
+        preserveScroll: true,
+    });
+};
+
+// Static Auto-Reply Rule Management
+const isRuleModalOpen = ref(false);
+const editingRuleId = ref(null);
+const ruleForm = useForm({
+    name: '',
+    platform: 'all',
+    trigger_type: 'keyword',
+    match_type: 'contains',
+    keywords: '',
+    reply_text: '',
+    private_dm_text: '',
+    priority: 10,
+});
+
+const openNewRuleModal = () => {
+    editingRuleId.value = null;
+    ruleForm.reset();
+    ruleForm.platform = 'all';
+    ruleForm.trigger_type = 'keyword';
+    ruleForm.match_type = 'contains';
+    ruleForm.priority = 10;
+    isRuleModalOpen.value = true;
+};
+
+const openEditRuleModal = (rule) => {
+    editingRuleId.value = rule.id;
+    ruleForm.name = rule.name;
+    ruleForm.platform = rule.platform;
+    ruleForm.trigger_type = rule.trigger_type;
+    ruleForm.match_type = rule.match_type;
+    ruleForm.keywords = Array.isArray(rule.keywords) ? rule.keywords.join(', ') : (rule.keywords || '');
+    ruleForm.reply_text = rule.reply_text;
+    ruleForm.private_dm_text = rule.private_dm_text || '';
+    ruleForm.priority = rule.priority ?? 10;
+    isRuleModalOpen.value = true;
+};
+
+const saveRule = () => {
+    if (editingRuleId.value) {
+        ruleForm.put(route('channels.auto-reply-rules.update', [props.business.id, editingRuleId.value]), {
+            preserveScroll: true,
+            onSuccess: () => {
+                isRuleModalOpen.value = false;
+            },
+        });
+    } else {
+        ruleForm.post(route('channels.auto-reply-rules.store', props.business.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                isRuleModalOpen.value = false;
+            },
+        });
+    }
+};
+
+const toggleRule = async (rule) => {
+    try {
+        const res = await axios.patch(route('channels.auto-reply-rules.toggle', [props.business.id, rule.id]));
+        if (res.data?.status === 'success') {
+            rule.is_active = res.data.is_active;
+        }
+    } catch (e) {
+        alert('تعذر تغيير حالة تفعيل القاعدة');
+    }
+};
+
+const deleteRule = (rule) => {
+    if (confirm(`هل أنت متأكد من حذف قاعدة الرد "${rule.name}"؟`)) {
+        useForm({}).delete(route('channels.auto-reply-rules.destroy', [props.business.id, rule.id]), {
+            preserveScroll: true,
+        });
+    }
+};
 </script>
 
 <template>
@@ -372,12 +481,14 @@ const disconnect = (channel) => {
                             <span>متجر: {{ business.name }}</span>
                         </div>
                         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                            {{ activeTab === 'channels' ? 'ربط القنوات والمنصات' : 'إعدادات المساعد الذكي والبرومبت' }}
+                            {{ activeTab === 'channels' ? 'ربط القنوات والمنصات' : (activeTab === 'ai' ? 'إعدادات المساعد الذكي والبرومبت' : 'قواعد الرد الآلي المخصصة') }}
                         </h1>
                         <p class="mt-1 text-sm text-slate-400">
                             {{ activeTab === 'channels'
-                                ? `قم بربط وتفعيل حسابات واتساب، تيليجرام، فيسبوك، وإنستجرام لمتجر ${business.name}.`
-                                : `تخصيص البرومبت، النبرة، وقواعد الرد الآلي بالذكاء الاصطناعي لمتجر ${business.name}.` }}
+                                ? `قم بربط وتفعيل حسابات واتساب، تيليجرام، فيسبوك، إنستجرام، وتيك توك لمتجر ${business.name}.`
+                                : (activeTab === 'ai'
+                                    ? `تخصيص البرومبت، النبرة، وقواعد الرد الآلي بالذكاء الاصطناعي لمتجر ${business.name}.`
+                                    : `إدارة قواعد الرد بالكلمات الدلالية، الردود التلقائية، ورسائل التعليقات لمتجر ${business.name}.`) }}
                         </p>
                     </div>
 
@@ -402,7 +513,7 @@ const disconnect = (channel) => {
                 </div>
 
                 <!-- Navigation Tabs -->
-                <div class="mt-6 flex items-center gap-3 border-b border-slate-800 pt-2">
+                <div class="mt-6 flex items-center gap-2 sm:gap-3 border-b border-slate-800 pt-2 overflow-x-auto scrollbar-none whitespace-nowrap">
                     <button
                         type="button"
                         @click="activeTab = 'channels'"
@@ -430,6 +541,21 @@ const disconnect = (channel) => {
                             :class="aiForm.ai_enabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'"
                         >
                             {{ aiForm.ai_enabled ? 'مفعل' : 'معطل' }}
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="activeTab = 'auto_reply'"
+                        class="cursor-pointer inline-flex items-center gap-2.5 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition"
+                        :class="activeTab === 'auto_reply'
+                            ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10 rounded-t-xl shadow-sm'
+                            : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-t-xl'"
+                    >
+                        <Zap class="w-4 h-4 text-emerald-400" />
+                        <span>الردود الآلية الثابتة (Auto-Reply)</span>
+                        <span class="px-2 py-0.5 text-[10px] rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                            {{ autoReplyRules?.length || 0 }}
                         </span>
                     </button>
                 </div>
@@ -1055,6 +1181,133 @@ const disconnect = (channel) => {
                     </div>
                 </div>
 
+                <!-- 5. TikTok Business Card -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between lg:col-span-2">
+                    <div>
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-12 h-12 rounded-xl bg-cyan-950/40 text-cyan-400 flex items-center justify-center font-bold border border-cyan-800/40 shrink-0">
+                                    <Video class="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-base text-white">تيك توك للأعمال (TikTok Business)</h3>
+                                    <p class="text-xs text-slate-400">ربط مباشر للرسائل الخاصة والرد التلقائي على التعليقات عبر TikTok OAuth v2</p>
+                                </div>
+                            </div>
+
+                            <span
+                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shrink-0"
+                                :class="tiktok && tiktok.status === 'connected'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-700'"
+                            >
+                                <span class="w-2 h-2 rounded-full" :class="tiktok && tiktok.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-500'"></span>
+                                {{ tiktok && tiktok.status === 'connected' ? 'متصل بنجاح' : 'غير متصل' }}
+                            </span>
+                        </div>
+
+                        <!-- Connected View -->
+                        <div v-if="tiktok && tiktok.status === 'connected'" class="mt-6 space-y-6">
+                            <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between flex-wrap gap-4">
+                                <div class="flex items-center gap-3">
+                                    <img
+                                        v-if="tiktok.avatar_url"
+                                        :src="tiktok.avatar_url"
+                                        class="w-10 h-10 rounded-full border border-slate-700 object-cover"
+                                    />
+                                    <div v-else class="w-10 h-10 rounded-full bg-cyan-600/30 text-cyan-400 flex items-center justify-center font-bold">
+                                        TT
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-sm text-white">{{ tiktok.display_name || tiktok.username || 'حساب تيك توك' }}</div>
+                                        <div class="text-xs font-mono text-cyan-400">@{{ tiktok.username || tiktok.open_id }}</div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    @click="disconnectTikTok"
+                                    class="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/30 transition"
+                                >
+                                    فصل حساب تيك توك
+                                </button>
+                            </div>
+
+                            <!-- Comment Settings Form -->
+                            <div class="pt-4 border-t border-slate-800/80">
+                                <h4 class="text-xs font-bold text-white mb-3">إعدادات الرد التلقائي على تعليقات تيك توك:</h4>
+                                <form @submit.prevent="saveTikTokCommentSettings" class="space-y-3">
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="tiktok_comment_reply_enabled"
+                                            v-model="tiktokCommentForm.comment_reply_enabled"
+                                            class="rounded bg-slate-950 border-slate-700 text-cyan-600 focus:ring-cyan-500"
+                                        />
+                                        <label for="tiktok_comment_reply_enabled" class="text-xs font-semibold text-slate-300 cursor-pointer">
+                                            تفعيل الرد التلقائي العام والخاص على تعليقات فيديوهات تيك توك
+                                        </label>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[11px] font-bold text-slate-300">الرد العام على التعليق:</label>
+                                        <input
+                                            type="text"
+                                            v-model="tiktokCommentForm.comment_reply_text"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                                            placeholder="شكراً لتعليقك! تم الرد في الخاص 📩"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[11px] font-bold text-slate-300">الرسالة الخاصة في الدايركت (Direct DM):</label>
+                                        <textarea
+                                            v-model="tiktokCommentForm.dm_message_text"
+                                            rows="2"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                                            placeholder="أهلاً بك {name}! تفضل تفاصيل المنتج والعرض المتاح حالياً..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[11px] font-bold text-slate-300">فلتر الكلمات المفتاحية (اختياري):</label>
+                                        <input
+                                            type="text"
+                                            v-model="tiktokCommentForm.comment_keywords"
+                                            class="mt-1 block w-full rounded-xl text-xs px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                                            placeholder="سعر, بكام, تفاصيل (اتركه فارغاً للرد على الجميع)"
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        :disabled="tiktokCommentForm.processing"
+                                        class="cursor-pointer py-2.5 px-4 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition flex items-center justify-center gap-1.5 shadow-sm"
+                                    >
+                                        <Save class="w-3.5 h-3.5" />
+                                        <span>{{ tiktokCommentForm.processing ? 'جاري الحفظ...' : 'حفظ إعدادات تعليقات تيك توك' }}</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Disconnected State -->
+                        <div v-else class="mt-6 flex flex-col items-center justify-center p-8 rounded-xl bg-slate-950/40 border border-slate-800/80 text-center space-y-4">
+                            <p class="text-xs text-slate-400 max-w-md">
+                                قم بربط حساب تيك توك للأعمال للمزامنة الفورية للرسائل، استقبال استفسارات العملاء، والرد الآلي على تعليقات الفيديوهات بضغطة زر واحدة.
+                            </p>
+                            <button
+                                type="button"
+                                @click="connectTikTokOAuth"
+                                class="cursor-pointer inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/20 transition"
+                            >
+                                <Video class="w-4 h-4" />
+                                <span>تسجيل الدخول والربط عبر TikTok OAuth</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <!-- AI Assistant Settings Panel -->
@@ -1329,7 +1582,7 @@ const disconnect = (channel) => {
                             <label class="block text-xs font-bold text-slate-300 mb-3">
                                 تفعيل الرد الآلي على القنوات التالية لمتجر {{ business.name }}:
                             </label>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                                 <button
                                     type="button"
                                     @click="toggleAiPlatform('whatsapp')"
@@ -1376,6 +1629,18 @@ const disconnect = (channel) => {
                                 >
                                     <span>إنستجرام (Direct)</span>
                                     <CheckCircle2 v-if="aiForm.auto_reply_platforms.includes('instagram')" class="w-4 h-4 text-pink-400" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="toggleAiPlatform('tiktok')"
+                                    class="p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition cursor-pointer"
+                                    :class="aiForm.auto_reply_platforms.includes('tiktok')
+                                        ? 'bg-cyan-950/30 border-cyan-500/60 text-cyan-300'
+                                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                                >
+                                    <span>تيك توك (TikTok)</span>
+                                    <CheckCircle2 v-if="aiForm.auto_reply_platforms.includes('tiktok')" class="w-4 h-4 text-cyan-400" />
                                 </button>
                             </div>
                         </div>
@@ -1435,6 +1700,315 @@ const disconnect = (channel) => {
                             <Loader2 v-if="aiForm.processing" class="w-4 h-4 animate-spin" />
                             <Save v-else class="w-4 h-4" />
                             <span>{{ aiForm.processing ? 'جاري الحفظ...' : `حفظ إعدادات المساعد لمتجر ${business.name}` }}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- TAB 3: Static & Keyword Auto-Reply Rules -->
+            <div v-else-if="activeTab === 'auto_reply'" class="max-w-5xl mx-auto space-y-6">
+                <!-- Header Banner -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            <Zap class="w-5 h-5 text-amber-400" />
+                            <span>قواعد الرد الآلي الذكية والكلمات الدلالية</span>
+                            <span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono">
+                                {{ autoReplyRules?.length || 0 }} قواعد
+                            </span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                            تُنفذ هذه القواعد ذات الأولوية أولاً قبل استهلاك رصيد الذكاء الاصطناعي. يمكنك ضبط ردود فورية على استفسارات الأسعار، الشحن، الترحيب، أو التعليقات العامة.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        @click="openNewRuleModal"
+                        class="cursor-pointer shrink-0 inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 transition active:scale-95"
+                    >
+                        <Plus class="w-4 h-4" />
+                        <span>إضافة قاعدة رد جديدة</span>
+                    </button>
+                </div>
+
+                <!-- Empty State -->
+                <div
+                    v-if="!autoReplyRules || autoReplyRules.length === 0"
+                    class="bg-slate-900/60 border border-dashed border-slate-800 rounded-2xl p-12 text-center"
+                >
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4">
+                        <Sparkles class="w-7 h-7" />
+                    </div>
+                    <h3 class="text-sm font-bold text-white">لا توجد أي قواعد رد مضافة لمتجر {{ business.name }}</h3>
+                    <p class="text-xs text-slate-400 mt-1.5 max-w-md mx-auto leading-relaxed">
+                        أضف قاعدتك الأولى لتوفير استهلاك رصيد الذكاء الاصطناعي والرد الفوري بدقة على استفسارات الأسعار والعروض والترحيب.
+                    </p>
+                    <button
+                        type="button"
+                        @click="openNewRuleModal"
+                        class="cursor-pointer mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition"
+                    >
+                        <Plus class="w-4 h-4" />
+                        <span>إنشاء أول قاعدة الآن</span>
+                    </button>
+                </div>
+
+                <!-- Rules List -->
+                <div v-else class="space-y-4">
+                    <div
+                        v-for="rule in autoReplyRules"
+                        :key="rule.id"
+                        class="bg-slate-900 border rounded-2xl p-5 transition shadow-lg hover:border-slate-700"
+                        :class="rule.is_active ? 'border-slate-800' : 'border-slate-800/60 opacity-60'"
+                    >
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                            <div class="flex items-center gap-2.5 flex-wrap">
+                                <span class="font-bold text-sm text-white">{{ rule.name }}</span>
+
+                                <!-- Platform Badge -->
+                                <span
+                                    class="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                                    :class="{
+                                        'bg-slate-800 text-slate-300': rule.platform === 'all',
+                                        'bg-emerald-950/60 text-emerald-300 border border-emerald-800/40': rule.platform === 'whatsapp',
+                                        'bg-sky-950/60 text-sky-300 border border-sky-800/40': rule.platform === 'telegram',
+                                        'bg-blue-950/60 text-blue-300 border border-blue-800/40': rule.platform === 'facebook',
+                                        'bg-pink-950/60 text-pink-300 border border-pink-800/40': rule.platform === 'instagram',
+                                        'bg-cyan-950/60 text-cyan-300 border border-cyan-800/40': rule.platform === 'tiktok',
+                                    }"
+                                >
+                                    {{ rule.platform === 'all' ? 'جميع المنصات' : rule.platform }}
+                                </span>
+
+                                <!-- Trigger Type Badge -->
+                                <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium">
+                                    {{
+                                        rule.trigger_type === 'keyword' ? 'كلمة دلالية' :
+                                        rule.trigger_type === 'welcome' ? 'ترحيب عميل جديد' :
+                                        rule.trigger_type === 'fallback' ? 'رد بديل (خارج التغطية)' : 'رد على تعليق'
+                                    }}
+                                </span>
+
+                                <span v-if="rule.match_type && rule.trigger_type !== 'welcome' && rule.trigger_type !== 'fallback'" class="text-[10px] font-mono text-slate-500">
+                                    [{{ rule.match_type }}]
+                                </span>
+
+                                <span class="text-[10px] font-mono text-amber-400/80 bg-amber-950/40 px-1.5 py-0.5 rounded">
+                                    أولوية: {{ rule.priority }}
+                                </span>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                                <!-- Active Toggle -->
+                                <button
+                                    type="button"
+                                    @click="toggleRule(rule)"
+                                    class="cursor-pointer text-xs font-semibold px-2.5 py-1 rounded-lg transition"
+                                    :class="rule.is_active ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-800/50' : 'bg-slate-800 text-slate-400'"
+                                >
+                                    {{ rule.is_active ? 'مفعلة' : 'معطلة' }}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="openEditRuleModal(rule)"
+                                    class="cursor-pointer p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                                    title="تعديل القاعدة"
+                                >
+                                    <Edit class="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="deleteRule(rule)"
+                                    class="cursor-pointer p-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-400 hover:text-red-200 transition"
+                                    title="حذف القاعدة"
+                                >
+                                    <Trash2 class="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Keywords Pills -->
+                        <div v-if="rule.keywords && rule.keywords.length > 0" class="mt-3 flex items-center gap-1.5 flex-wrap">
+                            <span class="text-[11px] text-slate-500">الكلمات:</span>
+                            <span
+                                v-for="(kw, idx) in rule.keywords"
+                                :key="idx"
+                                class="text-[11px] font-mono bg-slate-950 border border-slate-800 text-slate-300 px-2 py-0.5 rounded-md"
+                            >
+                                {{ kw }}
+                            </span>
+                        </div>
+
+                        <!-- Reply Body Preview -->
+                        <div class="mt-3 grid grid-cols-1 gap-2 text-xs">
+                            <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl text-slate-300 whitespace-pre-line leading-relaxed font-sans">
+                                <span class="text-[10px] block text-slate-500 font-bold mb-1">
+                                    {{ rule.trigger_type === 'comment' ? 'نص الرد العام على التعليق:' : 'نص الرد التلقائي:' }}
+                                </span>
+                                {{ rule.reply_text }}
+                            </div>
+
+                            <div v-if="rule.private_dm_text" class="p-3 bg-slate-950/70 border border-cyan-900/40 rounded-xl text-cyan-200 whitespace-pre-line leading-relaxed font-sans">
+                                <span class="text-[10px] block text-cyan-500 font-bold mb-1">نص الرسالة الخاصة (DM):</span>
+                                {{ rule.private_dm_text }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add / Edit Rule Modal -->
+        <div
+            v-if="isRuleModalOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto"
+            @click.self="isRuleModalOpen = false"
+        >
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-5 my-8">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <Zap class="w-4 h-4 text-amber-400" />
+                        <span>{{ editingRuleId ? 'تعديل قاعدة الرد الآلي' : 'إضافة قاعدة رد آلي جديدة' }}</span>
+                    </h3>
+                    <button
+                        type="button"
+                        @click="isRuleModalOpen = false"
+                        class="cursor-pointer text-slate-400 hover:text-white p-1 rounded-lg transition"
+                    >
+                        <X class="w-5 h-5" />
+                    </button>
+                </div>
+
+                <form @submit.prevent="saveRule" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">اسم القاعدة *</label>
+                        <input
+                            type="text"
+                            v-model="ruleForm.name"
+                            required
+                            placeholder="مثال: استفسار الأسعار / تفاصيل الشحن / ترحيب"
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                        />
+                        <InputError class="mt-1" :message="ruleForm.errors.name" />
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1.5">القناة المستهدفة</label>
+                            <select
+                                v-model="ruleForm.platform"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                            >
+                                <option value="all">جميع المنصات (All)</option>
+                                <option value="whatsapp">واتساب (WhatsApp)</option>
+                                <option value="telegram">تيليجرام (Telegram)</option>
+                                <option value="facebook">فيسبوك (Facebook)</option>
+                                <option value="instagram">إنستجرام (Instagram)</option>
+                                <option value="tiktok">تيك توك (TikTok)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1.5">نوع المشغل</label>
+                            <select
+                                v-model="ruleForm.trigger_type"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                            >
+                                <option value="keyword">كلمات دلالية (Keyword)</option>
+                                <option value="welcome">رسالة ترحيب (First Contact)</option>
+                                <option value="fallback">رد بديل خارج التغطية (Fallback)</option>
+                                <option value="comment">رد على تعليق منشور (Comment)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="ruleForm.trigger_type === 'keyword' || ruleForm.trigger_type === 'comment'"
+                        class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                    >
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1.5">نوع التطابق</label>
+                            <select
+                                v-model="ruleForm.match_type"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                            >
+                                <option value="contains">يتضمن الكلمة (Contains)</option>
+                                <option value="exact">تطابق تام للرسالة (Exact)</option>
+                                <option value="starts_with">تبدأ بالكلمة (Starts With)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1.5">الأولوية (الأعلى أولاً)</label>
+                            <input
+                                type="number"
+                                v-model.number="ruleForm.priority"
+                                min="0"
+                                max="1000"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                            />
+                        </div>
+                    </div>
+
+                    <div v-if="ruleForm.trigger_type === 'keyword' || ruleForm.trigger_type === 'comment'">
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">
+                            الكلمات الدلالية (مفصولة بفواصل) *
+                        </label>
+                        <input
+                            type="text"
+                            v-model="ruleForm.keywords"
+                            placeholder="مثال: سعر, اسعار, كام, بكام, السعر"
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                        />
+                        <p class="text-[11px] text-slate-500 mt-1">اكتب الكلمات الدلالية التي تُشغل هذا الرد مفصولة بفاصلة (، أو ,).</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">
+                            {{ ruleForm.trigger_type === 'comment' ? 'نص الرد العام على التعليق *' : 'نص الرد التلقائي *' }}
+                        </label>
+                        <textarea
+                            v-model="ruleForm.reply_text"
+                            rows="4"
+                            required
+                            placeholder="اكتب رسالة الرد المباشرة التي ترسل للعميل..."
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                        ></textarea>
+                    </div>
+
+                    <div v-if="ruleForm.trigger_type === 'comment'">
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">
+                            نص الرسالة الخاصة (Private DM)
+                        </label>
+                        <textarea
+                            v-model="ruleForm.private_dm_text"
+                            rows="3"
+                            placeholder="مرحباً {name}! تفضل تفاصيل المنتج على الخاص..."
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                        ></textarea>
+                        <p class="text-[11px] text-slate-500 mt-1">يتم إرسال هذه الرسالة في الخاص (DM) لصاحب التعليق عند إتاحة المنصة ذلك.</p>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                        <button
+                            type="button"
+                            @click="isRuleModalOpen = false"
+                            class="cursor-pointer px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition"
+                        >
+                            إلغاء
+                        </button>
+
+                        <button
+                            type="submit"
+                            :disabled="ruleForm.processing"
+                            class="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition disabled:opacity-50"
+                        >
+                            <Loader2 v-if="ruleForm.processing" class="w-4 h-4 animate-spin" />
+                            <span>{{ ruleForm.processing ? 'جاري الحفظ...' : (editingRuleId ? 'تحديث القاعدة' : 'إنشاء القاعدة') }}</span>
                         </button>
                     </div>
                 </form>

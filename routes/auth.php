@@ -32,6 +32,13 @@ Route::middleware('guest')->group(function () {
     Route::get('auth/facebook/callback', [SocialAuthController::class, 'handleFacebookCallback'])
         ->name('auth.facebook.callback');
 
+    // Google Social Auth
+    Route::get('auth/google/redirect', [SocialAuthController::class, 'redirectToGoogle'])
+        ->name('auth.google.redirect');
+
+    Route::get('auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback'])
+        ->name('auth.google.callback');
+
     // Team Member Login
     Route::get('team/login', [TeamAuthenticatedSessionController::class, 'create'])
         ->name('team.login');

@@ -1,13 +1,11 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
     LayoutDashboard,
-    Repeat,
-    Send,
     Inbox,
     Users,
     Store,
@@ -23,9 +21,9 @@ import {
     LogOut,
     User,
     Crown,
-    Wallet,
     PanelRightClose,
     PanelRightOpen,
+    Download,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -48,6 +46,27 @@ const toggleSidebar = () => {
 
 const isMobileNavOpen = ref(false);
 const isBusinessDropdownOpen = ref(false);
+
+const deferredInstallPrompt = ref(null);
+const canInstallPwa = ref(false);
+
+onMounted(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt.value = e;
+        canInstallPwa.value = true;
+    });
+});
+
+const installPwa = async () => {
+    if (!deferredInstallPrompt.value) return;
+    deferredInstallPrompt.value.prompt();
+    const { outcome } = await deferredInstallPrompt.value.userChoice;
+    if (outcome === 'accepted') {
+        canInstallPwa.value = false;
+        deferredInstallPrompt.value = null;
+    }
+};
 const switchingBusinessId = ref(null);
 
 const toggleBusinessDropdown = () => {
@@ -104,7 +123,7 @@ watch(
 <template>
     <div
         class="flex bg-slate-950 text-slate-100 font-sans"
-        :class="fullHeight ? 'h-screen overflow-hidden' : 'min-h-screen'"
+        :class="fullHeight ? 'h-screen h-[100dvh] overflow-hidden' : 'min-h-screen'"
     >
         <!-- ======================================================== -->
         <!-- 1. DESKTOP SIDE NAVIGATION PANEL (Linear / Stripe Style) -->
@@ -228,85 +247,6 @@ watch(
                         <LayoutDashboard class="w-4 h-4 shrink-0" />
                         <span>لوحة المؤشرات</span>
                     </Link>
-
-                    <Link
-                        :href="route('retargeting.index')"
-                        class="flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium transition"
-                        :class="route().current('retargeting.*') ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
-                    >
-                        <Repeat class="w-4 h-4 shrink-0" />
-                        <div class="flex items-center justify-between flex-1">
-                            <span>إعادة الاستهداف</span>
-                            <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400">4 قنوات</span>
-                        </div>
-                    </Link>
-
-                    <!-- Bulk Senders Navigation -->
-                    <div class="pt-2">
-                        <span class="px-2 text-[10px] font-mono font-semibold text-slate-500 uppercase tracking-wider block mb-1">
-                            الإرسال الجماعي (Bulk Senders)
-                        </span>
-
-                        <Link
-                            :href="route('whatsapp-sender.index')"
-                            class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg font-medium transition text-xs"
-                            :class="route().current('whatsapp-sender.*') ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
-                        >
-                            <Send class="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-                            <div class="flex items-center justify-between flex-1">
-                                <span>واتساب (WhatsApp)</span>
-                                <span class="text-[9px] font-mono px-1 rounded bg-emerald-500/10 text-emerald-400">wa.me</span>
-                            </div>
-                        </Link>
-
-                        <Link
-                            :href="route('telegram-sender.index')"
-                            class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg font-medium transition text-xs"
-                            :class="route().current('telegram-sender.*') ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
-                        >
-                            <Send class="w-3.5 h-3.5 shrink-0 text-sky-400" />
-                            <div class="flex items-center justify-between flex-1">
-                                <span>تيليجرام (Telegram)</span>
-                                <span class="text-[9px] font-mono px-1 rounded bg-sky-500/10 text-sky-400">CSV</span>
-                            </div>
-                        </Link>
-
-                        <Link
-                            :href="route('facebook-sender.index')"
-                            class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg font-medium transition text-xs"
-                            :class="route().current('facebook-sender.*') ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
-                        >
-                            <Send class="w-3.5 h-3.5 shrink-0 text-blue-400" />
-                            <div class="flex items-center justify-between flex-1">
-                                <span>فيسبوك (Facebook)</span>
-                                <span class="text-[9px] font-mono px-1 rounded bg-blue-500/10 text-blue-400">CSV</span>
-                            </div>
-                        </Link>
-
-                        <Link
-                            :href="route('instagram-sender.index')"
-                            class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg font-medium transition text-xs"
-                            :class="route().current('instagram-sender.*') ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
-                        >
-                            <Send class="w-3.5 h-3.5 shrink-0 text-pink-400" />
-                            <div class="flex items-center justify-between flex-1">
-                                <span>إنستجرام (Instagram)</span>
-                                <span class="text-[9px] font-mono px-1 rounded bg-pink-500/10 text-pink-400">CSV</span>
-                            </div>
-                        </Link>
-
-                        <Link
-                            :href="route('wallet.index')"
-                            class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg font-medium transition text-xs mt-1 border border-slate-800/80 bg-slate-950/40"
-                            :class="route().current('wallet.*') ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-emerald-300 hover:bg-slate-800/60'"
-                        >
-                            <Wallet class="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                            <div class="flex items-center justify-between flex-1">
-                                <span>محفظة رصيد الرسائل</span>
-                                <span class="text-[9px] font-mono px-1 rounded bg-amber-500/20 text-amber-300 font-bold">شحن</span>
-                            </div>
-                        </Link>
-                    </div>
                 </div>
 
                 <!-- Group 2: Unified Communications -->
@@ -392,6 +332,39 @@ watch(
                 </div>
             </div>
 
+            <!-- PWA Install Prompt (if available) -->
+            <div v-if="canInstallPwa" class="px-3 pt-2">
+                <button
+                    type="button"
+                    @click="installPwa"
+                    class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg transition cursor-pointer"
+                >
+                    <Download class="w-4 h-4" />
+                    <span>تثبيت التطبيق على الهاتف</span>
+                </button>
+            </div>
+
+            <!-- Message Quota Progress Bar -->
+            <div v-if="$page.props.message_quota" class="p-3 border-t border-slate-800/80 bg-slate-950/40 text-[11px]">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-slate-400 font-medium">كوتة الرسائل الشهرية</span>
+                    <span class="font-mono font-bold text-white">
+                        {{ $page.props.message_quota.is_unlimited ? 'غير محدودة' : `${$page.props.message_quota.used} / ${$page.props.message_quota.limit || 0}` }}
+                    </span>
+                </div>
+                <div v-if="!$page.props.message_quota.is_unlimited" class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div
+                        class="h-full rounded-full transition-all duration-300"
+                        :class="($page.props.message_quota.used / ($page.props.message_quota.limit || 1)) >= 0.9 ? 'bg-rose-500' : 'bg-blue-500'"
+                        :style="{ width: Math.min(100, Math.round(($page.props.message_quota.used / ($page.props.message_quota.limit || 1)) * 100)) + '%' }"
+                    ></div>
+                </div>
+                <div v-if="!$page.props.message_quota.is_unlimited && $page.props.message_quota.remaining !== null" class="flex justify-between text-[9px] text-slate-500 mt-1">
+                    <span>متبقي: {{ $page.props.message_quota.remaining }} رسالة</span>
+                    <span v-if="$page.props.message_quota.resets_at">تتجدد: {{ $page.props.message_quota.resets_at }}</span>
+                </div>
+            </div>
+
             <!-- Footer: User Profile & Logout -->
             <div class="p-3 border-t border-slate-800/80 bg-slate-900/60">
                 <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800">
@@ -433,23 +406,27 @@ watch(
         <!-- ======================================================== -->
         <!-- 2. MOBILE TOP BAR & SLIDE-OVER DRAWER -->
         <!-- ======================================================== -->
-        <div class="md:hidden fixed top-0 inset-x-0 z-40 bg-slate-900 border-b border-slate-800 h-14 flex items-center justify-between px-4">
+        <div class="md:hidden fixed top-0 inset-x-0 z-40 bg-slate-900 border-b border-slate-800 h-14 flex items-center justify-between px-3">
             <button
                 type="button"
                 @click="isMobileNavOpen = !isMobileNavOpen"
-                class="p-2 text-slate-300 hover:text-white cursor-pointer"
+                class="p-2 -ms-1 text-slate-300 hover:text-white rounded-lg active:bg-slate-800 cursor-pointer"
+                aria-label="القائمة الرئيسية"
             >
-                <Menu class="w-5 h-5" />
+                <Menu class="w-6 h-6" />
             </button>
 
             <Link :href="route('dashboard')" class="flex items-center gap-2">
                 <ApplicationLogo class="h-6 w-auto text-blue-500" />
-                <span class="font-bold text-sm text-white">VERTEX</span>
+                <span class="font-black text-sm tracking-tight text-white">VERTEX</span>
             </Link>
 
-            <span class="text-xs font-mono text-slate-400 truncate max-w-[120px]">
-                {{ $page.props.currentBusiness?.name || '' }}
-            </span>
+            <div class="flex items-center gap-1.5 min-w-0 max-w-[120px]">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                <span class="text-xs font-bold text-slate-300 truncate">
+                    {{ $page.props.currentBusiness?.name || 'اختر المتجر' }}
+                </span>
+            </div>
         </div>
 
         <!-- Mobile Drawer Backdrop & Menu -->
@@ -457,42 +434,46 @@ watch(
             v-if="isMobileNavOpen"
             class="md:hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex"
         >
-            <div class="w-64 bg-slate-900 border-e border-slate-800 h-full flex flex-col p-4 space-y-4">
+            <div class="w-72 max-w-[80vw] bg-slate-900 border-e border-slate-800 h-full flex flex-col p-4 space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                     <div class="flex items-center gap-2">
                         <ApplicationLogo class="h-6 w-auto text-blue-500" />
-                        <span class="font-bold text-sm text-white">VERTEX</span>
+                        <span class="font-black text-sm text-white">VERTEX</span>
                     </div>
                     <button
                         type="button"
                         @click="isMobileNavOpen = false"
-                        class="p-1 text-slate-400 hover:text-white"
+                        class="p-1.5 text-slate-400 hover:text-white rounded-lg active:bg-slate-800"
                     >
                         <X class="w-5 h-5" />
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto space-y-2 text-xs">
+                <!-- Mobile Business Switcher -->
+                <div v-if="$page.props.businesses && $page.props.businesses.length > 1" class="border-b border-slate-800 pb-3">
+                    <label class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1.5">تبديل المتجر</label>
+                    <div class="max-h-32 overflow-y-auto space-y-1">
+                        <button
+                            v-for="b in $page.props.businesses"
+                            :key="b.id"
+                            type="button"
+                            @click="switchBusiness(b.id)"
+                            class="w-full flex items-center justify-between p-2 rounded-lg text-xs transition text-start"
+                            :class="$page.props.currentBusiness?.id === b.id ? 'bg-blue-600 text-white font-bold' : 'text-slate-300 hover:bg-slate-800'"
+                        >
+                            <span class="truncate">{{ b.name }}</span>
+                            <Check v-if="$page.props.currentBusiness?.id === b.id" class="w-3.5 h-3.5 shrink-0" />
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto space-y-1.5 text-xs">
                     <Link
                         :href="route('dashboard')"
                         @click="isMobileNavOpen = false"
                         class="block p-2.5 rounded-lg text-slate-300 hover:bg-slate-800 font-bold"
                     >
                         لوحة المؤشرات
-                    </Link>
-                    <Link
-                        :href="route('retargeting.index')"
-                        @click="isMobileNavOpen = false"
-                        class="block p-2.5 rounded-lg text-slate-300 hover:bg-slate-800 font-bold"
-                    >
-                        إعادة الاستهداف
-                    </Link>
-                    <Link
-                        :href="route('whatsapp-sender.index')"
-                        @click="isMobileNavOpen = false"
-                        class="block p-2.5 rounded-lg text-slate-300 hover:bg-slate-800 font-bold"
-                    >
-                        مرسل واتساب CSV
                     </Link>
                     <Link
                         :href="route('inbox.index')"
@@ -539,6 +520,22 @@ watch(
                         class="block p-2.5 rounded-lg text-slate-300 hover:bg-slate-800 font-bold text-amber-300"
                     >
                         المساعد الذكي (AI)
+                    </Link>
+                    <Link
+                        v-if="$page.props.auth.is_owner"
+                        :href="route('subscription.index')"
+                        @click="isMobileNavOpen = false"
+                        class="block p-2.5 rounded-lg text-slate-300 hover:bg-slate-800 font-bold"
+                    >
+                        الاشتراك والباقات
+                    </Link>
+                    <Link
+                        v-if="$page.props.auth.is_super_admin"
+                        :href="route('superadmin.index')"
+                        @click="isMobileNavOpen = false"
+                        class="block p-2.5 rounded-lg text-amber-400 hover:bg-amber-500/10 font-bold border border-amber-500/30"
+                    >
+                        لوحة الإدارة العليا (Super Admin)
                     </Link>
                 </div>
 
@@ -606,10 +603,63 @@ watch(
             <!-- Page Main Content Slot -->
             <main
                 class="flex-1 flex flex-col min-w-0"
-                :class="fullHeight ? 'min-h-0 overflow-hidden' : 'overflow-y-auto'"
+                :class="fullHeight ? 'min-h-0 overflow-hidden' : 'overflow-y-auto pb-16 md:pb-0'"
             >
                 <slot />
             </main>
         </div>
+
+        <!-- ======================================================== -->
+        <!-- 4. MOBILE BOTTOM NAVIGATION BAR (md:hidden) -->
+        <!-- ======================================================== -->
+        <nav
+            class="md:hidden fixed bottom-0 inset-x-0 h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 z-40 flex items-center justify-around px-2 pb-safe"
+        >
+            <Link
+                :href="route('dashboard')"
+                class="flex flex-col items-center justify-center gap-1 flex-1 py-1 transition"
+                :class="route().current('dashboard') ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'"
+            >
+                <LayoutDashboard class="w-5 h-5" />
+                <span class="text-[10px]">الرئيسية</span>
+            </Link>
+
+            <Link
+                :href="route('inbox.index')"
+                class="flex flex-col items-center justify-center gap-1 flex-1 py-1 transition relative"
+                :class="route().current('inbox.*') ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'"
+            >
+                <Inbox class="w-5 h-5" />
+                <span class="text-[10px]">الوارد</span>
+            </Link>
+
+            <Link
+                v-if="$page.props.currentBusiness"
+                :href="route('channels.index', $page.props.currentBusiness.id)"
+                class="flex flex-col items-center justify-center gap-1 flex-1 py-1 transition"
+                :class="route().current('channels.*') ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'"
+            >
+                <Radio class="w-5 h-5" />
+                <span class="text-[10px]">القنوات</span>
+            </Link>
+
+            <Link
+                :href="route('contacts.index')"
+                class="flex flex-col items-center justify-center gap-1 flex-1 py-1 transition"
+                :class="route().current('contacts.*') ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'"
+            >
+                <Users class="w-5 h-5" />
+                <span class="text-[10px]">العملاء</span>
+            </Link>
+
+            <button
+                type="button"
+                @click="isMobileNavOpen = true"
+                class="flex flex-col items-center justify-center gap-1 flex-1 py-1 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+            >
+                <Menu class="w-5 h-5" />
+                <span class="text-[10px]">المزيد</span>
+            </button>
+        </nav>
     </div>
 </template>

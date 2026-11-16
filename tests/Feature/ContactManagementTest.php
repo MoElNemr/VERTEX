@@ -120,4 +120,25 @@ class ContactManagementTest extends TestCase
         $this->assertStringContainsString('text/csv', $res->headers->get('Content-Type'));
         $this->assertStringContainsString('attachment;', $res->headers->get('Content-Disposition'));
     }
+
+    public function test_user_can_manually_create_contact(): void
+    {
+        $res = $this->actingAs($this->owner)
+            ->withSession(['current_business_id' => $this->business->id])
+            ->post(route('contacts.store'), [
+                'name' => 'Tarek Nour',
+                'platform' => 'whatsapp',
+                'phone' => '+201011223344',
+                'email' => 'tarek@example.com',
+                'tags' => ['جديد'],
+            ]);
+
+        $res->assertRedirect();
+        $this->assertDatabaseHas('contacts', [
+            'business_id' => $this->business->id,
+            'name' => 'Tarek Nour',
+            'platform' => 'whatsapp',
+            'phone' => '201011223344',
+        ]);
+    }
 }
