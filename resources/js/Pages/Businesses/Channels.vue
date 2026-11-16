@@ -83,14 +83,11 @@ const openGuideModal = (channel) => {
     showGuideModal.value = true;
 };
 
-// AI Settings Form (Direct to GROQ)
+// AI Settings Form (Powered by Centralized GROQ)
 const aiForm = useForm({
     ai_enabled: Boolean(props.aiSetting?.ai_enabled ?? props.aiSetting?.is_enabled),
     provider: 'groq',
     ai_model: props.aiSetting?.ai_model || props.aiSetting?.model || 'llama-3.3-70b-versatile',
-    api_key: props.aiSetting?.api_key || '',
-    apply_to_all_stores: false,
-    clear_api_key: false,
     ai_personality: props.aiSetting?.ai_personality || '',
     ai_instructions: props.aiSetting?.ai_instructions || props.aiSetting?.system_prompt || '',
     working_hours_only: Boolean(props.aiSetting?.working_hours_only),
@@ -101,12 +98,6 @@ const aiForm = useForm({
         : ['whatsapp', 'facebook', 'instagram', 'telegram', 'tiktok'],
     reply_delay_seconds: props.aiSetting?.reply_delay_seconds ?? 2,
 });
-
-const useSharedKey = () => {
-    if (props.sharedApiKey) {
-        aiForm.api_key = props.sharedApiKey;
-    }
-};
 
 const saveAiSettings = () => {
     aiForm.post(route('ai-settings.update', props.business.id), {
@@ -190,6 +181,7 @@ const connectInstagram = () => {
 const fbCommentForm = useForm({
     platform: 'facebook',
     comment_reply_enabled: Boolean(props.facebook?.comment_reply_enabled),
+    comment_reply_mode: props.facebook?.comment_reply_mode || 'fixed',
     comment_reply_text: props.facebook?.comment_reply_text || 'تم الرد على الخاص بنجاح! راجع رسائلك 📩',
     dm_message_text: props.facebook?.dm_message_text || 'أهلاً بك {name}! بخصوص استفسارك على المنشور، تفضل تفاصيل العرض...',
     comment_keywords: Array.isArray(props.facebook?.comment_keywords) ? props.facebook.comment_keywords.join(', ') : (props.facebook?.comment_keywords || ''),
@@ -198,6 +190,7 @@ const fbCommentForm = useForm({
 const igCommentForm = useForm({
     platform: 'instagram',
     comment_reply_enabled: Boolean(props.instagram?.comment_reply_enabled),
+    comment_reply_mode: props.instagram?.comment_reply_mode || 'fixed',
     comment_reply_text: props.instagram?.comment_reply_text || 'تم الرد في الخاص بنجاح! راجع الدايركت 📩',
     dm_message_text: props.instagram?.dm_message_text || 'مرحباً {name}! تفضل تفاصيل المنتج والعرض المتاح حالياً...',
     comment_keywords: Array.isArray(props.instagram?.comment_keywords) ? props.instagram.comment_keywords.join(', ') : (props.instagram?.comment_keywords || ''),
@@ -373,6 +366,7 @@ const disconnectTikTok = () => {
 const tiktokCommentForm = useForm({
     platform: 'tiktok',
     comment_reply_enabled: Boolean(props.tiktok?.comment_reply_enabled),
+    comment_reply_mode: props.tiktok?.comment_reply_mode || 'fixed',
     comment_reply_text: props.tiktok?.comment_reply_text || 'شكراً لتواصلك معنا! راجع الرسائل الخاصة 📩',
     dm_message_text: props.tiktok?.dm_message_text || 'أهلاً بك {name}! تفضل تفاصيل العرض والطلب المتاح حالياً...',
     comment_keywords: Array.isArray(props.tiktok?.comment_keywords) ? props.tiktok.comment_keywords.join(', ') : (props.tiktok?.comment_keywords || ''),
@@ -964,7 +958,32 @@ const deleteRule = (rule) => {
                                 </div>
 
                                 <form @submit.prevent="saveFbCommentSettings" class="space-y-3">
+                                    <!-- Comment Reply Mode: Fixed vs AI -->
                                     <div>
+                                        <label class="block text-[11px] font-bold text-slate-300 mb-1.5">أسلوب الرد على التعليق:</label>
+                                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
+                                            <label
+                                                class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition select-none font-semibold text-[11px]"
+                                                :class="fbCommentForm.comment_reply_mode === 'fixed' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'"
+                                            >
+                                                <input type="radio" value="fixed" v-model="fbCommentForm.comment_reply_mode" class="sr-only" />
+                                                <span>📝 نص ثابت</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition select-none font-semibold text-[11px]"
+                                                :class="fbCommentForm.comment_reply_mode === 'ai' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'"
+                                            >
+                                                <input type="radio" value="ai" v-model="fbCommentForm.comment_reply_mode" class="sr-only" />
+                                                <Sparkles class="w-3.5 h-3.5" />
+                                                <span>🤖 ذكاء اصطناعي (AI)</span>
+                                            </label>
+                                        </div>
+                                        <p v-if="fbCommentForm.comment_reply_mode === 'ai'" class="mt-1.5 text-[10px] text-purple-300 bg-purple-950/40 p-2 rounded-lg border border-purple-800/40">
+                                            💡 يتولى Groq AI تحليل التعليق تلقائياً والرد بلباقة ودعوة العميل للتفاصيل في الخاص.
+                                        </p>
+                                    </div>
+
+                                    <div v-if="fbCommentForm.comment_reply_mode === 'fixed'">
                                         <div class="flex items-center justify-between">
                                             <label class="text-[11px] font-bold text-slate-300">الرد العام على التعليق في البوست</label>
                                             <span class="text-[10px] text-slate-500 font-mono">يدعم {name}</span>
@@ -1131,7 +1150,32 @@ const deleteRule = (rule) => {
                                 </div>
 
                                 <form @submit.prevent="saveIgCommentSettings" class="space-y-3">
+                                    <!-- Comment Reply Mode: Fixed vs AI -->
                                     <div>
+                                        <label class="block text-[11px] font-bold text-slate-300 mb-1.5">أسلوب الرد على التعليق:</label>
+                                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
+                                            <label
+                                                class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition select-none font-semibold text-[11px]"
+                                                :class="igCommentForm.comment_reply_mode === 'fixed' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'"
+                                            >
+                                                <input type="radio" value="fixed" v-model="igCommentForm.comment_reply_mode" class="sr-only" />
+                                                <span>📝 نص ثابت</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition select-none font-semibold text-[11px]"
+                                                :class="igCommentForm.comment_reply_mode === 'ai' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'"
+                                            >
+                                                <input type="radio" value="ai" v-model="igCommentForm.comment_reply_mode" class="sr-only" />
+                                                <Sparkles class="w-3.5 h-3.5" />
+                                                <span>🤖 ذكاء اصطناعي (AI)</span>
+                                            </label>
+                                        </div>
+                                        <p v-if="igCommentForm.comment_reply_mode === 'ai'" class="mt-1.5 text-[10px] text-purple-300 bg-purple-950/40 p-2 rounded-lg border border-purple-800/40">
+                                            💡 يتولى Groq AI تحليل التعليق تلقائياً والرد بلباقة ودعوة العميل للرسائل الخاصة.
+                                        </p>
+                                    </div>
+
+                                    <div v-if="igCommentForm.comment_reply_mode === 'fixed'">
                                         <div class="flex items-center justify-between">
                                             <label class="text-[11px] font-bold text-slate-300">الرد العام على التعليق في المنشور</label>
                                             <span class="text-[10px] text-slate-500 font-mono">يدعم {name} أو {username}</span>
@@ -1249,7 +1293,32 @@ const deleteRule = (rule) => {
                                         </label>
                                     </div>
 
+                                    <!-- Comment Reply Mode: Fixed vs AI -->
                                     <div>
+                                        <label class="block text-[11px] font-bold text-slate-300 mb-1.5">أسلوب الرد على التعليق:</label>
+                                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
+                                            <label
+                                                class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition select-none font-semibold text-[11px]"
+                                                :class="tiktokCommentForm.comment_reply_mode === 'fixed' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'"
+                                            >
+                                                <input type="radio" value="fixed" v-model="tiktokCommentForm.comment_reply_mode" class="sr-only" />
+                                                <span>📝 نص ثابت</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition select-none font-semibold text-[11px]"
+                                                :class="tiktokCommentForm.comment_reply_mode === 'ai' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'"
+                                            >
+                                                <input type="radio" value="ai" v-model="tiktokCommentForm.comment_reply_mode" class="sr-only" />
+                                                <Sparkles class="w-3.5 h-3.5" />
+                                                <span>🤖 ذكاء اصطناعي (AI)</span>
+                                            </label>
+                                        </div>
+                                        <p v-if="tiktokCommentForm.comment_reply_mode === 'ai'" class="mt-1.5 text-[10px] text-purple-300 bg-purple-950/40 p-2 rounded-lg border border-purple-800/40">
+                                            💡 يتولى Groq AI تحليل تعليق تيك توك والرد بلباقة ودعوة العميل للتواصل في الخاص.
+                                        </p>
+                                    </div>
+
+                                    <div v-if="tiktokCommentForm.comment_reply_mode === 'fixed'">
                                         <label class="text-[11px] font-bold text-slate-300">الرد العام على التعليق:</label>
                                         <input
                                             type="text"
@@ -1428,80 +1497,26 @@ const deleteRule = (rule) => {
                             <p class="text-xs text-slate-400 mt-0.5">اتصال سحابي فائق السرعة عبر محركات GROQ</p>
                         </div>
 
-                        <!-- Groq API Key Section -->
-                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                <label class="text-xs font-bold text-slate-200 flex items-center gap-2">
-                                    <Key class="w-4 h-4 text-amber-400" />
-                                    مفتاح Groq API للمتجر (Groq API Key)
-                                    <span v-if="aiForm.api_key" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        <CheckCircle2 class="w-3 h-3" />
-                                        المفتاح محدد
-                                    </span>
-                                    <span v-else class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                        مطلوب للربط المباشر
-                                    </span>
-                                </label>
-                                <a
-                                    href="https://console.groq.com/keys"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="text-[11px] text-violet-400 hover:text-violet-300 inline-flex items-center gap-1 transition"
-                                >
-                                    <span>إنشاء مفتاح مجاني من console.groq.com</span>
-                                    <ExternalLink class="w-3 h-3" />
-                                </a>
-                            </div>
-
-                            <div class="relative">
-                                <input
-                                    :type="showApiKey ? 'text' : 'password'"
-                                    v-model="aiForm.api_key"
-                                    placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                    class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 pe-12 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"
-                                />
-                                <div class="absolute inset-y-0 end-0 pe-2.5 flex items-center">
-                                    <button
-                                        type="button"
-                                        @click="showApiKey = !showApiKey"
-                                        class="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                                        :title="showApiKey ? 'إخفاء المفتاح' : 'إظهار المفتاح'"
-                                    >
-                                        <EyeOff v-if="showApiKey" class="w-3.5 h-3.5" />
-                                        <Eye v-else class="w-3.5 h-3.5" />
-                                    </button>
+                        <!-- Centralized Groq Cloud AI Infrastructure Banner -->
+                        <div class="bg-gradient-to-r from-violet-950/50 via-slate-950 to-slate-950 border border-violet-800/40 rounded-xl p-4 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
+                                        <Sparkles class="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h4 class="text-xs font-bold text-white flex items-center gap-2">
+                                            <span>محرك الذكاء الاصطناعي المركزي (Groq Cloud AI)</span>
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                                مفتاح مدمج ومستضاف من المنصة
+                                            </span>
+                                        </h4>
+                                        <p class="text-[11px] text-slate-400 mt-0.5">
+                                            مفاتيح واتصالات Groq السحابية مدارة مركزياً من لوحة الإدارة العليا ومتاحة لمتجرك مباشرة عبر حصة رسائل الـ AI.
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            <InputError class="mt-1" :message="aiForm.errors.api_key" />
-
-                            <!-- Notice that key is not unique and can be shared across all user stores -->
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
-                                <p>
-                                    💡 كل متجر يمتلك إعداداته المستقلة، ويمكنك استخدام نفس مفتاح Groq لجميع متاجرك بكل سهولة.
-                                </p>
-                                <button
-                                    v-if="sharedApiKey && !aiForm.api_key"
-                                    type="button"
-                                    @click="useSharedKey"
-                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-950/60 hover:bg-violet-900/80 text-violet-300 border border-violet-700/50 text-[11px] font-semibold transition cursor-pointer shrink-0"
-                                >
-                                    <Sparkles class="w-3 h-3 text-violet-400" />
-                                    <span>استخدام نفس المفتاح المحفوظ في متجر آخر</span>
-                                </button>
-                            </div>
-
-                            <!-- Apply to all stores checkbox -->
-                            <div class="pt-2 border-t border-slate-900 flex items-center gap-2">
-                                <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        v-model="aiForm.apply_to_all_stores"
-                                        class="rounded bg-slate-900 border-slate-700 text-violet-600 focus:ring-violet-500"
-                                    />
-                                    <span class="text-xs font-medium text-slate-300">
-                                        تطبيق هذا المفتاح تلقائياً على كافة متاجري الأخرى
-                                    </span>
-                                </label>
                             </div>
                         </div>
 

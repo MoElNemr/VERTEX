@@ -15,6 +15,8 @@ class Subscription extends Model
         'status',
         'messages_limit',
         'messages_used',
+        'ai_messages_limit',
+        'ai_messages_used',
         'quota_resets_at',
         'starts_at',
         'ends_at',
@@ -23,6 +25,8 @@ class Subscription extends Model
     protected $casts = [
         'messages_limit' => 'integer',
         'messages_used' => 'integer',
+        'ai_messages_limit' => 'integer',
+        'ai_messages_used' => 'integer',
         'quota_resets_at' => 'datetime',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
@@ -35,6 +39,7 @@ class Subscription extends Model
                 $plan = $sub->relationLoaded('plan') ? $sub->plan : Plan::find($sub->plan_id);
                 if ($plan) {
                     $sub->messages_limit = $plan->monthly_message_quota;
+                    $sub->ai_messages_limit = $plan->monthly_ai_quota;
                 }
             }
             if (empty($sub->quota_resets_at)) {

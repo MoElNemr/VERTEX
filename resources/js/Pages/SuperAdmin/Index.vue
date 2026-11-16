@@ -137,6 +137,14 @@ const fawryForm = useForm({
     mode: props.appSettings?.fawry?.mode || props.fawrySettings?.mode || 'sandbox',
 });
 
+// 5. Groq Cloud AI Form
+const groqForm = useForm({
+    api_key: props.appSettings?.groq?.api_key || '',
+    model: props.appSettings?.groq?.model || 'llama-3.3-70b-versatile',
+    enabled: props.appSettings?.groq?.enabled ?? true,
+});
+const showGroqKey = ref(false);
+
 const copiedItem = ref(null);
 const copyText = (text, key) => {
     if (!text) return;
@@ -174,6 +182,14 @@ const submitFawryForm = () => {
         preserveScroll: true,
         onSuccess: () => showNotice('تم حفظ وتحديث إعدادات بوابة فوري بنجاح'),
         onError: () => showNotice('يرجى التأكد من صحة بيانات بوابة فوري', 'error'),
+    });
+};
+
+const submitGroqForm = () => {
+    groqForm.post(route('superadmin.settings.groq'), {
+        preserveScroll: true,
+        onSuccess: () => showNotice('تم حفظ وتحديث إعدادات Groq للذكاء الاصطناعي بنجاح'),
+        onError: () => showNotice('يرجى التحقق من إعدادات Groq المدخلة', 'error'),
     });
 };
 
@@ -385,6 +401,7 @@ const planForm = useForm({
     price_yearly: 290,
     max_businesses: 1,
     monthly_message_quota: '',
+    monthly_ai_quota: '',
     is_active: true,
 });
 
@@ -395,6 +412,7 @@ const openCreatePlanModal = () => {
     planForm.clearErrors();
     planForm.type = 'standard';
     planForm.monthly_message_quota = '';
+    planForm.monthly_ai_quota = '';
     planForm.is_active = true;
     planModalOpen.value = true;
 };
@@ -409,6 +427,7 @@ const openEditPlanModal = (p) => {
     planForm.price_yearly = p.price_yearly;
     planForm.max_businesses = p.max_businesses ?? '';
     planForm.monthly_message_quota = p.monthly_message_quota ?? '';
+    planForm.monthly_ai_quota = p.monthly_ai_quota ?? '';
     planForm.is_active = !!p.is_active;
     planModalOpen.value = true;
 };
@@ -658,7 +677,7 @@ const restartSession = async (sessionId) => {
                 >
                     <Key class="w-3.5 h-3.5 text-amber-400" />
                     <span>تطبيقات المنصات والربط (APPs)</span>
-                    <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300">4</span>
+                    <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300">5</span>
                 </button>
                 <button
                     type="button"
@@ -1332,6 +1351,98 @@ const restartSession = async (sessionId) => {
                     </form>
                 </div>
 
+                <!-- 5. GROQ CLOUD AI PLATFORM -->
+                <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-5 text-start">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold shrink-0">
+                                <Sparkles class="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span>محرك الذكاء الاصطناعي المركزي (Groq Cloud AI)</span>
+                                    <span
+                                        class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
+                                        :class="groqForm.api_key ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'"
+                                    >
+                                        {{ groqForm.api_key ? 'المفتاح مفعل وجاهز' : 'بانتظار إدخال المفتاح' }}
+                                    </span>
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    المفتاح المركزي الذي يغذي الردود الآلية وتلخيص المحادثات والرد على التعليقات لجميع المتاجر في النظام
+                                </p>
+                            </div>
+                        </div>
+
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                v-model="groqForm.enabled"
+                                class="sr-only peer"
+                            />
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            <span class="ms-3 text-xs font-semibold text-slate-300 select-none">
+                                {{ groqForm.enabled ? 'مفعل لكافة المتاجر' : 'معطل مؤقتاً' }}
+                            </span>
+                        </label>
+                    </div>
+
+                    <form @submit.prevent="submitGroqForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                                    مفتاح Groq API الرئيسي للمنصة (Groq API Key)
+                                </label>
+                                <div class="relative">
+                                    <input
+                                        v-model="groqForm.api_key"
+                                        :type="showGroqKey ? 'text' : 'password'"
+                                        class="w-full px-3 py-2 pe-10 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-purple-500 focus:ring-0 font-mono"
+                                        placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="showGroqKey = !showGroqKey"
+                                        class="absolute inset-y-0 end-0 pe-3 flex items-center text-slate-400 hover:text-slate-200"
+                                    >
+                                        <Eye v-if="!showGroqKey" class="w-4 h-4" />
+                                        <EyeOff v-else class="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                                    نموذج الذكاء الاصطناعي الافتراضي (Default Model)
+                                </label>
+                                <select
+                                    v-model="groqForm.model"
+                                    class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-purple-500 focus:ring-0"
+                                >
+                                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (الأفضل للأعمال واللغة العربية)</option>
+                                    <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (فائق السرعة)</option>
+                                    <option value="gemma2-9b-it">Google Gemma 2 9B IT</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs text-slate-400 space-y-1">
+                            <span class="font-bold text-purple-400">💡 تنبيه معماري:</span>
+                            <span>المتاجر لا يمكنها رؤية هذا المفتاح أو إضافة مفتاح خاص بها؛ استهلاك الردود الذكية يتم احتسابه من حصة رسائل الـ AI لكل متجر.</span>
+                        </div>
+
+                        <div class="pt-2 flex justify-end">
+                            <button
+                                type="submit"
+                                :disabled="groqForm.processing"
+                                class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-lg shadow-purple-600/20 disabled:opacity-50"
+                            >
+                                حفظ وتحديث إعدادات Groq AI
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
             </div>
 
             <!-- ========================================== -->
@@ -1693,6 +1804,10 @@ const restartSession = async (sessionId) => {
                             <div class="flex justify-between">
                                 <span class="text-slate-400">كوتة الرسائل:</span>
                                 <span class="font-bold font-mono text-emerald-400">{{ p.monthly_message_quota ? Number(p.monthly_message_quota).toLocaleString() + ' رسالة/شهر' : 'غير محدود' }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">كوتة الذكاء الاصطناعي:</span>
+                                <span class="font-bold font-mono text-purple-400">{{ p.monthly_ai_quota !== null && p.monthly_ai_quota !== undefined ? Number(p.monthly_ai_quota).toLocaleString() + ' رد AI' : 'غير محدود' }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-slate-400">المشتركين الحاليين:</span>
@@ -2104,13 +2219,24 @@ const restartSession = async (sessionId) => {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">كوتة الرسائل الشهرية (اتركه فارغاً لغير المحدود)</label>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">كوتة الرسائل الاعتيادية الشهرية (اتركه فارغاً لغير المحدود)</label>
                         <input
                             v-model="planForm.monthly_message_quota"
                             type="number"
                             min="1"
                             class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-500 focus:ring-0 font-mono"
                             placeholder="مثال: 1000"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">كوتة رسائل الذكاء الاصطناعي الشهرية (AI Quota)</label>
+                        <input
+                            v-model="planForm.monthly_ai_quota"
+                            type="number"
+                            min="0"
+                            class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-purple-500 focus:ring-0 font-mono"
+                            placeholder="مثال: 200 (أو اتركه فارغاً لغير المحدود، أو 0 لتعطيل الـ AI)"
                         />
                     </div>
 

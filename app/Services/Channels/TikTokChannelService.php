@@ -240,14 +240,49 @@ class TikTokChannelService implements ChannelServiceInterface
             ];
         }
 
-        // 4. Create Inbound Message
+        // 4. Create Inbound Message (Direct CDN media links, zero server disk exhaustion)
+        $rawType = strtolower($data['type'] ?? $data['message_type'] ?? '');
+        $mediaUrl = $data['media_url'] ?? $data['url'] ?? $data['image_url'] ?? null;
+        $msgType = 'text';
+
+        if ($mediaUrl || in_array($rawType, ['image', 'photo', 'audio', 'voice', 'video'], true)) {
+            if (str_contains($rawType, 'image') || str_contains($rawType, 'photo')) {
+                $msgType = 'image';
+            } elseif (str_contains($rawType, 'audio') || str_contains($rawType, 'voice')) {
+                $msgType = 'audio';
+            } elseif (str_contains($rawType, 'video')) {
+                $msgType = 'video';
+            }
+        }
+
+        if (empty($text)) {
+            $text = match ($msgType) {
+                'image' => '[صورة]',
+                'audio' => '[تسجيل صوتي]',
+                'video' => '[مقطع فيديو]',
+                default => '[رسالة وسائط]',
+            };
+        }
+
         $inboundMessage = $conversation->messages()->create([
             'sender_type' => 'contact',
             'body' => $text,
-            'type' => 'text',
+            'type' => $msgType,
             'status' => 'delivered',
             'platform_message_id' => $extMsgId,
+            'metadata' => [
+                'media_url' => $mediaUrl,
+                'raw_payload' => $data,
+            ],
         ]);
+
+        if ($mediaUrl) {
+            $inboundMessage->attachments()->create([
+                'file_path' => $mediaUrl,
+                'file_type' => $msgType,
+                'file_name' => $msgType === 'image' ? 'image.jpg' : ($msgType === 'audio' ? 'voice_note.mp3' : 'attachment'),
+            ]);
+        }
 
         $conversation->increment('unread_count');
         $conversation->update([

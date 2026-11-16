@@ -22,6 +22,7 @@ class FacebookAccount extends Model
         'granted_scopes',
         'status',
         'comment_reply_enabled',
+        'comment_reply_mode',
         'comment_reply_text',
         'dm_message_text',
         'comment_keywords',

@@ -222,6 +222,11 @@ class MetaChannelService implements ChannelServiceInterface
     /**
      * Handle incoming Meta Webhook payload for Facebook and Instagram (DMs & Comments).
      */
+    public function handleIncomingWebhook(Request $request, ?Business $business = null): array
+    {
+        return $this->handleWebhook($business, $request);
+    }
+
     public function handleWebhook(?Business $business, Request $request): array
     {
         $object = $request->input('object');
@@ -273,9 +278,38 @@ class MetaChannelService implements ChannelServiceInterface
                     continue;
                 }
 
-                $text = $messageData['text'] ?? '[مرفق وسائط]';
+                $text = $messageData['text'] ?? '';
                 $mid = (string) ($messageData['mid'] ?? '');
                 $platform = ($object === 'instagram') ? 'instagram' : 'facebook';
+
+                // Detect media attachments (Zero server disk exhaustion: Direct CDN links only)
+                $msgType = 'text';
+                $mediaUrl = null;
+                $attachments = $messageData['attachments'] ?? [];
+                if (! empty($attachments) && is_array($attachments)) {
+                    $firstAttachment = $attachments[0] ?? [];
+                    $rawType = strtolower($firstAttachment['type'] ?? '');
+                    $payloadUrl = $firstAttachment['payload']['url'] ?? null;
+                    if ($payloadUrl) {
+                        $mediaUrl = $payloadUrl;
+                        if (in_array($rawType, ['image', 'video'], true)) {
+                            $msgType = $rawType;
+                        } elseif (in_array($rawType, ['audio', 'voice'], true)) {
+                            $msgType = 'audio';
+                        } else {
+                            $msgType = 'document';
+                        }
+                    }
+                }
+
+                if (empty($text)) {
+                    $text = match ($msgType) {
+                        'image' => '[صورة]',
+                        'audio' => '[تسجيل صوتي]',
+                        'video' => '[مقطع فيديو]',
+                        default => '[مرفق وسائط]',
+                    };
+                }
 
                 $contactName = ($platform === 'instagram')
                     ? 'عميل إنستجرام '.substr($senderId, -4)
@@ -313,14 +347,23 @@ class MetaChannelService implements ChannelServiceInterface
                     'conversation_id' => $conversation->id,
                     'sender_type' => 'contact',
                     'platform_message_id' => $mid,
-                    'type' => 'text',
+                    'type' => $msgType,
                     'body' => $text,
                     'status' => 'delivered',
                     'metadata' => [
                         'meta_entry_id' => $entry['id'] ?? null,
                         'raw_event' => $event,
+                        'media_url' => $mediaUrl,
                     ],
                 ]);
+
+                if ($mediaUrl) {
+                    $message->attachments()->create([
+                        'file_path' => $mediaUrl,
+                        'file_type' => $msgType,
+                        'file_name' => $msgType === 'image' ? 'image.jpg' : ($msgType === 'audio' ? 'voice_note.m4a' : 'attachment'),
+                    ]);
+                }
 
                 $conversation->increment('unread_count');
                 $conversation->update([

@@ -15,6 +15,7 @@ class Plan extends Model
         'description',
         'max_businesses',
         'monthly_message_quota',
+        'monthly_ai_quota',
         'price_monthly',
         'price_yearly',
         'features',
@@ -24,6 +25,7 @@ class Plan extends Model
     protected $casts = [
         'max_businesses' => 'integer',
         'monthly_message_quota' => 'integer',
+        'monthly_ai_quota' => 'integer',
         'price_monthly' => 'decimal:2',
         'price_yearly' => 'decimal:2',
         'features' => 'array',

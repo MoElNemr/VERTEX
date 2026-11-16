@@ -184,11 +184,35 @@ class WhatsAppChannelService implements ChannelServiceInterface
     protected function handleIncomingMessage(Business $business, array $data): array
     {
         $fromJid = $data['from'] ?? null;
-        $text = $data['text'] ?? '[رسالة وسائط]';
+        $rawText = $data['text'] ?? '';
         $messageId = (string) ($data['message_id'] ?? ('WA_'.uniqid()));
         $pushName = $data['push_name'] ?? null;
         $isFromMe = ! empty($data['is_from_me']);
         $accountPhoneNumber = $data['account_phone_number'] ?? $business->whatsappAccount?->phone_number;
+
+        // Detect media attachments (Zero server disk exhaustion: Direct CDN links only)
+        $rawType = strtolower($data['type'] ?? $data['message_type'] ?? $data['messageType'] ?? '');
+        $mediaUrl = $data['media_url'] ?? $data['mediaUrl'] ?? $data['url'] ?? null;
+        $msgType = 'text';
+
+        if ($mediaUrl || in_array($rawType, ['image', 'audio', 'voice', 'ptt', 'video', 'document'], true)) {
+            if (str_contains($rawType, 'image')) {
+                $msgType = 'image';
+            } elseif (str_contains($rawType, 'audio') || str_contains($rawType, 'voice') || str_contains($rawType, 'ptt')) {
+                $msgType = 'audio';
+            } elseif (str_contains($rawType, 'video')) {
+                $msgType = 'video';
+            } else {
+                $msgType = 'document';
+            }
+        }
+
+        $text = ! empty($rawText) ? $rawText : match ($msgType) {
+            'image' => '[صورة]',
+            'audio' => '[تسجيل صوتي]',
+            'video' => '[مقطع فيديو]',
+            default => '[رسالة وسائط]',
+        };
 
         if (! $fromJid) {
             return ['status' => 'ignored', 'error' => 'No sender JID.'];
@@ -272,14 +296,23 @@ class WhatsAppChannelService implements ChannelServiceInterface
                     'conversation_id' => $conversation->id,
                     'sender_type' => $senderType,
                     'platform_message_id' => $messageId,
-                    'type' => 'text',
+                    'type' => $msgType,
                     'body' => $text,
                     'status' => 'delivered',
                     'metadata' => [
                         'raw_payload' => $data,
                         'is_from_me' => $isFromMe,
+                        'media_url' => $mediaUrl,
                     ],
                 ]);
+
+                if ($mediaUrl) {
+                    $message->attachments()->create([
+                        'file_path' => $mediaUrl,
+                        'file_type' => $msgType,
+                        'file_name' => $msgType === 'image' ? 'image.jpg' : ($msgType === 'audio' ? 'voice_note.ogg' : 'attachment'),
+                    ]);
+                }
 
                 // 4. Update Conversation stats
                 if (! $isFromMe) {

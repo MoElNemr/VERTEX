@@ -120,6 +120,11 @@ class SuperAdminController extends Controller
                 'enabled' => (bool) SystemSetting::get('google_auth_enabled', true),
                 'redirect_uri' => url('/auth/google/callback'),
             ],
+            'groq' => [
+                'api_key' => (string) SystemSetting::get('groq_api_key', config('services.groq.key') ?? env('GROQ_API_KEY', '')),
+                'model' => (string) SystemSetting::get('groq_model', 'llama-3.3-70b-versatile'),
+                'enabled' => (bool) SystemSetting::get('groq_enabled', true),
+            ],
             'fawry' => [
                 'merchant_code' => (string) SystemSetting::get('fawry_merchant_code', env('FAWRY_MERCHANT_CODE', '1014316')),
                 'security_key' => (string) SystemSetting::get('fawry_security_key', env('FAWRY_SECURITY_KEY', 'default_test_key')),
@@ -219,6 +224,24 @@ class SuperAdminController extends Controller
         SystemSetting::set('google_auth_enabled', $validated['enabled'], 'google');
 
         return back()->with('success', 'تم حفظ وتحديث إعدادات تطبيق Google بنجاح.');
+    }
+
+    /**
+     * Update Groq Cloud AI settings.
+     */
+    public function updateGroqSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'api_key' => ['nullable', 'string', 'max:255'],
+            'model' => ['required', 'string', 'max:100'],
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        SystemSetting::set('groq_api_key', trim($validated['api_key'] ?? ''), 'groq');
+        SystemSetting::set('groq_model', trim($validated['model']), 'groq');
+        SystemSetting::set('groq_enabled', $validated['enabled'], 'groq');
+
+        return back()->with('success', 'تم حفظ وتحديث إعدادات Groq للذكاء الاصطناعي بنجاح.');
     }
 
     /**
@@ -432,6 +455,7 @@ class SuperAdminController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
             'max_businesses' => ['nullable', 'integer', 'min:1'],
             'monthly_message_quota' => ['nullable', 'integer', 'min:1'],
+            'monthly_ai_quota' => ['nullable', 'integer', 'min:0'],
             'price_monthly' => ['required', 'numeric', 'min:0'],
             'price_yearly' => ['required', 'numeric', 'min:0'],
             'features' => ['nullable', 'array'],
@@ -444,6 +468,7 @@ class SuperAdminController extends Controller
             'description' => $validated['description'] ?? null,
             'max_businesses' => $validated['max_businesses'] ?: null,
             'monthly_message_quota' => ! empty($validated['monthly_message_quota']) ? (int) $validated['monthly_message_quota'] : null,
+            'monthly_ai_quota' => isset($validated['monthly_ai_quota']) && $validated['monthly_ai_quota'] !== '' ? (int) $validated['monthly_ai_quota'] : null,
             'price_monthly' => $validated['price_monthly'],
             'price_yearly' => $validated['price_yearly'],
             'features' => $validated['features'] ?? [],
@@ -464,6 +489,7 @@ class SuperAdminController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
             'max_businesses' => ['nullable', 'integer', 'min:1'],
             'monthly_message_quota' => ['nullable', 'integer', 'min:1'],
+            'monthly_ai_quota' => ['nullable', 'integer', 'min:0'],
             'price_monthly' => ['required', 'numeric', 'min:0'],
             'price_yearly' => ['required', 'numeric', 'min:0'],
             'features' => ['nullable', 'array'],
@@ -476,6 +502,7 @@ class SuperAdminController extends Controller
             'description' => $validated['description'] ?? null,
             'max_businesses' => $validated['max_businesses'] ?: null,
             'monthly_message_quota' => ! empty($validated['monthly_message_quota']) ? (int) $validated['monthly_message_quota'] : null,
+            'monthly_ai_quota' => isset($validated['monthly_ai_quota']) && $validated['monthly_ai_quota'] !== '' ? (int) $validated['monthly_ai_quota'] : null,
             'price_monthly' => $validated['price_monthly'],
             'price_yearly' => $validated['price_yearly'],
             'features' => $validated['features'] ?? [],

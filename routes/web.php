@@ -6,6 +6,7 @@ use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GuideController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\MetaOAuthController;
 use App\Http\Controllers\ProfileController;
@@ -106,6 +107,9 @@ Route::middleware(['auth:web,team', 'active_subscription'])->group(function () {
     Route::get('/subscription', [SubscriptionController::class, 'index'])->name('subscription.index');
     Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
     Route::post('/subscription/simulate', [SubscriptionController::class, 'simulatePayment'])->name('subscription.simulate');
+
+    // System User Guide & Knowledge Base
+    Route::get('/guide', [GuideController::class, 'index'])->name('guide.index');
 });
 
 // Super Admin Dedicated Auth (Master Control)
@@ -144,6 +148,7 @@ Route::middleware(['super_admin'])->prefix('admin')->name('superadmin.')->group(
     Route::post('/settings/meta', [SuperAdminController::class, 'updateMetaSettings'])->name('settings.meta');
     Route::post('/settings/tiktok', [SuperAdminController::class, 'updateTikTokSettings'])->name('settings.tiktok');
     Route::post('/settings/google', [SuperAdminController::class, 'updateGoogleSettings'])->name('settings.google');
+    Route::post('/settings/groq', [SuperAdminController::class, 'updateGroqSettings'])->name('settings.groq');
 
     // System Cache & Optimizations
     Route::post('/system/optimize', [SuperAdminController::class, 'clearSystemCache'])->name('system.optimize');

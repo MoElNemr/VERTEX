@@ -639,25 +639,41 @@ const platformsList = computed(() => {
                         </div>
 
                         <div class="mt-3.5 space-y-2.5 text-xs">
+                            <!-- 1. Regular Messages Quota -->
                             <div class="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800/80">
                                 <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                    <span class="text-slate-400">المستهلك من الباقة:</span>
+                                    <span class="text-slate-400">الرسائل الاعتيادية (بشري + ردود):</span>
                                     <span class="font-mono font-bold text-white">
                                         {{ quota.used }} / {{ quota.is_unlimited ? '∞' : (quota.limit || 0) }}
                                     </span>
                                 </div>
                                 <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                                     <div
-                                        class="h-full bg-emerald-500 transition-all duration-500"
+                                        class="h-full bg-blue-500 transition-all duration-500"
                                         :style="{ width: quota.is_unlimited ? '10%' : Math.min(100, Math.round(((quota.used || 0) / (quota.limit || 1)) * 100)) + '%' }"
                                     ></div>
                                 </div>
                             </div>
 
-                            <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
-                                <span>الرسائل المتبقية في الباقة:</span>
-                                <span class="font-mono font-bold text-emerald-400">{{ quota.is_unlimited ? 'غير محدود' : (quota.remaining ?? 0) }} رسالة</span>
+                            <!-- 2. AI Messages Quota -->
+                            <div class="p-2.5 rounded-lg bg-slate-950/70 border border-purple-800/40">
+                                <div class="flex items-center justify-between text-[11px] mb-1.5">
+                                    <span class="text-purple-300 flex items-center gap-1">
+                                        <Sparkles class="w-3 h-3 text-purple-400" />
+                                        <span>رسائل الذكاء الاصطناعي (Groq AI):</span>
+                                    </span>
+                                    <span class="font-mono font-bold text-purple-200">
+                                        {{ quota.ai_used || 0 }} / {{ quota.ai_is_unlimited ? '∞' : (quota.ai_limit || 0) }}
+                                    </span>
+                                </div>
+                                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                        class="h-full bg-purple-500 transition-all duration-500"
+                                        :style="{ width: quota.ai_is_unlimited ? '10%' : Math.min(100, Math.round(((quota.ai_used || 0) / (quota.ai_limit || 1)) * 100)) + '%' }"
+                                    ></div>
+                                </div>
                             </div>
+
                             <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
                                 <span>تاريخ تجديد الباقة:</span>
                                 <span class="font-mono text-slate-300">{{ quota.resets_at || 'نهاية دورة الفاتورة' }}</span>

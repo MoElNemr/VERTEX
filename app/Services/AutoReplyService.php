@@ -81,13 +81,17 @@ class AutoReplyService
             $allowedPlatforms = $aiSetting->auto_reply_platforms ?? ['whatsapp', 'facebook', 'instagram', 'telegram', 'tiktok'];
             if (in_array($platform, $allowedPlatforms, true)) {
                 if (! $aiSetting->working_hours_only || $this->isWithinWorkingHours($aiSetting)) {
-                    if (! empty($aiSetting->reply_delay_seconds) && $aiSetting->reply_delay_seconds > 0 && $aiSetting->reply_delay_seconds <= 3) {
-                        sleep((int) $aiSetting->reply_delay_seconds);
-                    }
+                    if ($owner && ! $this->quotaService->canSendAi($owner, 1)) {
+                        Log::info("AI Auto-reply skipped: AI message quota exhausted for business {$business->id}");
+                    } else {
+                        if (! empty($aiSetting->reply_delay_seconds) && $aiSetting->reply_delay_seconds > 0 && $aiSetting->reply_delay_seconds <= 3) {
+                            sleep((int) $aiSetting->reply_delay_seconds);
+                        }
 
-                    $aiReplyText = $this->aiService->autoReply($conversation, $aiSetting, $text);
-                    if ($aiReplyText) {
-                        return $this->dispatchBotReply($conversation, $aiReplyText, 'AI Assistant auto-reply');
+                        $aiReplyText = $this->aiService->autoReply($conversation, $aiSetting, $text);
+                        if ($aiReplyText) {
+                            return $this->dispatchBotReply($conversation, $aiReplyText, 'AI Assistant auto-reply', true);
+                        }
                     }
                 }
             }
@@ -116,6 +120,7 @@ class AutoReplyService
 
     /**
      * Process an inbound comment and trigger comment reply + optional private DM.
+     * Supports both AI generated replies (via Groq) and fixed keyword/template replies.
      */
     public function handleInboundComment(
         Business $business,
@@ -128,8 +133,57 @@ class AutoReplyService
         ?callable $privateDmSender = null
     ): bool {
         $owner = $business->user;
-        if (! $owner || ! $this->quotaService->canSend($owner, 1)) {
-            Log::info("Comment auto-reply skipped for business {$business->id}: quota exhausted or no owner.");
+        if (! $owner) {
+            return false;
+        }
+
+        $account = match ($platform) {
+            'facebook' => $business->facebookAccount,
+            'instagram' => $business->instagramAccount,
+            'tiktok' => $business->tiktokAccount,
+            default => null,
+        };
+
+        $isAiMode = ($account && $account->comment_reply_mode === 'ai');
+
+        // Mode 1: AI Generated Reply (via Centralized Groq)
+        if ($isAiMode) {
+            if (! $this->quotaService->canSendAi($owner, 1)) {
+                Log::info("Comment AI reply skipped for business {$business->id}: AI quota exhausted.");
+
+                return false;
+            }
+
+            $aiReplyText = $this->aiService->generateCommentReply($commentText, $commenterName, $platform, $business->aiSetting);
+            if (! $aiReplyText) {
+                return false;
+            }
+
+            $publicSuccess = $publicReplySender($aiReplyText);
+            if ($publicSuccess) {
+                $this->quotaService->consumeQuota(
+                    $owner,
+                    $business->id,
+                    $platform,
+                    1,
+                    "AI Comment auto-reply to {$commenterName}",
+                    true
+                );
+
+                if (! empty($account?->dm_message_text) && $privateDmSender) {
+                    $dmText = $this->interpolate($account->dm_message_text, $commenterName, $platform);
+                    $privateDmSender($dmText);
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        // Mode 2: Fixed Text Reply
+        if (! $this->quotaService->canSend($owner, 1, false)) {
+            Log::info("Comment auto-reply skipped for business {$business->id}: regular quota exhausted.");
 
             return false;
         }
@@ -152,12 +206,22 @@ class AutoReplyService
             }
         }
 
-        if (! $matchedRule) {
+        $replyText = null;
+        $dmText = null;
+        if ($matchedRule) {
+            $replyText = $matchedRule->reply_text;
+            $dmText = $matchedRule->private_dm_text;
+        } elseif (! empty($account?->comment_reply_text)) {
+            $replyText = $account->comment_reply_text;
+            $dmText = $account->dm_message_text;
+        }
+
+        if (! $replyText) {
             return false;
         }
 
-        $replyText = $this->interpolate($matchedRule->reply_text, $commenterName, $platform);
-        $publicSuccess = $publicReplySender($replyText);
+        $interpolatedReply = $this->interpolate($replyText, $commenterName, $platform);
+        $publicSuccess = $publicReplySender($interpolatedReply);
 
         if ($publicSuccess) {
             $this->quotaService->consumeQuota(
@@ -165,13 +229,14 @@ class AutoReplyService
                 $business->id,
                 $platform,
                 1,
-                "Comment auto-reply to {$commenterName}"
+                "Comment auto-reply to {$commenterName}",
+                false
             );
 
             // Optional private DM
-            if (! empty($matchedRule->private_dm_text) && $privateDmSender) {
-                $dmText = $this->interpolate($matchedRule->private_dm_text, $commenterName, $platform);
-                $privateDmSender($dmText);
+            if (! empty($dmText) && $privateDmSender) {
+                $interpolatedDm = $this->interpolate($dmText, $commenterName, $platform);
+                $privateDmSender($interpolatedDm);
             }
 
             return true;
@@ -183,7 +248,7 @@ class AutoReplyService
     /**
      * Dispatch and record a bot reply message to the conversation.
      */
-    public function dispatchBotReply(Conversation $conversation, string $text, string $reason): Message
+    public function dispatchBotReply(Conversation $conversation, string $text, string $reason, bool $isAi = false): Message
     {
         $contact = $conversation->contact;
         $interpolatedText = $this->interpolate($text, $contact?->name, $conversation->platform);
@@ -193,7 +258,10 @@ class AutoReplyService
             'body' => $interpolatedText,
             'type' => 'text',
             'status' => 'sent',
-            'metadata' => ['trigger_reason' => $reason],
+            'metadata' => [
+                'trigger_reason' => $reason,
+                'is_ai' => $isAi,
+            ],
         ]);
 
         $conversation->update([

@@ -296,10 +296,13 @@ class ChannelController extends Controller
         $validated = $request->validate([
             'platform' => ['required', 'in:facebook,instagram,tiktok'],
             'comment_reply_enabled' => ['required', 'boolean'],
+            'comment_reply_mode' => ['nullable', 'in:fixed,ai'],
             'comment_reply_text' => ['nullable', 'string', 'max:1000'],
             'dm_message_text' => ['nullable', 'string', 'max:2000'],
             'comment_keywords' => ['nullable'],
         ]);
+
+        $replyMode = $validated['comment_reply_mode'] ?? 'fixed';
 
         $keywords = null;
         if (! empty($validated['comment_keywords'])) {
@@ -318,6 +321,7 @@ class ChannelController extends Controller
 
             $account->update([
                 'comment_reply_enabled' => $validated['comment_reply_enabled'],
+                'comment_reply_mode' => $replyMode,
                 'comment_reply_text' => $validated['comment_reply_text'],
                 'dm_message_text' => $validated['dm_message_text'],
                 'comment_keywords' => $keywords,
@@ -334,6 +338,7 @@ class ChannelController extends Controller
 
             $account->update([
                 'comment_reply_enabled' => $validated['comment_reply_enabled'],
+                'comment_reply_mode' => $replyMode,
                 'comment_reply_text' => $validated['comment_reply_text'],
                 'dm_message_text' => $validated['dm_message_text'],
                 'comment_keywords' => $keywords,
@@ -350,6 +355,7 @@ class ChannelController extends Controller
 
             $account->update([
                 'comment_reply_enabled' => $validated['comment_reply_enabled'],
+                'comment_reply_mode' => $replyMode,
                 'comment_reply_text' => $validated['comment_reply_text'],
                 'dm_message_text' => $validated['dm_message_text'],
                 'comment_keywords' => $keywords,

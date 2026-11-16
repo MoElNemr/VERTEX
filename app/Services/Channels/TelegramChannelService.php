@@ -123,7 +123,39 @@ class TelegramChannelService implements ChannelServiceInterface
             $name = $from['username'] ?? 'عميل تيليجرام '.substr($fromId, -4);
         }
 
-        $text = $telegramMessage['text'] ?? $telegramMessage['caption'] ?? '[مرفق بدون نص]';
+        // Detect media attachments (Zero server disk exhaustion: Direct CDN links only)
+        $msgType = 'text';
+        $mediaUrl = null;
+        $botToken = $business->telegramAccount?->bot_token;
+
+        if (! empty($telegramMessage['photo']) && is_array($telegramMessage['photo'])) {
+            $msgType = 'image';
+            $highestPhoto = end($telegramMessage['photo']);
+            $fileId = $highestPhoto['file_id'] ?? null;
+            if ($fileId && $botToken) {
+                $mediaUrl = $this->resolveTelegramFileUrl($botToken, $fileId);
+            }
+        } elseif (! empty($telegramMessage['voice']) || ! empty($telegramMessage['audio'])) {
+            $msgType = 'audio';
+            $voiceObj = $telegramMessage['voice'] ?? $telegramMessage['audio'];
+            $fileId = $voiceObj['file_id'] ?? null;
+            if ($fileId && $botToken) {
+                $mediaUrl = $this->resolveTelegramFileUrl($botToken, $fileId);
+            }
+        } elseif (! empty($telegramMessage['video'])) {
+            $msgType = 'video';
+            $fileId = $telegramMessage['video']['file_id'] ?? null;
+            if ($fileId && $botToken) {
+                $mediaUrl = $this->resolveTelegramFileUrl($botToken, $fileId);
+            }
+        }
+
+        $text = $telegramMessage['text'] ?? $telegramMessage['caption'] ?? match ($msgType) {
+            'image' => '[صورة]',
+            'audio' => '[تسجيل صوتي]',
+            'video' => '[مقطع فيديو]',
+            default => '[مرفق بدون نص]',
+        };
         $telegramMsgId = (string) ($telegramMessage['message_id'] ?? '');
 
         // 1. Find or create Contact
@@ -164,14 +196,23 @@ class TelegramChannelService implements ChannelServiceInterface
             'conversation_id' => $conversation->id,
             'sender_type' => 'contact',
             'platform_message_id' => $telegramMsgId,
-            'type' => 'text',
+            'type' => $msgType,
             'body' => $text,
             'status' => 'delivered',
             'metadata' => [
                 'telegram_update_id' => $data['update_id'] ?? null,
                 'raw_payload' => $telegramMessage,
+                'media_url' => $mediaUrl,
             ],
         ]);
+
+        if ($mediaUrl) {
+            $message->attachments()->create([
+                'file_path' => $mediaUrl,
+                'file_type' => $msgType,
+                'file_name' => $msgType === 'image' ? 'photo.jpg' : ($msgType === 'audio' ? 'voice_note.ogg' : 'attachment'),
+            ]);
+        }
 
         // 4. Update Conversation meta
         $conversation->increment('unread_count');
@@ -230,6 +271,29 @@ class TelegramChannelService implements ChannelServiceInterface
 
             return false;
         }
+    }
+
+    /**
+     * Resolve direct Telegram file CDN URL (Zero server disk exhaustion).
+     */
+    protected function resolveTelegramFileUrl(string $botToken, string $fileId): ?string
+    {
+        try {
+            $response = Http::timeout(5)->get("https://api.telegram.org/bot{$botToken}/getFile", [
+                'file_id' => $fileId,
+            ]);
+
+            if ($response->successful() && $response->json('ok')) {
+                $filePath = $response->json('result.file_path');
+                if (! empty($filePath)) {
+                    return "https://api.telegram.org/file/bot{$botToken}/{$filePath}";
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Telegram getFile resolution error: '.$e->getMessage());
+        }
+
+        return null;
     }
 
     /**

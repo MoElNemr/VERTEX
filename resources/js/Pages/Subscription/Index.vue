@@ -148,6 +148,12 @@ const simulatePayment = async () => {
                             {{ Number(activeSubscription.messages_used ?? 0).toLocaleString() }} / {{ Number(activeSubscription.messages_limit ?? currentPlan?.monthly_message_quota ?? 1000).toLocaleString() }}
                         </span>
                     </div>
+                    <div v-if="activeSubscription" class="mt-1 flex items-center justify-between gap-3 text-[11px]">
+                        <span class="text-slate-400">استهلاك الذكاء الاصطناعي:</span>
+                        <span class="font-mono font-bold text-purple-400">
+                            {{ Number(activeSubscription.ai_messages_used ?? 0).toLocaleString() }} / {{ activeSubscription.ai_messages_limit !== null && activeSubscription.ai_messages_limit !== undefined ? Number(activeSubscription.ai_messages_limit).toLocaleString() : 'غير محدود' }}
+                        </span>
+                    </div>
                     <span v-if="activeSubscription?.ends_at" class="text-[10px] text-slate-400 mt-1 block">
                         تنتهي في: {{ new Date(activeSubscription.ends_at).toLocaleDateString('ar-EG') }}
                     </span>
@@ -213,7 +219,11 @@ const simulatePayment = async () => {
                         <ul class="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
                             <li class="flex items-center gap-2">
                                 <Check class="w-4 h-4 text-emerald-400 shrink-0" />
-                                <span>{{ (plan.monthly_message_quota ?? 1000).toLocaleString() }} رسالة شهرياً (Inbound & Auto-Reply)</span>
+                                <span>{{ (plan.monthly_message_quota ?? 1000).toLocaleString() }} رسالة اعتيادية شهرياً</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <Sparkles class="w-4 h-4 text-purple-400 shrink-0" />
+                                <span class="text-purple-300 font-semibold">{{ plan.monthly_ai_quota !== null && plan.monthly_ai_quota !== undefined ? Number(plan.monthly_ai_quota).toLocaleString() + ' رد بالذكاء الاصطناعي (Groq AI)' : 'ذكاء اصطناعي غير محدود' }}</span>
                             </li>
                             <li class="flex items-center gap-2">
                                 <Check class="w-4 h-4 text-emerald-400 shrink-0" />

@@ -47,11 +47,12 @@ class ChannelManager
         $business = $conversation->business;
         $owner = $business?->user;
         $isCampaign = ! empty($message->metadata['campaign_id']);
+        $isAi = ! empty($message->metadata['is_ai']) || ($message->metadata['trigger_reason'] ?? '') === 'AI Assistant auto-reply';
 
         // For non-campaign outbound messages (inbox manual reply or auto-reply), verify quota upfront
-        if (! $isCampaign && $owner && ! $this->quotaService->canSend($owner, 1)) {
+        if (! $isCampaign && $owner && ! $this->quotaService->canSend($owner, 1, $isAi)) {
             $message->update(['status' => 'failed']);
-            throw new \RuntimeException('كوتة الرسائل ورصيد المحفظة نفد. يرجى ترقية الباقة أو شحن المحفظة.');
+            throw new \RuntimeException($isAi ? 'كوتة رسائل الذكاء الاصطناعي نفدت. يرجى ترقية الباقة.' : 'كوتة الرسائل الاعتيادية نفدت. يرجى ترقية الباقة.');
         }
 
         $result = $this->driver($conversation->platform)->sendMessage($conversation, $message);
@@ -64,7 +65,8 @@ class ChannelManager
                 $business->id,
                 $conversation->platform,
                 1,
-                "إرسال رسالة مباشرة إلى {$conversation->contact?->name}"
+                $isAi ? "رد بالذكاء الاصطناعي إلى {$conversation->contact?->name}" : "إرسال رسالة مباشرة إلى {$conversation->contact?->name}",
+                $isAi
             );
         }
 

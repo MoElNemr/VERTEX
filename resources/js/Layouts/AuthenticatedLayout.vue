@@ -24,6 +24,7 @@ import {
     PanelRightClose,
     PanelRightOpen,
     Download,
+    BookOpen,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -329,6 +330,15 @@ watch(
                         <Crown class="w-4 h-4 shrink-0 text-amber-400" />
                         <span>الباقة والاشتراك</span>
                     </Link>
+
+                    <Link
+                        :href="route('guide.index')"
+                        class="flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium transition"
+                        :class="route().current('guide.*') ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
+                    >
+                        <BookOpen class="w-4 h-4 shrink-0 text-sky-400" />
+                        <span>دليل الاستخدام</span>
+                    </Link>
                 </div>
             </div>
 
@@ -528,6 +538,13 @@ watch(
                         class="block p-2.5 rounded-lg text-slate-300 hover:bg-slate-800 font-bold"
                     >
                         الاشتراك والباقات
+                    </Link>
+                    <Link
+                        :href="route('guide.index')"
+                        @click="isMobileNavOpen = false"
+                        class="block p-2.5 rounded-lg text-sky-400 hover:bg-slate-800 font-bold"
+                    >
+                        دليل الاستخدام والتشغيل 📖
                     </Link>
                     <Link
                         v-if="$page.props.auth.is_super_admin"

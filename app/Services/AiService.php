@@ -4,11 +4,12 @@ namespace App\Services;
 
 use App\Models\BusinessAiSetting;
 use App\Models\Conversation;
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * خدمة التفاعل مع الذكاء الاصطناعي عبر GROQ Cloud API مباشرة
+ * خدمة التفاعل مع الذكاء الاصطناعي عبر GROQ Cloud API مركزياً
  */
 class AiService
 {
@@ -28,7 +29,9 @@ class AiService
         $history = $this->buildHistory($messages, $setting);
         $history[] = ['role' => 'user', 'content' => 'اقترح ردًا مناسبًا للوكيل للرسالة الأخيرة من العميل. أجب بالرد فقط دون شرح.'];
 
-        return $this->callGroq($history, $setting->ai_model ?: 'llama-3.3-70b-versatile', $setting->api_key);
+        $model = $setting->ai_model ?: SystemSetting::get('groq_model', 'llama-3.3-70b-versatile');
+
+        return $this->callGroq($history, $model, $setting->api_key);
     }
 
     /**
@@ -40,7 +43,9 @@ class AiService
         $history = $this->buildHistory($messages, $setting);
         $history[] = ['role' => 'user', 'content' => 'لخص هذه المحادثة في فقرة قصيرة تشمل المشكلة والحل المقترح.'];
 
-        return $this->callGroq($history, $setting->ai_model ?: 'llama-3.3-70b-versatile', $setting->api_key);
+        $model = $setting->ai_model ?: SystemSetting::get('groq_model', 'llama-3.3-70b-versatile');
+
+        return $this->callGroq($history, $model, $setting->api_key);
     }
 
     /**
@@ -52,7 +57,35 @@ class AiService
         $history = $this->buildHistory($messages, $setting);
         $history[] = ['role' => 'user', 'content' => $inboundMessage];
 
-        return $this->callGroq($history, $setting->ai_model ?: 'llama-3.3-70b-versatile', $setting->api_key);
+        $model = $setting->ai_model ?: SystemSetting::get('groq_model', 'llama-3.3-70b-versatile');
+
+        return $this->callGroq($history, $model, $setting->api_key);
+    }
+
+    /**
+     * Generate an AI reply for an inbound comment on social media (Meta / TikTok).
+     */
+    public function generateCommentReply(string $commentText, ?string $commenterName, string $platform, ?BusinessAiSetting $setting = null): ?string
+    {
+        $systemPrompt = "أنت مساعد ذكي ومحترف لخدمة عملاء متجر عبر الإنترنت. مهمتك الرد على تعليق العميل على منصة {$platform} بلباقة، احترافية، وود.\n";
+        if ($setting && $setting->ai_personality) {
+            $systemPrompt .= "نبرة المتجر: {$setting->ai_personality}\n";
+        }
+        if ($setting && $setting->ai_instructions) {
+            $systemPrompt .= "تعليمات المتجر: {$setting->ai_instructions}\n";
+        }
+        $systemPrompt .= "القواعد:\n1. اجعل الرد جذاباً ومختصراً (جملة أو جملتين كحد أقصى).\n2. إذا كان التعليق يسأل عن السعر أو تفاصيل الشراء، رحب به وأخبره أنه تم أو يمكنه التواصل عبر الرسائل الخاصة (DM) للتفاصيل الكاملة.\n3. أجب بنص الرد فقط دون مقدمات أو شرح.";
+
+        $userPrompt = 'اسم المعلق: '.($commenterName ?: 'العميل')."\nنص التعليق: \"{$commentText}\"";
+
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $userPrompt],
+        ];
+
+        $model = $setting?->ai_model ?: SystemSetting::get('groq_model', 'llama-3.3-70b-versatile');
+
+        return $this->callGroq($messages, $model);
     }
 
     protected function buildHistory($messages, BusinessAiSetting $setting): array
@@ -93,14 +126,26 @@ class AiService
      */
     public function callGroq(array $messages, string $model = 'llama-3.3-70b-versatile', ?string $apiKey = null): ?string
     {
-        $resolvedKey = trim((string) ($apiKey ?? ''));
-        if (empty($resolvedKey)) {
-            Log::warning('AI request blocked: business has no GROQ API key configured.');
+        // 1. Check global master switch
+        if (! (bool) SystemSetting::get('groq_enabled', true)) {
+            Log::info('AI request skipped: Groq AI is disabled globally in Super Admin settings.');
 
             return null;
         }
 
-        $resolvedModel = $this->mapModel($model);
+        // 2. Resolve API key (Centralized Groq key prioritized)
+        $resolvedKey = trim((string) ($apiKey ?? ''));
+        if (empty($resolvedKey)) {
+            $resolvedKey = trim((string) (SystemSetting::get('groq_api_key') ?: config('services.groq.key') ?: env('GROQ_API_KEY', '')));
+        }
+
+        if (empty($resolvedKey)) {
+            Log::warning('AI request blocked: No GROQ API key configured in Super Admin settings.');
+
+            return null;
+        }
+
+        $resolvedModel = $this->mapModel($model ?: SystemSetting::get('groq_model', 'llama-3.3-70b-versatile'));
 
         try {
             $response = Http::withToken($resolvedKey)

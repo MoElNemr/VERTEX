@@ -31,6 +31,10 @@ import {
     Minimize2,
     Video,
     MoreVertical,
+    Play,
+    Pause,
+    Volume2,
+    ImageIcon,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -157,6 +161,81 @@ const formatTime = (dateStr) => {
     } catch {
         return '';
     }
+};
+
+// Media player (Voice notes & images) state - Zero server disk exhaustion (Direct CDN URLs)
+const activeImageModalUrl = ref(null);
+const currentPlayingAudioId = ref(null);
+const audioProgress = ref(0);
+const currentAudioTime = ref('0:00');
+let activeAudioElement = null;
+
+const getMediaUrl = (msg, expectedType) => {
+    if (msg.metadata?.media_url) {
+        if (!expectedType || msg.type === expectedType) {
+            return msg.metadata.media_url;
+        }
+    }
+    if (msg.attachments && msg.attachments.length > 0) {
+        const att = msg.attachments[0];
+        if (!expectedType || att.file_type === expectedType || msg.type === expectedType) {
+            return att.file_path;
+        }
+    }
+    return null;
+};
+
+const isMediaOnlyPlaceholder = (msg) => {
+    return ['[صورة]', '[تسجيل صوتي]', '[مقطع فيديو]', '[رسالة وسائط]'].includes(msg.body) && (msg.type !== 'text' || getMediaUrl(msg));
+};
+
+const openImageModal = (url) => {
+    activeImageModalUrl.value = url;
+};
+
+const closeImageModal = () => {
+    activeImageModalUrl.value = null;
+};
+
+const togglePlayAudio = (msgId, audioUrl) => {
+    if (!audioUrl) return;
+
+    if (currentPlayingAudioId.value === msgId && activeAudioElement) {
+        if (!activeAudioElement.paused) {
+            activeAudioElement.pause();
+            currentPlayingAudioId.value = null;
+            return;
+        }
+    }
+
+    if (activeAudioElement) {
+        activeAudioElement.pause();
+        activeAudioElement = null;
+    }
+
+    currentPlayingAudioId.value = msgId;
+    activeAudioElement = new Audio(audioUrl);
+    activeAudioElement.play().catch(e => {
+        console.warn('Audio play failed:', e);
+        currentPlayingAudioId.value = null;
+    });
+
+    activeAudioElement.ontimeupdate = () => {
+        if (activeAudioElement && activeAudioElement.duration) {
+            const current = activeAudioElement.currentTime;
+            const duration = activeAudioElement.duration;
+            audioProgress.value = (current / duration) * 100;
+            const mins = Math.floor(current / 60);
+            const secs = Math.floor(current % 60);
+            currentAudioTime.value = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+    };
+
+    activeAudioElement.onended = () => {
+        currentPlayingAudioId.value = null;
+        audioProgress.value = 0;
+        currentAudioTime.value = '0:00';
+    };
 };
 
 // Filtered Conversations
@@ -892,7 +971,54 @@ onUnmounted(() => {
                                         : 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tr-sm'
                                 ]"
                             >
-                                <p class="whitespace-pre-wrap">{{ msg.body }}</p>
+                                <!-- Image Media Rendering (Direct CDN link, no server disk download) -->
+                                <div v-if="msg.type === 'image' || getMediaUrl(msg, 'image')" class="mb-2">
+                                    <img
+                                        :src="getMediaUrl(msg, 'image')"
+                                        alt="صورة مرسلة"
+                                        class="max-w-[220px] sm:max-w-[280px] max-h-[260px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition shadow-md border border-white/10"
+                                        loading="lazy"
+                                        @click="openImageModal(getMediaUrl(msg, 'image'))"
+                                    />
+                                </div>
+
+                                <!-- Voice Note / Audio Player Rendering -->
+                                <div v-if="msg.type === 'audio' || getMediaUrl(msg, 'audio')" class="mb-2 w-[220px] sm:w-[260px]">
+                                    <div class="flex items-center gap-2.5 p-2 rounded-xl bg-black/30 border border-white/10">
+                                        <button
+                                            type="button"
+                                            @click="togglePlayAudio(msg.id, getMediaUrl(msg, 'audio'))"
+                                            class="w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-400 text-white flex items-center justify-center shrink-0 shadow transition"
+                                        >
+                                            <Pause v-if="currentPlayingAudioId === msg.id" class="w-4 h-4" />
+                                            <Play v-else class="w-4 h-4 ml-0.5" />
+                                        </button>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between text-[10px] opacity-80 mb-1 font-mono">
+                                                <span>تسجيل صوتي 🎤</span>
+                                                <span>{{ currentPlayingAudioId === msg.id ? currentAudioTime : '0:00' }}</span>
+                                            </div>
+                                            <div class="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
+                                                <div
+                                                    class="bg-blue-400 h-full rounded-full transition-all duration-150"
+                                                    :style="{ width: (currentPlayingAudioId === msg.id ? audioProgress : 0) + '%' }"
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Video Rendering -->
+                                <div v-if="msg.type === 'video' || getMediaUrl(msg, 'video')" class="mb-2">
+                                    <video
+                                        controls
+                                        :src="getMediaUrl(msg, 'video')"
+                                        class="max-w-[220px] sm:max-w-[280px] rounded-xl shadow-md border border-white/10"
+                                    ></video>
+                                </div>
+
+                                <!-- Text Message Body -->
+                                <p v-if="msg.body && !isMediaOnlyPlaceholder(msg)" class="whitespace-pre-wrap">{{ msg.body }}</p>
                             </div>
 
                             <div class="flex items-center gap-1 text-[10px] text-slate-500 mt-1 px-1">
@@ -1068,6 +1194,50 @@ onUnmounted(() => {
                         >
                             إغلاق
                         </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- Fullscreen Image Modal / Lightbox (Touch friendly & mobile responsive) -->
+        <transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-95"
+        >
+            <div
+                v-if="activeImageModalUrl"
+                class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md"
+                @click.self="closeImageModal"
+            >
+                <div class="relative max-w-4xl max-h-[92vh] overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-2.5 flex flex-col">
+                    <button
+                        type="button"
+                        @click="closeImageModal"
+                        class="absolute top-4 right-4 p-2 rounded-full bg-black/70 hover:bg-black text-white transition z-10"
+                    >
+                        <X class="w-5 h-5" />
+                    </button>
+                    <div class="flex-1 overflow-auto flex items-center justify-center">
+                        <img
+                            :src="activeImageModalUrl"
+                            alt="عرض الصورة بالحجم الكامل"
+                            class="max-w-full max-h-[80vh] object-contain rounded-xl select-none"
+                        />
+                    </div>
+                    <div class="pt-2 text-center">
+                        <a
+                            :href="activeImageModalUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-semibold"
+                        >
+                            <span>فتح الصورة الأصلية في نافذة جديدة</span>
+                            <span>&nearr;</span>
+                        </a>
                     </div>
                 </div>
             </div>
