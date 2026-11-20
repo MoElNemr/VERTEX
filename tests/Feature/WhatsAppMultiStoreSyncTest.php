@@ -36,6 +36,8 @@ class WhatsAppMultiStoreSyncTest extends TestCase
             'user_id' => $this->user->id,
             'name' => 'Store Beta',
         ]);
+
+        config(['services.whatsapp.api_key' => 'test_wa_sync_secret']);
     }
 
     public function test_incoming_whatsapp_message_syncs_across_stores_sharing_same_number(): void
@@ -70,7 +72,9 @@ class WhatsAppMultiStoreSyncTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload);
+        $response = $this->withHeaders([
+            'x-api-key' => 'test_wa_sync_secret',
+        ])->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload);
         $response->assertStatus(200);
 
         // Assert message recorded in Store Alpha
@@ -134,7 +138,9 @@ class WhatsAppMultiStoreSyncTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload);
+        $response = $this->withHeaders([
+            'x-api-key' => 'test_wa_sync_secret',
+        ])->postJson(route('webhooks.whatsapp', $this->businessA->id), $payload);
         $response->assertStatus(200);
 
         // Store Alpha

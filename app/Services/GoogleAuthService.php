@@ -107,6 +107,7 @@ class GoogleAuthService
                 'email' => (string) ($userData['email'] ?? ''),
                 'name' => (string) ($userData['name'] ?? ''),
                 'avatar' => $userData['picture'] ?? null,
+                'email_verified' => (bool) ($userData['email_verified'] ?? false),
             ];
         } catch (\Throwable $e) {
             Log::error('Google OAuth exception: '.$e->getMessage());

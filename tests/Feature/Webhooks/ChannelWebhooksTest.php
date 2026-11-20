@@ -3,11 +3,9 @@
 namespace Tests\Feature\Webhooks;
 
 use App\Models\Business;
-use App\Models\Contact;
-use App\Models\Conversation;
 use App\Models\FacebookAccount;
 use App\Models\InstagramAccount;
-use App\Models\Message;
+use App\Models\TeamMember;
 use App\Models\TelegramAccount;
 use App\Models\User;
 use App\Models\WhatsappAccount;
@@ -18,16 +16,23 @@ class ChannelWebhooksTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected User $user;
+
     protected Business $business;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $user = User::factory()->create();
+        $this->user = User::factory()->create();
         $this->business = Business::create([
-            'user_id' => $user->id,
+            'user_id' => $this->user->id,
             'name' => 'Test Business Hub',
+        ]);
+
+        config([
+            'services.whatsapp.api_key' => 'wa_test_webhook_key_555',
+            'services.meta.app_secret' => 'meta_test_webhook_secret_777',
         ]);
     }
 
@@ -37,6 +42,7 @@ class ChannelWebhooksTest extends TestCase
             'business_id' => $this->business->id,
             'bot_username' => 'TestBot',
             'bot_token' => '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+            'webhook_secret' => 'tele_secret_xyz',
             'status' => 'connected',
         ]);
 
@@ -59,7 +65,9 @@ class ChannelWebhooksTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson(route('webhooks.telegram', $this->business->id), $payload);
+        $response = $this->withHeaders([
+            'X-Telegram-Bot-Api-Secret-Token' => 'tele_secret_xyz',
+        ])->postJson(route('webhooks.telegram', $this->business->id), $payload);
 
         $response->assertOk();
         $response->assertJson(['status' => 'success']);
@@ -82,6 +90,35 @@ class ChannelWebhooksTest extends TestCase
             'body' => 'مرحباً، هل يتوفر شحن للإسكندرية؟',
             'platform_message_id' => '456',
         ]);
+    }
+
+    public function test_telegram_webhook_rejects_missing_or_invalid_secret(): void
+    {
+        TelegramAccount::create([
+            'business_id' => $this->business->id,
+            'bot_username' => 'TestBot',
+            'bot_token' => '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+            'webhook_secret' => 'correct_secret',
+            'status' => 'connected',
+        ]);
+
+        $payload = [
+            'update_id' => 987654,
+            'message' => [
+                'message_id' => 456,
+                'from' => ['id' => 99887766, 'first_name' => 'Omar'],
+                'chat' => ['id' => 99887766, 'type' => 'private'],
+                'text' => 'مرحبا',
+            ],
+        ];
+
+        // Missing header -> 403
+        $this->postJson(route('webhooks.telegram', $this->business->id), $payload)->assertStatus(403);
+
+        // Invalid secret -> 403
+        $this->withHeaders(['X-Telegram-Bot-Api-Secret-Token' => 'wrong_secret'])
+            ->postJson(route('webhooks.telegram', $this->business->id), $payload)
+            ->assertStatus(403);
     }
 
     public function test_meta_webhook_verification_returns_challenge(): void
@@ -129,7 +166,21 @@ class ChannelWebhooksTest extends TestCase
             ],
         ];
 
-        $response = $this->post(route('webhooks.meta', $this->business->id), $payload);
+        $body = json_encode($payload);
+        $sig = 'sha256='.hash_hmac('sha256', $body, 'meta_test_webhook_secret_777');
+
+        $response = $this->call(
+            'POST',
+            route('webhooks.meta', $this->business->id),
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_HUB_SIGNATURE_256' => $sig,
+            ],
+            $body
+        );
 
         $response->assertOk();
 
@@ -176,7 +227,21 @@ class ChannelWebhooksTest extends TestCase
             ],
         ];
 
-        $response = $this->post(route('webhooks.meta', $this->business->id), $payload);
+        $body = json_encode($payload);
+        $sig = 'sha256='.hash_hmac('sha256', $body, 'meta_test_webhook_secret_777');
+
+        $response = $this->call(
+            'POST',
+            route('webhooks.meta', $this->business->id),
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_HUB_SIGNATURE_256' => $sig,
+            ],
+            $body
+        );
 
         $response->assertOk();
 
@@ -193,6 +258,39 @@ class ChannelWebhooksTest extends TestCase
         ]);
     }
 
+    public function test_meta_webhook_rejects_missing_or_invalid_signature(): void
+    {
+        $payload = ['object' => 'page'];
+        $body = json_encode($payload);
+
+        // Missing signature -> 403
+        $this->call('POST', route('webhooks.meta', $this->business->id), [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], $body)->assertStatus(403);
+
+        // Invalid signature -> 403
+        $this->call('POST', route('webhooks.meta', $this->business->id), [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_HUB_SIGNATURE_256' => 'sha256=invalid_sig_here',
+        ], $body)->assertStatus(403);
+    }
+
+    public function test_whatsapp_webhook_rejects_unauthenticated_request(): void
+    {
+        $connPayload = [
+            'event' => 'connection.update',
+            'data' => [
+                'session_id' => 'session_'.$this->business->id,
+                'status' => 'qr',
+                'qr_code' => '2@mock_qr_string_data',
+            ],
+        ];
+
+        // Line 208 fix: Corrected to expect rejection (403) when no auth token provided
+        $connResponse = $this->postJson(route('webhooks.whatsapp', $this->business->id), $connPayload);
+        $connResponse->assertStatus(403);
+    }
+
     public function test_whatsapp_webhook_handles_connection_and_incoming_message(): void
     {
         // 1. Connection update with QR code
@@ -205,7 +303,9 @@ class ChannelWebhooksTest extends TestCase
             ],
         ];
 
-        $connResponse = $this->postJson(route('webhooks.whatsapp', $this->business->id), $connPayload);
+        $connResponse = $this->withHeaders([
+            'x-api-key' => 'wa_test_webhook_key_555',
+        ])->postJson(route('webhooks.whatsapp', $this->business->id), $connPayload);
         $connResponse->assertOk();
 
         $this->assertDatabaseHas('whatsapp_accounts', [
@@ -225,7 +325,9 @@ class ChannelWebhooksTest extends TestCase
             ],
         ];
 
-        $msgResponse = $this->postJson(route('webhooks.whatsapp', $this->business->id), $msgPayload);
+        $msgResponse = $this->withHeaders([
+            'x-api-key' => 'wa_test_webhook_key_555',
+        ])->postJson(route('webhooks.whatsapp', $this->business->id), $msgPayload);
         $msgResponse->assertOk();
 
         $this->assertDatabaseHas('contacts', [
@@ -235,6 +337,12 @@ class ChannelWebhooksTest extends TestCase
             'name' => 'Mostafa Mahmoud',
         ]);
 
+        $this->assertDatabaseHas('conversations', [
+            'business_id' => $this->business->id,
+            'platform' => 'whatsapp',
+            'unread_count' => 1,
+        ]);
+
         $this->assertDatabaseHas('messages', [
             'sender_type' => 'contact',
             'body' => 'عاوز أطلب أوردر جديد',
@@ -242,22 +350,17 @@ class ChannelWebhooksTest extends TestCase
         ]);
     }
 
-    public function test_inbox_send_message_dispatches_outbound(): void
+    public function test_agent_can_reply_to_inbound_conversation(): void
     {
-        $contact = Contact::create([
-            'business_id' => $this->business->id,
-            'platform' => 'whatsapp',
-            'platform_sender_id' => '201012345678',
-            'name' => 'Ahmed Wa Contact',
-            'phone' => '201012345678',
+        $member = TeamMember::create([
+            'user_id' => $this->business->user_id,
+            'name' => 'Agent Member',
+            'email' => 'agent@vertex.com',
+            'password' => 'secret123',
+            'role' => 'agent',
+            'is_active' => true,
         ]);
-
-        $conversation = Conversation::create([
-            'business_id' => $this->business->id,
-            'contact_id' => $contact->id,
-            'platform' => 'whatsapp',
-            'status' => 'open',
-        ]);
+        $member->businesses()->attach($this->business->id);
 
         WhatsappAccount::create([
             'business_id' => $this->business->id,
@@ -266,9 +369,22 @@ class ChannelWebhooksTest extends TestCase
             'status' => 'connected',
         ]);
 
-        $user = $this->business->user;
+        $contact = $this->business->contacts()->create([
+            'platform' => 'whatsapp',
+            'platform_sender_id' => '201012345678',
+            'name' => 'Ahmed Wa Contact',
+            'phone' => '201012345678',
+        ]);
 
-        $response = $this->actingAs($user)
+        $conversation = $this->business->conversations()->create([
+            'contact_id' => $contact->id,
+            'platform' => 'whatsapp',
+            'status' => 'open',
+            'assigned_to' => $member->id,
+            'last_message_at' => now(),
+        ]);
+
+        $response = $this->actingAs($member, 'team')
             ->withSession(['current_business_id' => $this->business->id])
             ->postJson(route('inbox.send', $conversation->id), [
                 'body' => 'أهلاً بك يا أحمد، تم استلام طلبك بنجاح!',
@@ -287,7 +403,7 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_webhook_simulator_creates_telegram_conversation(): void
     {
-        $response = $this->postJson(route('webhooks.simulate.telegram', $this->business->id), [
+        $response = $this->actingAs($this->user)->postJson(route('webhooks.simulate.telegram', $this->business->id), [
             'sender_id' => 'sim_12345',
             'sender_name' => 'Simulated User',
             'text' => 'رسالة محاكاة لاختبار تيليجرام',
@@ -304,5 +420,21 @@ class ChannelWebhooksTest extends TestCase
             'platform' => 'telegram',
             'platform_sender_id' => 'sim_12345',
         ]);
+    }
+
+    public function test_webhook_simulator_rejects_unauthenticated_or_unauthorized_user(): void
+    {
+        // 1. Unauthenticated guest -> 401 or redirect to login
+        $resGuest = $this->postJson(route('webhooks.simulate.telegram', $this->business->id), [
+            'text' => 'test simulation',
+        ]);
+        $resGuest->assertStatus(401);
+
+        // 2. Another user without access to this business -> 403
+        $otherUser = User::factory()->create();
+        $resForbidden = $this->actingAs($otherUser)->postJson(route('webhooks.simulate.telegram', $this->business->id), [
+            'text' => 'test simulation',
+        ]);
+        $resForbidden->assertStatus(403);
     }
 }

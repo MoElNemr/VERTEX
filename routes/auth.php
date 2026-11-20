@@ -43,7 +43,8 @@ Route::middleware('guest')->group(function () {
     Route::get('team/login', [TeamAuthenticatedSessionController::class, 'create'])
         ->name('team.login');
 
-    Route::post('team/login', [TeamAuthenticatedSessionController::class, 'store']);
+    Route::post('team/login', [TeamAuthenticatedSessionController::class, 'store'])
+        ->name('team.login.store');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');

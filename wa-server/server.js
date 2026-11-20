@@ -14,11 +14,18 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const app = express();
-app.use(cors());
+const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : false;
+app.use(cors(allowedOrigins ? { origin: allowedOrigins } : { origin: false }));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.WHATSAPP_SERVER_API_KEY || process.env.API_KEY || 'default_wa_secret_key';
+const API_KEY = process.env.WHATSAPP_SERVER_API_KEY || process.env.API_KEY;
+
+if (!API_KEY || API_KEY === 'default_wa_secret_key') {
+    console.error('FATAL: A secure WHATSAPP_SERVER_API_KEY or API_KEY environment variable is required.');
+    process.exit(1);
+}
+
 const LARAVEL_WEBHOOK_URL = process.env.LARAVEL_WEBHOOK_URL || 'http://127.0.0.1:8000';
 const SESSIONS_DIR = path.join(__dirname, 'sessions');
 
@@ -28,7 +35,23 @@ if (!fs.existsSync(SESSIONS_DIR)) {
 
 const LOGGER = pino({ level: 'silent' });
 
-// Global active sessions map: sessionId -> { sock, qr, qrImage, status, businessId, webhookUrl, phoneNumber, userJid, authHelper }
+function sanitizeSessionId(sessionId) {
+    if (!sessionId || typeof sessionId !== 'string') return null;
+    const clean = sessionId.trim();
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(clean)) return null;
+    return clean;
+}
+
+app.param('sessionId', (req, res, next, id) => {
+    const clean = sanitizeSessionId(id);
+    if (!clean) {
+        return res.status(400).json({ error: 'Invalid sessionId parameter' });
+    }
+    req.params.sessionId = clean;
+    next();
+});
+
+// Global active sessions map: sessionId -> { sock, qr, qrImage, status, businessId, phoneNumber, userJid, authHelper }
 const sessions = new Map();
 
 /**
@@ -36,8 +59,8 @@ const sessions = new Map();
  */
 const authenticate = (req, res, next) => {
     const providedKey = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/, '');
-    if (API_KEY && API_KEY !== 'default_wa_secret_key' && providedKey !== API_KEY) {
-        return res.status(401).json({ error: 'Unauthorized: Invalid API key' });
+    if (!providedKey || providedKey !== API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
     }
     next();
 };
@@ -138,10 +161,10 @@ function useDebouncedAuthState(sessionId) {
 /**
  * Forward webhook events to Laravel
  */
-async function forwardWebhook(businessId, event, data, customWebhookUrl = null) {
-    if (!businessId && !customWebhookUrl) return;
+async function forwardWebhook(businessId, event, data) {
+    if (!businessId) return;
     try {
-        const url = customWebhookUrl || `${LARAVEL_WEBHOOK_URL.replace(/\/$/, '')}/webhooks/whatsapp/${businessId}`;
+        const url = `${LARAVEL_WEBHOOK_URL.replace(/\/$/, '')}/webhooks/whatsapp/${businessId}`;
         await fetch(url, {
             method: 'POST',
             headers: {
@@ -158,24 +181,32 @@ async function forwardWebhook(businessId, event, data, customWebhookUrl = null) 
 /**
  * Start or boot a WhatsApp socket session with low-RAM configuration
  */
-async function createSession(sessionId, businessId = null, webhookUrl = null) {
-    if (sessions.has(sessionId)) {
-        const existing = sessions.get(sessionId);
-        if (businessId && !existing.businessId) existing.businessId = businessId;
-        if (webhookUrl && !existing.webhookUrl) existing.webhookUrl = webhookUrl;
-        if (existing.authHelper) {
-            existing.authHelper.updateMeta({ businessId: existing.businessId, webhookUrl: existing.webhookUrl });
-        }
-        if (existing.sock) return existing;
+async function createSession(sessionId, businessId = null) {
+    const cleanSessionId = sanitizeSessionId(sessionId);
+    if (!cleanSessionId) {
+        throw new Error('Invalid sessionId');
     }
 
-    const authHelper = useDebouncedAuthState(sessionId);
+    if (sessions.has(cleanSessionId)) {
+        const existing = sessions.get(cleanSessionId);
+        if (businessId && !existing.businessId) existing.businessId = businessId;
+        if (existing.authHelper) {
+            existing.authHelper.updateMeta({ businessId: existing.businessId });
+        }
+        if (existing.sock && existing.status === 'connected') return existing;
+        if (existing.sock && existing.status !== 'connected') {
+            try {
+                existing.sock.end();
+            } catch (e) {}
+        }
+    }
+
+    const authHelper = useDebouncedAuthState(cleanSessionId);
     const { state, saveCreds, flushSync, updateMeta } = authHelper;
     
     // Merge provided metadata with stored metadata
     const finalBusinessId = businessId || authHelper.meta?.businessId || null;
-    const finalWebhookUrl = webhookUrl || authHelper.meta?.webhookUrl || null;
-    updateMeta({ sessionId, businessId: finalBusinessId, webhookUrl: finalWebhookUrl });
+    updateMeta({ sessionId: cleanSessionId, businessId: finalBusinessId });
 
     let version;
     try {
@@ -207,12 +238,11 @@ async function createSession(sessionId, businessId = null, webhookUrl = null) {
         qrImage: null,
         status: 'connecting',
         businessId: finalBusinessId,
-        webhookUrl: finalWebhookUrl,
         phoneNumber: authHelper.meta?.phoneNumber || null,
         userJid: null,
         authHelper,
     };
-    sessions.set(sessionId, sessionObj);
+    sessions.set(cleanSessionId, sessionObj);
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -232,9 +262,9 @@ async function createSession(sessionId, businessId = null, webhookUrl = null) {
                 status: 'connecting',
                 qr_code: sessionObj.qr,
                 qr_image: sessionObj.qrImage,
-                sessionId,
-                session_id: sessionId,
-            }, sessionObj.webhookUrl);
+                sessionId: cleanSessionId,
+                session_id: cleanSessionId,
+            });
         }
 
         if (connection === 'open') {
@@ -253,9 +283,9 @@ async function createSession(sessionId, businessId = null, webhookUrl = null) {
                 user: sock.user,
                 phone_number: sessionObj.phoneNumber,
                 phoneNumber: sessionObj.phoneNumber,
-                sessionId,
-                session_id: sessionId,
-            }, sessionObj.webhookUrl);
+                sessionId: cleanSessionId,
+                session_id: cleanSessionId,
+            });
         }
 
         if (connection === 'close') {
@@ -269,20 +299,20 @@ async function createSession(sessionId, businessId = null, webhookUrl = null) {
             await forwardWebhook(sessionObj.businessId, 'connection.update', {
                 status: 'disconnected',
                 statusCode,
-                sessionId,
-                session_id: sessionId,
-            }, sessionObj.webhookUrl);
+                sessionId: cleanSessionId,
+                session_id: cleanSessionId,
+            });
 
             if (shouldReconnect) {
-                setTimeout(() => createSession(sessionId, sessionObj.businessId, sessionObj.webhookUrl), 5000);
+                setTimeout(() => createSession(cleanSessionId, sessionObj.businessId), 5000);
             } else {
-                sessions.delete(sessionId);
+                sessions.delete(cleanSessionId);
             }
         }
     });
 
     sock.ev.on('messages.upsert', async (upsert) => {
-        if (upsert.type === 'notify' || upsert.type === 'append') {
+        if (upsert.type === 'notify') {
             for (const msg of upsert.messages) {
                 if (msg.key.fromMe) continue;
                 if (!msg.message) continue;
@@ -298,8 +328,8 @@ async function createSession(sessionId, businessId = null, webhookUrl = null) {
                     '';
 
                 await forwardWebhook(sessionObj.businessId, 'messages.upsert', {
-                    sessionId,
-                    session_id: sessionId,
+                    sessionId: cleanSessionId,
+                    session_id: cleanSessionId,
                     message_id: msg.key.id,
                     from: senderJid,
                     push_name: msg.pushName || null,
@@ -307,7 +337,7 @@ async function createSession(sessionId, businessId = null, webhookUrl = null) {
                     timestamp: msg.messageTimestamp,
                     account_phone_number: sessionObj.phoneNumber,
                     raw: msg,
-                }, sessionObj.webhookUrl);
+                });
             }
         }
     });
@@ -329,12 +359,14 @@ async function autoBootSessions() {
                 const raw = fs.readFileSync(sessionFile, 'utf-8');
                 const parsed = JSON.parse(raw, BufferJSON.reviver);
                 const meta = parsed.meta || {};
-                const sessionId = meta.sessionId || file.replace('_auth.json', '');
+                const rawSessionId = meta.sessionId || file.replace('_auth.json', '');
+                const sessionId = sanitizeSessionId(rawSessionId);
                 const businessId = meta.businessId || null;
-                const webhookUrl = meta.webhookUrl || null;
 
-                await createSession(sessionId, businessId, webhookUrl);
-                await new Promise((resolve) => setTimeout(resolve, 2000));
+                if (sessionId) {
+                    await createSession(sessionId, businessId);
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                }
             } catch (err) {
                 // skip corrupted session
             }
@@ -387,16 +419,16 @@ app.get('/api/sessions', authenticate, (req, res) => {
  * Waits up to 6s for QR generation.
  */
 app.post('/api/sessions/start', authenticate, async (req, res) => {
-    const sessionId = req.body.session_id || req.body.sessionId;
+    const rawSessionId = req.body.session_id || req.body.sessionId;
+    const sessionId = sanitizeSessionId(rawSessionId);
     const businessId = req.body.business_id || req.body.businessId || null;
-    const webhookUrl = req.body.webhook_url || req.body.webhookUrl || null;
 
     if (!sessionId) {
-        return res.status(400).json({ error: 'sessionId is required' });
+        return res.status(400).json({ error: 'Valid alphanumeric sessionId is required' });
     }
 
     try {
-        const session = await createSession(sessionId, businessId, webhookUrl);
+        const session = await createSession(sessionId, businessId);
 
         if (session.status === 'connected') {
             return res.json({
@@ -443,13 +475,13 @@ app.post('/api/sessions/start', authenticate, async (req, res) => {
  * 8-Digit Pairing Code Generation
  */
 app.post('/api/sessions/pairing-code', authenticate, async (req, res) => {
-    const sessionId = req.body.session_id || req.body.sessionId;
+    const rawSessionId = req.body.session_id || req.body.sessionId;
+    const sessionId = sanitizeSessionId(rawSessionId);
     const businessId = req.body.business_id || req.body.businessId || null;
     const phoneNumber = req.body.phone_number || req.body.phoneNumber;
-    const webhookUrl = req.body.webhook_url || req.body.webhookUrl || null;
 
     if (!sessionId) {
-        return res.status(400).json({ error: 'sessionId is required' });
+        return res.status(400).json({ error: 'Valid alphanumeric sessionId is required' });
     }
     if (!phoneNumber) {
         return res.status(400).json({ error: 'phone_number is required' });
@@ -458,7 +490,7 @@ app.post('/api/sessions/pairing-code', authenticate, async (req, res) => {
     const cleanPhone = String(phoneNumber).replace(/[^0-9]/g, '');
 
     try {
-        const session = await createSession(sessionId, businessId, webhookUrl);
+        const session = await createSession(sessionId, businessId);
 
         if (session.status === 'connected') {
             return res.json({
@@ -590,7 +622,6 @@ app.post('/api/sessions/:sessionId/restart', authenticate, async (req, res) => {
     const { sessionId } = req.params;
     const session = sessions.get(sessionId);
     const businessId = session?.businessId || null;
-    const webhookUrl = session?.webhookUrl || null;
 
     if (session && session.sock) {
         try {
@@ -599,7 +630,7 @@ app.post('/api/sessions/:sessionId/restart', authenticate, async (req, res) => {
     }
     sessions.delete(sessionId);
 
-    const newSession = await createSession(sessionId, businessId, webhookUrl);
+    const newSession = await createSession(sessionId, businessId);
     res.json({
         status: 'restarted',
         session_id: sessionId,

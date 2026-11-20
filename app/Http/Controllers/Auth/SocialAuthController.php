@@ -89,11 +89,23 @@ class SocialAuthController extends Controller
                 $user = User::where('email', $email)->first();
 
                 if ($user) {
+                    if ($user->is_super_admin) {
+                        return redirect()->route('admin.login')->withErrors([
+                            'email' => 'حسابات الإدارة العليا (Super Admin) يجب أن تسجل الدخول حصراً من بوابة الإدارة المخصصة.',
+                        ]);
+                    }
+
                     $user->update([
                         'facebook_id' => $fbId,
                         'avatar' => $user->avatar ?: $avatar,
                     ]);
                 }
+            }
+
+            if ($user && $user->is_super_admin) {
+                return redirect()->route('admin.login')->withErrors([
+                    'email' => 'حسابات الإدارة العليا (Super Admin) يجب أن تسجل الدخول حصراً من بوابة الإدارة المخصصة.',
+                ]);
             }
 
             if (! $user) {
@@ -189,6 +201,10 @@ class SocialAuthController extends Controller
 
             if (! $profile || empty($profile['email'])) {
                 return redirect()->route('login')->with('error', 'تعذر استرجاع بيانات الحساب من Google. تأكد من صحة إعدادات التطبيق.');
+            }
+
+            if (empty($profile['email_verified'])) {
+                return redirect()->route('login')->with('error', 'البريد الإلكتروني لحساب Google غير موثق، يرجى توثيق بريدك أولاً.');
             }
 
             $email = strtolower(trim($profile['email']));

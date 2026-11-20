@@ -130,6 +130,17 @@ class TeamMemberController extends Controller
             abort(403, 'غير مصرح بربط متاجر لا تنتمي لحسابك.');
         }
 
+        if ($request->user('team')) {
+            $actingTeamMember = $request->user('team');
+            if ($validated['role'] === 'admin') {
+                abort(403, 'فقط مالك الحساب يمكنه إنشاء مسؤولين جدد.');
+            }
+            $allowedBusinessIds = $actingTeamMember->businesses()->pluck('businesses.id')->all();
+            if (array_diff($validated['business_ids'], $allowedBusinessIds)) {
+                abort(403, 'غير مصرح بربط متاجر لا تملك صلاحية الوصول إليها.');
+            }
+        }
+
         $member = TeamMember::create([
             'user_id' => $ownerId,
             'name' => $validated['name'],
@@ -183,6 +194,23 @@ class TeamMemberController extends Controller
 
         if ($validBusinessCount !== count($validated['business_ids'])) {
             abort(403, 'غير مصرح بربط متاجر لا تنتمي لحسابك.');
+        }
+
+        if ($request->user('team')) {
+            $actingTeamMember = $request->user('team');
+            if ($actingTeamMember->id === $teamMember->id && $validated['role'] !== $teamMember->role) {
+                abort(403, 'لا يمكنك تعديل دور حسابك بنفسك.');
+            }
+            if ($actingTeamMember->id !== $teamMember->id && $teamMember->role === 'admin') {
+                abort(403, 'فقط مالك الحساب يمكنه تعديل بيانات المسؤولين الآخرين.');
+            }
+            if ($validated['role'] === 'admin' && $teamMember->role !== 'admin') {
+                abort(403, 'فقط مالك الحساب يمكنه ترقية أعضاء إلى مسؤولين.');
+            }
+            $allowedBusinessIds = $actingTeamMember->businesses()->pluck('businesses.id')->all();
+            if (array_diff($validated['business_ids'], $allowedBusinessIds)) {
+                abort(403, 'غير مصرح بربط متاجر لا تملك صلاحية الوصول إليها.');
+            }
         }
 
         $updateData = [

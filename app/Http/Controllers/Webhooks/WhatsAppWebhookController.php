@@ -20,11 +20,13 @@ class WhatsAppWebhookController extends Controller
     public function handle(Request $request, Business $business): JsonResponse
     {
         $webhookSecret = config('services.whatsapp.webhook_secret') ?: config('services.whatsapp.api_key');
-        if (! empty($webhookSecret)) {
-            $providedSecret = $request->header('x-webhook-secret') ?: $request->header('x-api-key');
-            if ($providedSecret && ! hash_equals($webhookSecret, $providedSecret)) {
-                return response()->json(['error' => 'Unauthorized webhook token'], 403);
-            }
+        if (empty($webhookSecret)) {
+            return response()->json(['error' => 'Webhook secret is not configured'], 403);
+        }
+
+        $providedSecret = $request->header('x-webhook-secret') ?: $request->header('x-api-key');
+        if (empty($providedSecret) || ! hash_equals($webhookSecret, $providedSecret)) {
+            return response()->json(['error' => 'Unauthorized webhook token'], 403);
         }
 
         $result = $this->whatsappService->handleWebhook($business, $request);

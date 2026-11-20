@@ -2,8 +2,9 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import axios from 'axios';
+import QRCode from 'qrcode';
 import {
     CheckCircle2,
     ArrowRight,
@@ -152,7 +153,7 @@ const applyPreset = (type) => {
 
 // Forms
 const telegramForm = useForm({
-    bot_token: props.telegram?.bot_token || '',
+    bot_token: '',
 });
 
 const facebookForm = useForm({
@@ -220,13 +221,25 @@ const isRequestingPairingCode = ref(false);
 const pairingError = ref('');
 const codeCopied = ref(false);
 
-const computedQrImage = computed(() => {
-    if (!qrCodeData.value) return null;
-    if (qrCodeData.value.startsWith('data:image')) {
-        return qrCodeData.value;
+const renderedLocalQr = ref(null);
+
+watch(qrCodeData, async (val) => {
+    if (!val) {
+        renderedLocalQr.value = null;
+        return;
     }
-    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(qrCodeData.value)}`;
-});
+    if (val.startsWith('data:image')) {
+        renderedLocalQr.value = val;
+    } else {
+        try {
+            renderedLocalQr.value = await QRCode.toDataURL(val, { width: 260, margin: 2 });
+        } catch (e) {
+            renderedLocalQr.value = null;
+        }
+    }
+}, { immediate: true });
+
+const computedQrImage = computed(() => renderedLocalQr.value);
 
 let autoRefreshTimer = null;
 

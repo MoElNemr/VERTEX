@@ -121,7 +121,8 @@ class AiSettingController extends Controller
                 } else {
                     $q->whereHas('teamMembers', function ($tmQ) use ($user) {
                         $tmQ->where('team_members.id', $user->id)
-                            ->where('is_active', true);
+                            ->where('team_members.is_active', true)
+                            ->where('team_members.role', 'admin');
                     });
                 }
             })->exists();

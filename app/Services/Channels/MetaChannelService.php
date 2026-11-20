@@ -201,7 +201,6 @@ class MetaChannelService implements ChannelServiceInterface
             SystemSetting::get('meta_webhook_verify_token'),
             config('services.meta.verify_token'),
             config('services.meta.webhook_verify_token'),
-            'vertex_secret_token',
             $business ? 'vertex_meta_token_'.$business->id : null,
         ]);
 

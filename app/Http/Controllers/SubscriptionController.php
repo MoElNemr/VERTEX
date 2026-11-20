@@ -71,6 +71,13 @@ class SubscriptionController extends Controller
      */
     public function simulatePayment(Request $request): JsonResponse
     {
+        if (! app()->environment('local', 'testing')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'محاكاة السداد غير متاحة في بيئة الإنتاج.',
+            ], 403);
+        }
+
         if ($this->fawryService->getConfig()['mode'] !== 'sandbox') {
             return response()->json([
                 'status' => 'error',
@@ -83,6 +90,14 @@ class SubscriptionController extends Controller
         ]);
 
         $transaction = PaymentTransaction::where('reference_number', $validated['reference_number'])->firstOrFail();
+
+        $user = $request->user('web');
+        if (! $user || ($transaction->user_id !== $user->id && ! $user->is_super_admin)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'غير مصرح لك بمحاكاة سداد هذه المعاملة.',
+            ], 403);
+        }
 
         $this->fawryService->handleSuccessfulPayment($transaction, 'SIM_'.rand(10000000, 99999999));
 

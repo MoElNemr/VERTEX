@@ -46,18 +46,20 @@ class ChannelController extends Controller
             ]
         );
 
-        $ownerId = auth('web')->user() ? auth('web')->id() : $business->user_id;
-        $sharedApiKey = null;
-        if ($ownerId) {
-            $otherSetting = BusinessAiSetting::withoutGlobalScopes()
-                ->whereIn('business_id', Business::where('user_id', $ownerId)->where('id', '!=', $business->id)->pluck('id'))
-                ->whereNotNull('api_key')
-                ->where('api_key', '!=', '')
-                ->first();
-            if ($otherSetting) {
-                $sharedApiKey = $otherSetting->api_key;
-            }
-        }
+        $safeMetaAccounts = collect(session('meta_oauth_accounts', []))->map(function ($acc) {
+            return [
+                'id' => $acc['id'] ?? null,
+                'name' => $acc['name'] ?? null,
+                'category' => $acc['category'] ?? null,
+                'picture' => $acc['picture'] ?? null,
+                'instagram_business_account' => isset($acc['instagram_business_account']) ? [
+                    'id' => $acc['instagram_business_account']['id'] ?? null,
+                    'username' => $acc['instagram_business_account']['username'] ?? null,
+                    'name' => $acc['instagram_business_account']['name'] ?? null,
+                    'profile_picture_url' => $acc['instagram_business_account']['profile_picture_url'] ?? null,
+                ] : null,
+            ];
+        })->all();
 
         return Inertia::render('Businesses/Channels', [
             'business' => $business->only(['id', 'name', 'logo']),
@@ -68,8 +70,8 @@ class ChannelController extends Controller
             'tiktok' => $business->tiktokAccount,
             'autoReplyRules' => $business->autoReplyRules()->orderBy('priority')->get(),
             'aiSetting' => $aiSetting,
-            'sharedApiKey' => $sharedApiKey,
-            'metaAccounts' => session('meta_oauth_accounts'),
+            'sharedApiKey' => null,
+            'metaAccounts' => $safeMetaAccounts,
             'showMetaModal' => (bool) ($request->boolean('select_meta_asset') && session()->has('meta_oauth_accounts')),
             'initialTab' => $request->query('tab', 'channels'),
         ]);

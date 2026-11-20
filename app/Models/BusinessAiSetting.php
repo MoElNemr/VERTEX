@@ -34,6 +34,10 @@ class BusinessAiSetting extends Model
         'model' => 'llama-3.3-70b-versatile',
     ];
 
+    protected $hidden = [
+        'api_key',
+    ];
+
     protected $casts = [
         'ai_enabled' => 'boolean',
         'working_hours_only' => 'boolean',

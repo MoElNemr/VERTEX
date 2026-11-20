@@ -19,6 +19,8 @@ class WebhookSimulatorController extends Controller
      */
     public function simulateTelegram(Request $request, Business $business): JsonResponse
     {
+        $this->authorizeBusiness($request, $business);
+
         $validated = $request->validate([
             'sender_id' => ['nullable', 'string'],
             'sender_name' => ['nullable', 'string'],
@@ -59,6 +61,8 @@ class WebhookSimulatorController extends Controller
      */
     public function simulateFacebook(Request $request, Business $business): JsonResponse
     {
+        $this->authorizeBusiness($request, $business);
+
         $validated = $request->validate([
             'sender_id' => ['nullable', 'string'],
             'sender_name' => ['nullable', 'string'],
@@ -100,6 +104,8 @@ class WebhookSimulatorController extends Controller
      */
     public function simulateFacebookComment(Request $request, Business $business): JsonResponse
     {
+        $this->authorizeBusiness($request, $business);
+
         $validated = $request->validate([
             'sender_id' => ['nullable', 'string'],
             'sender_name' => ['nullable', 'string'],
@@ -150,6 +156,8 @@ class WebhookSimulatorController extends Controller
      */
     public function simulateInstagram(Request $request, Business $business): JsonResponse
     {
+        $this->authorizeBusiness($request, $business);
+
         $validated = $request->validate([
             'sender_id' => ['nullable', 'string'],
             'text' => ['required', 'string'],
@@ -190,6 +198,8 @@ class WebhookSimulatorController extends Controller
      */
     public function simulateInstagramComment(Request $request, Business $business): JsonResponse
     {
+        $this->authorizeBusiness($request, $business);
+
         $validated = $request->validate([
             'sender_id' => ['nullable', 'string'],
             'username' => ['nullable', 'string'],
@@ -239,6 +249,8 @@ class WebhookSimulatorController extends Controller
      */
     public function simulateWhatsApp(Request $request, Business $business): JsonResponse
     {
+        $this->authorizeBusiness($request, $business);
+
         $validated = $request->validate([
             'phone' => ['nullable', 'string'],
             'sender_name' => ['nullable', 'string'],
@@ -265,5 +277,40 @@ class WebhookSimulatorController extends Controller
             'simulated_platform' => 'whatsapp',
             'result' => $result,
         ]);
+    }
+
+    /**
+     * Authorize user access to the business for simulation in local/testing environment.
+     */
+    protected function authorizeBusiness(Request $request, Business $business): void
+    {
+        if (! app()->environment('local', 'testing')) {
+            abort(403, 'Webhook simulator is disabled in this environment.');
+        }
+
+        $user = $request->user('web') ?: $request->user('team');
+        if (! $user) {
+            abort(401);
+        }
+
+        if ($request->user('web') && (bool) $request->user('web')->is_super_admin) {
+            return;
+        }
+
+        $hasAccess = Business::where('id', $business->id)
+            ->where(function ($q) use ($user, $request) {
+                if ($request->user('web')) {
+                    $q->where('user_id', $user->id);
+                } else {
+                    $q->whereHas('teamMembers', function ($tmQ) use ($user) {
+                        $tmQ->where('team_members.id', $user->id)
+                            ->where('is_active', true);
+                    });
+                }
+            })->exists();
+
+        if (! $hasAccess) {
+            abort(403, 'غير مصرح لك بإجراء محاكاة لهذا المتجر.');
+        }
     }
 }

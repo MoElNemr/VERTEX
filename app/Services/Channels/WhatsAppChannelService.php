@@ -222,12 +222,15 @@ class WhatsAppChannelService implements ChannelServiceInterface
         $phone = explode('@', $fromJid)[0];
         $name = $pushName ?: ('عميل واتساب +'.$phone);
 
-        // Find all businesses sharing this WhatsApp phone number to prevent confusion and sync history
+        // Find businesses owned by the same user sharing this WhatsApp phone number (prevent tenant cross-leak)
         $businessIds = [$business->id];
         if (! empty($accountPhoneNumber)) {
             $cleanAccountPhone = preg_replace('/[^0-9]/', '', (string) $accountPhoneNumber);
             $sharedBusinessIds = WhatsappAccount::withoutGlobalScopes()
                 ->where('status', 'connected')
+                ->whereHas('business', function ($bQ) use ($business) {
+                    $bQ->where('user_id', $business->user_id);
+                })
                 ->where(function ($q) use ($accountPhoneNumber, $cleanAccountPhone) {
                     $q->where('phone_number', $accountPhoneNumber)
                         ->orWhereRaw("REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = ?", [$cleanAccountPhone]);

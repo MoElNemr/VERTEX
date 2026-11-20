@@ -52,7 +52,7 @@ return [
     ],
 
     'fawry' => [
-        'mode' => env('FAWRY_MODE', 'sandbox'),
+        'mode' => env('FAWRY_MODE', env('APP_ENV') === 'production' ? 'live' : 'sandbox'),
         'merchant_code' => env('FAWRY_MERCHANT_CODE', '1014316'),
         'security_key' => env('FAWRY_SECURITY_KEY', 'default_test_key'),
         'merchant_wallet' => env('FAWRY_MERCHANT_WALLET', ''),

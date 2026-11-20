@@ -118,11 +118,18 @@ class FawryPaymentAndRegistrationTest extends TestCase
             'payment_method' => 'fawry',
         ]);
 
+        $merchantCode = config('services.fawry.merchant_code', '1014316');
+        $securityKey = config('services.fawry.security_key', 'default_test_key');
+        $sigString = $merchantCode.'SUB_TEST_123'.'987654321'.'99.00'.'PAID'.$securityKey;
+        $messageSignature = hash('sha256', $sigString);
+
         $payload = [
+            'merchantCode' => $merchantCode,
             'merchantRefNum' => 'SUB_TEST_123',
             'fawryRefNumber' => '987654321',
             'orderStatus' => 'PAID',
             'paymentAmount' => 99.00,
+            'messageSignature' => $messageSignature,
         ];
 
         $response = $this->postJson('/webhooks/fawry', $payload);
@@ -142,6 +149,37 @@ class FawryPaymentAndRegistrationTest extends TestCase
             'plan_id' => $premiumPlan->id,
             'status' => 'active',
         ]);
+    }
+
+    public function test_fawry_ipn_webhook_rejects_missing_or_invalid_signature(): void
+    {
+        $user = User::factory()->create();
+        $premiumPlan = Plan::where('type', 'premium')->first();
+
+        PaymentTransaction::create([
+            'user_id' => $user->id,
+            'plan_id' => $premiumPlan->id,
+            'reference_number' => 'SUB_SEC_TEST',
+            'amount' => 99.00,
+            'currency' => 'EGP',
+            'status' => 'pending',
+            'payment_method' => 'fawry',
+        ]);
+
+        // 1. Missing signature -> 403
+        $this->postJson('/webhooks/fawry', [
+            'merchantRefNum' => 'SUB_SEC_TEST',
+            'orderStatus' => 'PAID',
+            'paymentAmount' => 99.00,
+        ])->assertStatus(403);
+
+        // 2. Invalid signature -> 403
+        $this->postJson('/webhooks/fawry', [
+            'merchantRefNum' => 'SUB_SEC_TEST',
+            'orderStatus' => 'PAID',
+            'paymentAmount' => 99.00,
+            'messageSignature' => 'invalid_fake_signature_123',
+        ])->assertStatus(403);
     }
 
     public function test_superadmin_can_update_fawry_settings(): void
@@ -235,5 +273,26 @@ class FawryPaymentAndRegistrationTest extends TestCase
 
         $response->assertStatus(403);
         $response->assertJson(['status' => 'error']);
+    }
+
+    public function test_simulation_rejects_non_owner(): void
+    {
+        $owner = User::factory()->create();
+        $attacker = User::factory()->create();
+
+        PaymentTransaction::create([
+            'user_id' => $owner->id,
+            'reference_number' => 'SIM_ATTACK_REF',
+            'amount' => 100.00,
+            'currency' => 'EGP',
+            'status' => 'pending',
+            'payment_method' => 'fawry',
+        ]);
+
+        $response = $this->actingAs($attacker)->postJson('/subscription/simulate', [
+            'reference_number' => 'SIM_ATTACK_REF',
+        ]);
+
+        $response->assertStatus(403);
     }
 }

@@ -38,14 +38,11 @@ class FawryWebhookController extends Controller
             return response()->json(['error' => 'Transaction not found'], 404);
         }
 
-        // Verify signature in live mode
-        $config = $this->fawryService->getConfig();
-        if ($config['mode'] === 'live') {
-            if (! $this->fawryService->verifyWebhookSignature($payload)) {
-                Log::warning('Fawry Webhook invalid signature for transaction: '.$merchantRefNum);
+        // Verify signature (fail closed in all modes)
+        if (! $this->fawryService->verifyWebhookSignature($payload)) {
+            Log::warning('Fawry Webhook invalid signature for transaction: '.$merchantRefNum);
 
-                return response()->json(['error' => 'Invalid signature'], 403);
-            }
+            return response()->json(['error' => 'Invalid signature'], 403);
         }
 
         if (in_array($orderStatus, ['PAID', 'SUCCESS'])) {
