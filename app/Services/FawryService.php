@@ -30,7 +30,7 @@ class FawryService
 
         return [
             'merchant_code' => SystemSetting::get('fawry_merchant_code', config('services.fawry.merchant_code', env('FAWRY_MERCHANT_CODE', '1014316'))),
-            'security_key' => SystemSetting::get('fawry_security_key', config('services.fawry.security_key', env('FAWRY_SECURITY_KEY', 'default_test_key'))),
+            'security_key' => SystemSetting::get('fawry_security_key', config('services.fawry.security_key')),
             'merchant_wallet' => SystemSetting::get('fawry_merchant_wallet', config('services.fawry.merchant_wallet', env('FAWRY_MERCHANT_WALLET', ''))),
             'mode' => $mode,
         ];
@@ -169,7 +169,7 @@ class FawryService
         $orderStatus = $payload['orderStatus'] ?? '';
         $receivedSignature = $payload['messageSignature'] ?? '';
 
-        if (empty($receivedSignature)) {
+        if (empty($securityKey) || empty($receivedSignature)) {
             return false;
         }
 

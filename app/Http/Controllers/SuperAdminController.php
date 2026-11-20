@@ -127,7 +127,7 @@ class SuperAdminController extends Controller
             ],
             'fawry' => [
                 'merchant_code' => (string) SystemSetting::get('fawry_merchant_code', env('FAWRY_MERCHANT_CODE', '1014316')),
-                'security_key' => (string) SystemSetting::get('fawry_security_key', env('FAWRY_SECURITY_KEY', 'default_test_key')),
+                'security_key' => (string) SystemSetting::get('fawry_security_key', config('services.fawry.security_key')),
                 'merchant_wallet' => (string) SystemSetting::get('fawry_merchant_wallet', env('FAWRY_MERCHANT_WALLET', '')),
                 'mode' => (string) SystemSetting::get('fawry_mode', env('FAWRY_MODE', 'sandbox')),
                 'webhook_url' => url('/webhooks/fawry'),

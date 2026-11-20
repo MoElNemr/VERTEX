@@ -121,6 +121,55 @@ class ChannelWebhooksTest extends TestCase
             ->assertStatus(403);
     }
 
+    public function test_telegram_webhook_rejects_business_without_telegram_account(): void
+    {
+        $this->withHeaders(['X-Telegram-Bot-Api-Secret-Token' => 'any_secret'])
+            ->postJson(route('webhooks.telegram', $this->business->id), [
+                'update_id' => 1,
+                'message' => [
+                    'message_id' => 1,
+                    'from' => ['id' => 5, 'first_name' => 'Omar'],
+                    'chat' => ['id' => 5, 'type' => 'private'],
+                    'text' => 'hello',
+                ],
+            ])
+            ->assertStatus(403);
+
+        $this->assertDatabaseCount('messages', 0);
+    }
+
+    public function test_meta_webhook_rejects_requests_when_app_secret_is_not_configured(): void
+    {
+        config(['services.meta.app_secret' => null]);
+
+        $body = json_encode(['object' => 'page']);
+
+        $this->call('POST', route('webhooks.meta', $this->business->id), [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, ''),
+        ], $body)->assertStatus(403);
+    }
+
+    public function test_whatsapp_webhook_rejects_wrong_secret(): void
+    {
+        $this->withHeaders(['x-api-key' => 'wrong_key'])
+            ->postJson(route('webhooks.whatsapp', $this->business->id), [
+                'event' => 'connection.update',
+                'data' => ['session_id' => 'session_'.$this->business->id, 'status' => 'qr', 'qr_code' => '2@attacker_qr'],
+            ])
+            ->assertStatus(403);
+    }
+
+    public function test_whatsapp_webhook_rejects_requests_when_secret_is_not_configured(): void
+    {
+        config(['services.whatsapp.api_key' => null, 'services.whatsapp.webhook_secret' => null]);
+
+        $this->postJson(route('webhooks.whatsapp', $this->business->id), [
+            'event' => 'connection.update',
+            'data' => ['session_id' => 'session_'.$this->business->id, 'status' => 'qr', 'qr_code' => '2@attacker_qr'],
+        ])->assertStatus(403);
+    }
+
     public function test_meta_webhook_verification_returns_challenge(): void
     {
         $challenge = 'random_challenge_code_123456';

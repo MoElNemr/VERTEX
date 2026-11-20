@@ -32,6 +32,45 @@ class FawryPaymentAndRegistrationTest extends TestCase
             'price_yearly' => 990.00,
             'is_active' => true,
         ]);
+
+        config(['services.fawry.security_key' => 'fawry_test_security_key']);
+    }
+
+    public function test_fawry_ipn_webhook_rejects_all_payments_when_no_security_key_is_configured(): void
+    {
+        config(['services.fawry.security_key' => null]);
+
+        $user = User::factory()->create();
+        $premiumPlan = Plan::where('type', 'premium')->first();
+
+        PaymentTransaction::create([
+            'user_id' => $user->id,
+            'plan_id' => $premiumPlan->id,
+            'reference_number' => 'SUB_FORGED',
+            'amount' => 99.00,
+            'currency' => 'EGP',
+            'status' => 'pending',
+            'payment_method' => 'fawry',
+        ]);
+
+        $merchantCode = config('services.fawry.merchant_code');
+        foreach (['', 'default_test_key'] as $guessableKey) {
+            $forgedSignature = hash('sha256', $merchantCode.'SUB_FORGED'.'111'.'99.00'.'PAID'.$guessableKey);
+
+            $this->postJson('/webhooks/fawry', [
+                'merchantCode' => $merchantCode,
+                'merchantRefNum' => 'SUB_FORGED',
+                'fawryRefNumber' => '111',
+                'orderStatus' => 'PAID',
+                'paymentAmount' => 99.00,
+                'messageSignature' => $forgedSignature,
+            ])->assertStatus(403);
+        }
+
+        $this->assertDatabaseHas('payment_transactions', [
+            'reference_number' => 'SUB_FORGED',
+            'status' => 'pending',
+        ]);
     }
 
     public function test_registration_screen_renders_with_plans(): void
@@ -119,7 +158,7 @@ class FawryPaymentAndRegistrationTest extends TestCase
         ]);
 
         $merchantCode = config('services.fawry.merchant_code', '1014316');
-        $securityKey = config('services.fawry.security_key', 'default_test_key');
+        $securityKey = config('services.fawry.security_key');
         $sigString = $merchantCode.'SUB_TEST_123'.'987654321'.'99.00'.'PAID'.$securityKey;
         $messageSignature = hash('sha256', $sigString);
 
